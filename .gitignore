@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+
+# Build outputs
+dist/
+dist-types/
+build/
+.cache/
+
+# Remix / Vite
+apps/web/.cache/
+apps/web/build/
+apps/web/public/build/
+
+# TypeScript
+*.tsbuildinfo
+
+# Test and coverage
+coverage/
+.nyc_output/
+
+# Playwright
+playwright-report/
+test-results/
+.playwright/
+
+# Generated documentation
+# Per docs/dev-tools-spec.md: generated output must not be committed.
+# Regenerate with: pnpm best-practices
+docs/_generated/**
+!docs/_generated/analysis/README.md
+
+# WASM build artifacts (packages/solver-kernels, Phase 6+)
+packages/solver-kernels/pkg/
+packages/solver-kernels/target/
+*.wasm
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Misc
+*.local
