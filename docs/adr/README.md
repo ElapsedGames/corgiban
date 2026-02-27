@@ -25,12 +25,14 @@ If in doubt, write one. Keep it short.
 ## Status values
 
 Use one of:
+
 - **Proposed**
 - **Accepted**
 - **Superseded**
 - **Deprecated**
 
 If an ADR is superseded, link bidirectionally:
+
 - The old ADR status line should read: `Superseded by [NNNN-title](NNNN-title.md)`
 - The new ADR should link back: `Supersedes [MMMM-title](MMMM-title.md)`
 

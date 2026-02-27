@@ -7,6 +7,7 @@ Note: this repository is currently pre-alpha. External PRs are not accepted yet,
 ## What doc page is affected?
 
 Link the path(s), for example:
+
 - `README.md`
 - `docs/START_HERE.md`
 

@@ -37,6 +37,7 @@ List 2-5 realistic alternatives and why they were not chosen.
 ## Rollout plan (if applicable)
 
 If the decision requires a migration:
+
 - Steps
 - Backward compatibility strategy
 - Cutover criteria

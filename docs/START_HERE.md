@@ -1,6 +1,7 @@
 # Start here
 
 This repository is the **planning + architecture baseline** for the Corgiban product:
+
 - Sokoban-style gameplay in a modern React/TypeScript/Tailwind app
 - Multiple solver algorithms running in Web Workers
 - Benchmarking and analysis tools

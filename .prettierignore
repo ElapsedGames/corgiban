@@ -1,0 +1,8 @@
+node_modules
+build
+dist
+dist-types
+coverage
+docs/_generated
+artifacts
+commit-message.txt

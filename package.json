@@ -1,0 +1,39 @@
+{
+  "name": "corgiban-workspace",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.4.0",
+  "scripts": {
+    "dev": "pnpm -C apps/web dev",
+    "build": "pnpm -C apps/web build",
+    "typecheck": "tsc -b ./tsconfig.json ./tools/tsconfig.json",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run --workspace vitest.workspace.ts",
+    "test:coverage": "vitest run --coverage --coverage.all false --workspace vitest.workspace.ts",
+    "prepare": "simple-git-hooks",
+    "graph:deps": "pnpm exec depcruise --validate dependency-cruiser.config.mjs packages/ apps/ --output-type dot | dot -T svg > docs/_generated/dep-graph.svg",
+    "best-practices": "tsx tools/src/bestPracticesReport.ts --out-dir docs/_generated/analysis"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm format:check && node tools/scripts/run-affected-tests.mjs && node tools/scripts/encoding-check.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^1.4.0",
+    "dependency-cruiser": "^16.4.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-boundaries": "^3.1.0",
+    "jiti": "^2.6.1",
+    "prettier": "^3.2.5",
+    "simple-git-hooks": "^2.11.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}

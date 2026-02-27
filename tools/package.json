@@ -1,0 +1,8 @@
+{
+  "name": "@corgiban/tools",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "fast-glob": "^3.3.2"
+  }
+}

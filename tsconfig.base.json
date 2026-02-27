@@ -1,0 +1,49 @@
+// Shared TypeScript compiler options for all workspace packages.
+// Every package tsconfig.json extends this and adds:
+//   "composite": true       -- enables tsc -b project references
+//   "outDir": "dist-types"  -- where .d.ts files land (gitignored)
+//
+// See docs/adr/0008-tsconfig-project-references-emission-policy.md for why
+// declaration emit is enabled here rather than using noEmit.
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+
+    // "Bundler" matches how Vite (esbuild) resolves modules: it honours the
+    // "exports" field in package.json and allows extensionless imports.
+    // Do not change to "Node16"/"NodeNext" -- those require explicit .js
+    // extensions in import paths, which conflicts with the TS-source-import
+    // pattern used in this repo.
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+
+    "strict": true,
+    "jsx": "react-jsx",
+
+    // Forces type-only imports to use "import type". Lets bundlers (Vite/esbuild)
+    // safely drop type imports without needing to analyse what is a type vs a value.
+    "verbatimModuleSyntax": true,
+
+    // Each file is compiled independently. Required by Vite's transform pipeline.
+    // Catches patterns like const enum that are unsafe with single-file transpilation.
+    "isolatedModules": true,
+
+    "resolveJsonModule": true,
+
+    // These three options satisfy tsc -b's requirement that referenced projects
+    // can emit. Without them TypeScript raises TS6310 and the build fails.
+    // emitDeclarationOnly means only .d.ts files are written -- no .js files.
+    // Vite reads the original .ts source directly via the exports map; the
+    // generated dist-types/ folders are gitignored and ignored by Vite entirely.
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+
+    // noEmit is intentionally absent. tsc -b cannot build a project reference
+    // graph when any referenced project sets noEmit: true (TS6310).
+
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

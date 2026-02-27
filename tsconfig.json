@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/levels" },
+    { "path": "./packages/core" },
+    { "path": "./packages/solver" },
+    { "path": "./packages/benchmarks" },
+    { "path": "./packages/worker" },
+    { "path": "./apps/web" }
+  ]
+}

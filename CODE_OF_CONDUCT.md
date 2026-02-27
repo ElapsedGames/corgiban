@@ -6,12 +6,14 @@ Adapted from the [Contributor Covenant v2.1](https://www.contributor-covenant.or
 ## Our standards
 
 Examples of behavior that contributes to a positive environment:
+
 - Being respectful and considerate
 - Gracefully accepting constructive feedback
 - Focusing on what is best for the project and community
 - Assuming good intent and clarifying misunderstandings
 
 Examples of unacceptable behavior:
+
 - Harassment, discrimination, or hate speech
 - Personal attacks or sustained hostility
 - Publishing private information without permission

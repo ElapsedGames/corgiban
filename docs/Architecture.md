@@ -9,6 +9,7 @@
 ## 1. North Star
 
 ### 1.1 Product outcomes
+
 - A responsive browser game UI (keyboard + on-screen controls) with:
   - deterministic gameplay, undo/redo, restart, per-level progress
   - move history and replay
@@ -25,6 +26,7 @@
   - renders charts/tables and allows comparison across runs
 
 ### 1.2 Non-functional requirements
+
 - **Correctness-first:** game engine is deterministic and pure (no DOM access).
 - **Performance:** main thread never blocked by solver work.
 - **Testability:** core + solver designed for unit testing with >95% coverage gates.
@@ -36,6 +38,7 @@
 ## 2. Reference from the current implementation
 
 The current app is a single-page layout with:
+
 - a **side panel** (level label, restart, failure message, move history),
 - a **canvas container** (board rendering + "next level" button),
 - a **bottom controls** section (sequence input + send button).
@@ -47,9 +50,11 @@ This structure informs the initial React UI layout and componentization.
 ## 3. Key architectural decisions
 
 ### 3.1 Repository structure: **pnpm workspaces monorepo**
+
 **Decision:** Use a monorepo with multiple packages and a single web app.
 
 **Why**
+
 - Enforces boundaries (UI cannot accidentally import worker internals).
 - Allows independent unit tests/coverage per package.
 - Keeps solver/core code reusable (including potential future CLI runners).
@@ -57,61 +62,77 @@ This structure informs the initial React UI layout and componentization.
 See ADR-0002 (`docs/adr/0002-monorepo-boundary-enforcement-strategy.md`).
 
 ### 3.2 Architecture style: **Hexagonal / Ports & Adapters**
+
 **Decision:** The game domain (engine + solver) is pure and isolated. The UI and worker are adapters.
 
 **Why**
+
 - Prevents UI concerns from leaking into core logic.
 - Makes worker vs non-worker execution a runtime choice (port).
 
 ### 3.3 Worker design: **Module Web Worker + versioned message protocol**
+
 **Decision:** Use `type: "module"` worker entry and a versioned, runtime-validated message schema.
 
 **Why**
+
 - Bundler-friendly, modern browser support, easy ESM sharing.
 - Protocol validation prevents silent runtime breakage.
 
 See ADR-0003 (`docs/adr/0003-worker-protocol-versioning-validation.md`).
 
 ### 3.4 Solver action model: **Push-based search graph**
-**Decision:** Solvers operate on *push* transitions (macro moves), expanding to player path steps for playback.
+
+**Decision:** Solvers operate on _push_ transitions (macro moves), expanding to player path steps for playback.
 
 **Why**
+
 - Standard approach for Sokoban; step-based search explodes branching.
 - Enables strong pruning (reachability + deadlocks).
 
 See ADR-0004 (`docs/adr/0004-push-based-solver-model.md`).
 
 ### 3.5 State representation: **Static + dynamic split**
+
 **Decision:** Levels are represented as:
+
 - `staticGrid`: walls + targets (immutable)
 - `dynamicState`: player position + box positions
 
 **Why**
+
 - Faster hashing and equality checks for solver.
 - Cleaner win detection and rendering.
 
 ### 3.6 UI state management: **Redux Toolkit (RTK)**
+
 **Decision:** Use Redux Toolkit for app state (game, UI, solver runs, benchmarks).
 
 **Why**
+
 - Serializable actions enable replay/debugging/benchmark reproducibility.
 - Strong ecosystem for testing and devtools.
 - Supports enterprise patterns (slice ownership, middleware, instrumentation).
 
 ### 3.7 Testing stack: **Vitest + RTL + Playwright**
+
 **Decision**
+
 - Unit tests: Vitest
 - Component tests: React Testing Library (RTL)
 - E2E smoke tests: Playwright (small number; unit coverage remains primary)
 
 **Coverage gates**
+
 - Global >= 95% for lines/branches/functions/statements
 - Higher thresholds for `core` and `solver` packages (target 98-100%)
 
 ### 3.8 App shell strategy: **Remix-first from Phase 0**
+
 **Decision:** `apps/web` is a Remix app from the start, using Remix in Vite mode.
 
 **Why**
+
 - Uses Remix routing/data boundaries consistently across all product surfaces.
 - Avoids later migration from SPA routing to Remix conventions.
 - Keeps domain packages independent of framework choice while standardizing app shell behavior.
@@ -121,10 +142,12 @@ See ADR-0004 (`docs/adr/0004-push-based-solver-model.md`).
 See ADR-0001 (`docs/adr/0001-remix-first-app-shell-vite-mode.md`).
 
 ### 3.9 Embed adapter strategy: **Shadow DOM + self-contained runtime**
+
 **Decision:** `packages/embed` uses Shadow DOM by default, injects a scoped stylesheet artifact into
 its shadow root, and bundles React as a dependency (not a peer dependency).
 
 **Why**
+
 - Embeds must remain stable under arbitrary host-page CSS.
 - Canvas rendering is naturally isolated; only surrounding chrome needs controlled styles.
 - A self-contained runtime works on non-React hosts and avoids host version coupling.
@@ -132,11 +155,13 @@ its shadow root, and bundles React as a dependency (not a peer dependency).
 See ADR-0006 (`docs/adr/0006-embed-shadow-dom-styling-delivery.md`).
 
 ### 3.10 Optional WASM strategy: **Rust + wasm-pack behind TS interface**
+
 **Decision:** `packages/solver-kernels` remains TS-first and promotes hotspots to Rust +
 `wasm-pack` only after benchmark evidence. WASM loads lazily inside workers via `fetch` +
 `WebAssembly.instantiateStreaming` with fallback to `WebAssembly.instantiate`.
 
 **Why**
+
 - Keeps early phases simple and testable while preserving a high-performance path.
 - Avoids base-bundle bloat by loading kernels only when needed.
 - Preserves stable TS boundaries so worker protocol and UI contracts stay unchanged.
@@ -255,6 +280,7 @@ See ADR-0006 (`docs/adr/0006-embed-shadow-dom-styling-delivery.md`).
 ```
 
 ### 4.1 Boundary rules (enforced)
+
 - `packages/core` imports from `packages/shared` and `packages/levels` only.
 - `packages/solver` imports from `core` and `shared` only.
 - `packages/worker` imports from `solver`, `core`, `shared`, and `benchmarks` only. No React.
@@ -264,12 +290,14 @@ See ADR-0006 (`docs/adr/0006-embed-shadow-dom-styling-delivery.md`).
   runtime modules by importing `benchmarks` entrypoints (one-way dependency: worker -> benchmarks).
 
 Enforcement:
+
 - TypeScript project references + separate `tsconfig.json` per package
 - `boundary-rules.mjs` as the single source for boundary rules
 - ESLint `no-restricted-imports` and `boundaries` rules
 - dependency-cruiser via `dependency-cruiser.config.mjs` (on-demand validation/graphing)
 
 ### 4.2 Extensions (planned, optional)
+
 - `packages/embed`: Web Component adapter (`<corgiban-embed>`) with Shadow DOM and scoped
   stylesheet injection; bundles React as a dependency for self-contained host embedding.
 - `packages/solver-kernels`: optional high-performance kernels (TS first; Rust + `wasm-pack`
@@ -283,9 +311,11 @@ Enforcement:
 ## 5. Domain model
 
 ### 5.1 LevelDefinition (data boundary)
+
 A level is defined in an editor-friendly and human-readable format, but compiled into an optimized runtime format.
 
 **LevelDefinition (data)**
+
 - `id: string`
 - `name: string`
 - `rows: string[]` (minified rows using tokens; compatible with current style)
@@ -293,12 +323,14 @@ A level is defined in an editor-friendly and human-readable format, but compiled
 - optional: tags/difficulty/author
 
 **LevelRuntime (engine)**
+
 - `width`, `height`
 - `staticGrid: Uint8Array` (walls/targets/floor)
 - `initialPlayer: number` (index)
 - `initialBoxes: Uint16Array | Uint32Array` (indices)
 
 ### 5.2 GameState (engine boundary)
+
 `GameState` is serializable and deterministic.
 
 - `levelId`
@@ -312,6 +344,7 @@ Engine internals may use typed arrays for performance, but Redux-facing state mu
 JSON-serializable (ids/plain arrays/objects only).
 
 **Invariants**
+
 - player never overlaps a wall
 - boxes never overlap each other
 - box positions always valid floor/target cells
@@ -341,13 +374,16 @@ All invariants are validated in unit tests and optionally in dev builds.
 ```
 
 ### 6.2 Threads and responsibilities
+
 **Main thread**
+
 - UI rendering (React + Canvas)
 - input (keyboard/touch)
 - animation playback timing
 - state management (Redux)
 
 **Worker thread(s)**
+
 - solver execution
 - benchmarks (potentially a pool of workers)
 - heavy computations (heuristics, deadlocks, visited sets)
@@ -357,18 +393,23 @@ All invariants are validated in unit tests and optionally in dev builds.
 ## 7. Worker protocol
 
 ### 7.1 Versioning
+
 All messages include:
+
 - `protocolVersion: 1`
 - `runId: string` (UUID or monotonic unique)
 
 ### 7.2 Messages
+
 **Main -> Worker**
+
 - `SOLVE_START` (level runtime payload + algorithm + limits)
 - `SOLVE_CANCEL`
 - `BENCH_START` (suite definition + limits)
 - `PING` (health check)
 
 **Worker -> Main**
+
 - `SOLVE_PROGRESS` (throttled)
 - `SOLVE_RESULT`
 - `SOLVE_ERROR`
@@ -377,11 +418,14 @@ All messages include:
 - `PONG`
 
 ### 7.3 Runtime validation
+
 Use schema validation (example: Zod) at both ends:
+
 - Worker rejects unknown/invalid messages with `SOLVE_ERROR`
 - Client logs protocol mismatch and fails gracefully
 
 ### 7.4 Cancellation and timeouts
+
 - Each run has a `CancelToken` checked every N expansions.
 - `timeBudgetMs` enforced in worker loop.
 - `nodeBudget` optional.
@@ -392,6 +436,7 @@ Use schema validation (example: Zod) at both ends:
 ## 8. Solver subsystem architecture
 
 ### 8.1 Public solver API (package boundary)
+
 - `AlgorithmId` registry
 - `solve(levelRuntime, options, hooks)` entry point
 - `SolveResult` includes:
@@ -400,12 +445,15 @@ Use schema validation (example: Zod) at both ends:
   - metrics: `expanded`, `generated`, `elapsedMs`, `maxDepth`, `maxFrontier`
 
 ### 8.2 Algorithm interface
+
 All algorithms implement the same interface:
+
 - deterministic given the same level + options
 - reports progress through callback hooks
 - uses cancel token cooperatively
 
 ### 8.3 Core solver building blocks
+
 - Reachability computation (flood fill) to determine legal pushes
 - State hashing:
   - stable hash of `playerReachableRegionId + boxes positions`
@@ -418,6 +466,7 @@ All algorithms implement the same interface:
   - assignment/matching heuristic (stronger; optional)
 
 ### 8.4 Determinism and reproducibility
+
 - No `Math.random()` in solver
 - Tie-breakers are stable (sorted actions)
 - Benchmarks store solver options and algorithm version metadata
@@ -427,6 +476,7 @@ All algorithms implement the same interface:
 ## 9. Benchmark subsystem architecture (web page + worker support)
 
 ### 9.1 Benchmark model
+
 - `BenchmarkSuite`:
   - list of levelIds
   - list of algorithm configs
@@ -437,6 +487,7 @@ All algorithms implement the same interface:
   - environment snapshot: user agent, cores, build version
 
 ### 9.2 Execution
+
 - Benchmarks run in a worker pool (configurable concurrency).
 - Main thread schedules and aggregates results.
 - Results persisted to IndexedDB (via a thin repository adapter).
@@ -446,7 +497,9 @@ All algorithms implement the same interface:
 See ADR-0007 (`docs/adr/0007-indexeddb-persistence-migration-retention.md`).
 
 ### 9.3 UI
+
 A dedicated route:
+
 - `/bench`
   - filters: levels, algorithms, budgets
   - tables and charts
@@ -457,11 +510,13 @@ A dedicated route:
 ## 10. Rendering architecture
 
 ### 10.1 Canvas-first (parity with current app)
+
 - Keep a single `<canvas>` for the board.
 - React owns layout; rendering is imperative.
 - The renderer consumes only `GameState` + `LevelRuntime`.
 
 ### 10.2 Rendering pipeline
+
 - state changes trigger a render (throttled with `requestAnimationFrame`)
 - sprite assets loaded once (asset manager)
 - consistent coordinate system; DPR scaling supported
@@ -473,6 +528,7 @@ A dedicated route:
 See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 
 ### 10.3 Optional overlays (future)
+
 - reachable cells
 - deadlock highlights
 - solver frontier visualization for debugging
@@ -482,12 +538,14 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 ## 11. UI architecture
 
 ### 11.1 Pages
+
 - `/play` (default)
 - `/bench`
 - `/lab` (optional developer tooling route; advanced browser-dev adapters are flag-gated)
 - `/tests` (optional internal harness page for interactive debugging)
 
 ### 11.2 Component structure (initial)
+
 - `LayoutShell`
 - `SidePanel` (level info, restart, move history)
 - `GameCanvas`
@@ -497,6 +555,7 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 ---
 
 ### 11.3 Remix integration strategy
+
 - `apps/web` uses Remix route modules and route-level boundaries from the start.
 - Worker integration remains unchanged (Remix UI dispatches through the same worker clients/ports).
 - Domain packages (`core`, `solver`, `worker`, `benchmarks`) remain framework-agnostic.
@@ -511,6 +570,7 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 ## 12. State management
 
 ### 12.1 Redux slices
+
 - `gameSlice`
   - current level id, gameState, input mode, history pointers
 - `solverSlice`
@@ -521,6 +581,7 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
   - animation speed, theme, debug flags
 
 ### 12.2 Side effects
+
 - Use RTK thunks for:
   - starting/cancelling solver
   - playback scheduling
@@ -531,6 +592,7 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
   - `PersistencePort`
 
 ### 12.3 Redux serializability strategy
+
 - Keep Redux state/actions JSON-serializable by default.
 - Do not store typed arrays directly in slices; use serializable equivalents (`number[]`, ids,
   plain objects).
@@ -543,25 +605,31 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 ## 13. Testing strategy and coverage gates
 
 ### 13.1 Test categories
+
 **Package unit tests**
+
 - `core`: movement rules, push logic, win detection, undo/redo, parsing/encoding
 - `solver`: reachability, hashing, visited behavior, algorithm correctness on small levels
 - `worker`: protocol validation, cancellation, throttling
 
 **UI tests**
+
 - component behavior (renders state, dispatches actions)
 - keyboard handling and accessibility
 - playback controls
 
 **E2E smoke**
+
 - load app, play a few moves, run solver, confirm UI remains responsive
 
 ### 13.2 Coverage targets
+
 - Global gates: 95%+ lines/branches/functions/statements
 - `core` + `solver`: 98%+ recommended
 - No skipping coverage with `/* istanbul ignore */` unless justified in ADR
 
 ### 13.3 CI enforcement
+
 - Coverage gates run on pull requests.
 - PR fails if thresholds not met.
 - Snapshot tests used sparingly (avoid brittle snapshots for canvas).
@@ -571,6 +639,7 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 ## 14. CI/CD and quality gates
 
 ### 14.1 CI pipeline (GitHub Actions)
+
 - install (pnpm)
 - typecheck (tsc -b)
 - lint
@@ -580,6 +649,7 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 - Playwright smoke (optional, nightly or on main)
 
 ### 14.2 Quality gates
+
 - ESLint + Prettier
 - TypeScript strict mode
 - dependency constraints per package
@@ -590,10 +660,12 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 ## 15. Observability & diagnostics
 
 ### 15.1 Logging
+
 - Structured logs in dev builds (tagged by subsystem: engine/solver/worker).
 - Worker logs forwarded to main thread only in dev mode.
 
 ### 15.2 Metrics
+
 - solver emits:
   - nodes expanded
   - frontier size
@@ -604,22 +676,26 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 ---
 
 ## 16. Security considerations
+
 - No dynamic code evaluation.
 - Worker only accepts messages matching the protocol version.
 - Avoid leaking large data to UI logs in production.
 
 ### 16.1 Browser support and fallback matrix (minimum)
-| Capability | Expected support posture | Primary path | Fallback path |
-| --- | --- | --- | --- |
-| File System Access API | Chromium-first; not universal | Native open/save dialogs for level packs and benchmark exports | File input + anchor-download (`Blob`/`URL.createObjectURL`) |
-| OffscreenCanvas | Not universal across browsers/contexts | Worker-side pre-rendering/asset prep where supported | Main-thread Canvas renderer (`buildRenderPlan` + `draw`) |
-| PWA Service Worker | Host/protocol dependent; varies in embedded contexts | Workbox app-shell/offline caching on supported HTTPS hosts | No-SW network mode; app remains functional without offline guarantees |
+
+| Capability             | Expected support posture                             | Primary path                                                   | Fallback path                                                         |
+| ---------------------- | ---------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------- |
+| File System Access API | Chromium-first; not universal                        | Native open/save dialogs for level packs and benchmark exports | File input + anchor-download (`Blob`/`URL.createObjectURL`)           |
+| OffscreenCanvas        | Not universal across browsers/contexts               | Worker-side pre-rendering/asset prep where supported           | Main-thread Canvas renderer (`buildRenderPlan` + `draw`)              |
+| PWA Service Worker     | Host/protocol dependent; varies in embedded contexts | Workbox app-shell/offline caching on supported HTTPS hosts     | No-SW network mode; app remains functional without offline guarantees |
 
 ---
 
 ## 17. ADR process
+
 All major decisions are recorded in `/docs/adr/`.
 Current accepted ADRs:
+
 - ADR-0001: Remix-first app shell (Vite mode)
 - ADR-0002: Monorepo and package boundary enforcement strategy
 - ADR-0003: Worker protocol versioning and validation strategy
@@ -631,6 +707,7 @@ Current accepted ADRs:
 ---
 
 ## 18. Implementation order (architecture-aligned)
+
 1. Package scaffolding + boundary enforcement + CI coverage gates
 2. `core` engine correctness with tests
 3. React UI parity (play/restart/history) + canvas renderer
@@ -639,5 +716,3 @@ Current accepted ADRs:
 6. Benchmark page + persistence + worker pool
 
 ---
-
-

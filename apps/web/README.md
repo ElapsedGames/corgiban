@@ -20,6 +20,7 @@ Remix application containing the product UI, routes, and orchestration.
 ## Client-only boundaries (Remix)
 
 Worker creation and browser-only APIs must be used in client-only contexts:
+
 - `*.client.ts` modules only - the ESLint `WORKER_CREATION_RULE` flags `new Worker()` everywhere else
 - Dynamic imports and `useEffect()` are **not** approved escape hatches for worker construction
 - Never import worker runtime code from Remix loaders/actions

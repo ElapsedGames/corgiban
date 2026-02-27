@@ -82,6 +82,7 @@ Rendering process:
 3. Use RAF loop orchestration; do not use React re-render loops for animation frames.
 
 Redux state process:
+
 1. Keep Redux state/actions JSON-serializable by default.
 2. Keep typed arrays in runtime caches/ports, not in slices.
 3. Any serializableCheck exception must be narrowly scoped and documented.
@@ -169,17 +170,19 @@ Formatting and lint ownership:
 
 CI gates on every PR:
 
-1. typecheck
-2. lint
-3. test coverage thresholds
-4. boundary checks
-5. encoding policy check (UTF-8 without BOM, ASCII-default text, no smart punctuation unless justified)
+1. format:check
+2. typecheck
+3. lint
+4. test coverage thresholds
+5. boundary checks
+6. encoding policy check (UTF-8 without BOM, ASCII-default text, no smart punctuation unless justified)
 
 Pre-commit process:
 
-1. run lint
-2. run affected tests with deterministic selection strategy
-3. run encoding policy check (UTF-8 without BOM, ASCII-default text, no smart punctuation unless justified)
+1. run format:check
+2. run lint
+3. run affected tests with deterministic selection strategy
+4. run encoding policy check (UTF-8 without BOM, ASCII-default text, no smart punctuation unless justified)
 
 Completion checklist per feature:
 

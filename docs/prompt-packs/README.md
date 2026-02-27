@@ -15,10 +15,7 @@ A prompt pack is not acceptable unless all of the following are true:
 - [ ] The phase Tasks are copied verbatim from `docs/project-plan.md`
 - [ ] The phase Integration Proofs are copied verbatim from `docs/project-plan.md` (if any)
 - [ ] A coverage map assigns every task and every proof to exactly one tab
-- [ ] There are enough implementation tabs to keep work atomic:
-      - 0-3 tasks: 1 implementation tab allowed
-      - 4-7 tasks: 2-3 implementation tabs required
-      - 8+ tasks: 3+ implementation tabs required
+- [ ] There are enough implementation tabs to keep work atomic: - 0-3 tasks: 1 implementation tab allowed - 4-7 tasks: 2-3 implementation tabs required - 8+ tasks: 3+ implementation tabs required
 - [ ] A dedicated `Integration Proofs` tab exists when the phase lists integration proofs
 - [ ] Every tab includes a file list (`create` and `modify`) so scope drift is visible
 - [ ] Integration proofs include explicit commands and pass/fail criteria
