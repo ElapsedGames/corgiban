@@ -21,14 +21,6 @@ Domain packages (`core`, `solver`, `worker`, `benchmarks`) are framework-agnosti
 - Core packages (`core`, `solver`, `worker`) and `apps/web` have README boundaries defined; implementation begins in Phase 1.
 - The repository is public for visibility, but it is not accepting PRs yet and issues are disabled for now.
 
-## Non-goals (for now)
-- User accounts and authentication
-- Multiplayer or co-op gameplay
-- Cloud sync or backend services
-- Monetization/payments
-- Native mobile app targets
-- Plugin marketplace/extensibility framework
-
 ## Quickstart
 Root commands (available once Phase 0 scaffold is fully wired):
 
@@ -104,3 +96,9 @@ pnpm build
 - `docs/dev-tools-spec.md` (boundary enforcement and tooling implementation details)
 - `docs/Engineering-Process-Playbook.md` (execution process, governance, and conflict resolution)
 - `AGENTS.md` and `CLAUDE.md` (thin wrappers pointing to `LLM_GUIDE.md`)
+
+## Out of Scope (By Design)
+- Multiplayer or co-op gameplay
+- Monetization/payments
+- Native mobile app targets
+- Plugin marketplace/extensibility framework
