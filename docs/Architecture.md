@@ -319,7 +319,7 @@ A level is defined in an editor-friendly and human-readable format, but compiled
 - `id: string`
 - `name: string`
 - `rows: string[]` (minified rows using tokens; compatible with current style)
-- optional: `knownSolution?: string | false`
+- optional: `knownSolution?: string | null` (null = known-bad, undefined = not tested)
 - optional: tags/difficulty/author
 
 **LevelRuntime (engine)**
@@ -327,7 +327,9 @@ A level is defined in an editor-friendly and human-readable format, but compiled
 - `width`, `height`
 - `staticGrid: Uint8Array` (walls/targets/floor)
 - `initialPlayer: number` (index)
-- `initialBoxes: Uint16Array | Uint32Array` (indices)
+- `initialBoxes: Uint32Array` (indices)
+
+Note: solver internal state nodes may store box indices as Uint16Array (grid max 64x64) for memory efficiency.
 
 ### 5.2 GameState (engine boundary)
 

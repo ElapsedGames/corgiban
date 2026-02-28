@@ -231,8 +231,9 @@ Levels use a static+dynamic split:
 
 Level data should remain editor-friendly and compatible with minified string rows from the existing implementation:
 
-- LevelDefinition: { id, name, rows: string[], knownSolution?: string | false, ... }
+- LevelDefinition: { id, name, rows: string[], knownSolution?: string | null, ... } // null = known-bad, undefined = not tested
 - Compile to LevelRuntime: { width, height, staticGrid, initialPlayerIndex, initialBoxes }
+  - initialBoxes uses Uint32Array in LevelRuntime; solver internal state nodes may use Uint16Array for memory efficiency.
 
 Core engine API (pure):
 

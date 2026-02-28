@@ -4,5 +4,6 @@ dist
 dist-types
 coverage
 docs/_generated
+docs/prompt-packs
 artifacts
 commit-message.txt
