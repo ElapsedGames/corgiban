@@ -4,5 +4,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@corgiban/levels": "workspace:*",
+    "@corgiban/shared": "workspace:*"
   }
 }

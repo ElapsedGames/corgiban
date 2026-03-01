@@ -84,10 +84,19 @@ One file per PR.
 - Must document where proof outcomes are recorded in-repo.
 - Cannot be merged into the generic Verification tab.
 
+### Documentation (always second to last, never modify)
+
+- Run after all implementation phases and the Integration Proofs tab are complete.
+- Reviews and updates every documentation file that may be affected by the PR.
+- Must cover at minimum: `docs/Architecture.md`, `docs/adr/`, all touched package `README.md`s, `docs/project-plan.md`, `LLM_GUIDE.md`, and `CONTRIBUTING.md`.
+- For each file: read it in full, identify stale or missing sections, update or confirm current.
+- Create a new ADR if any architectural decision was made.
+- Cannot be marked complete until every affected doc is reviewed and either updated or explicitly confirmed as current.
+
 ### Verification (always last, never modify)
 
 - Generic - works for any prompt pack without changes.
-- Run after all implementation phases and the Integration Proofs tab are green and verification commands pass.
+- Run after all implementation phases, the Integration Proofs tab, and the Documentation tab are green and verification commands pass.
 - Confirms every acceptance criterion from Phase 1 is met and no scope drift occurred.
 
 ---
@@ -130,7 +139,7 @@ Paste the applicable rule from `LLM_GUIDE.md section 4.2` into the Constraints s
 
 1. Read the pack top to bottom before starting. Do not skip Phase 1.
 2. Complete phases in order. Do not start Phase N+1 until Phase N acceptance criteria pass.
-3. Do not modify the Verification phase content. It is intentionally generic.
+3. Do not modify the Documentation or Verification phase content. Both are intentionally generic.
 4. Paste boundary constraints verbatim from `LLM_GUIDE.md` - do not paraphrase.
 5. Do not mark a phase complete if any verification command fails.
 6. Flag deviations from the Phase 1 file list before acting, not after.

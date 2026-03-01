@@ -40,6 +40,17 @@ pnpm build           # build Remix app
 
 Dev server note: use `pnpm dev -- --clearScreen=false` (single argument). Passing `--clearScreen false` can be treated as a positional projectDir and result in "Remix Vite plugin not found in Vite config".
 
+## Creating a clean source zip
+
+Use the source-only zip when sharing code for review:
+
+```bash
+pnpm zip:source
+pnpm zip:source -- --ref HEAD
+```
+
+By default the zip is written to `artifacts/<repoName>-source-<shortSha>.zip`. The archive includes the current worktree (tracked files plus untracked files that are not ignored), while still excluding generated artifacts via `.gitignore`. To create a clean ref-only archive, use `pnpm zip:source -- --no-worktree`.
+
 ## Pre-commit hooks
 
 Hooks install automatically on `pnpm install` via `simple-git-hooks` (the `prepare` script). They do not run in CI.

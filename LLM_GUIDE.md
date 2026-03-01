@@ -41,6 +41,7 @@ When starting any task, read these in order:
 2. `docs/adr/*` -- decisions and constraints (if present)
 3. Package-level README(s):
    - `packages/core/README.md`
+   - `packages/levels/README.md`
    - `packages/solver/README.md`
    - `packages/worker/README.md`
    - `apps/web/README.md`
@@ -72,6 +73,7 @@ If documentation is missing, create the smallest doc needed (see Documentation r
 - `SharedArrayBuffer` and `Atomics` are banned in all authored repo code (production, tests, and `tools/`).
 - `packages/core` and `packages/solver` must not use `Date`/`Date.now` directly.
 - If wall-clock time is needed, source it through `packages/shared/src/time.ts` and pass values via explicit parameters at boundaries.
+- Typed arrays returned by `packages/core` and `packages/solver` are treated as immutable snapshots. Consumers must not mutate them.
 
 ---
 
@@ -356,6 +358,12 @@ Prefer PRs that:
 - touch a small number of packages
 - keep refactors separate from behavior changes
 - add tests in the same PR as the behavior change
+
+### 11.1 Source zip command
+
+Use `pnpm zip:source` (runs `tools/scripts/make-source-zip.mjs`) to create a source archive.
+Output goes to `artifacts/corgiban-workspace-source-<git>.zip`. If the working tree is dirty,
+the archive includes the current worktree.
 
 ---
 

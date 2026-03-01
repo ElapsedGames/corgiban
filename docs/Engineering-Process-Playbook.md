@@ -140,7 +140,7 @@ Shared constraints must be defined once in `packages/shared/src/constraints.ts` 
 
 1. `MAX_GRID_WIDTH = 64`
 2. `MAX_GRID_HEIGHT = 64`
-3. `MAX_BOXES = 32`
+3. `MAX_BOXES = 40`
 4. `MAX_BENCH_SUITE_LEVELS = 200`
 5. `MAX_IMPORT_BYTES = 1_048_576`
 

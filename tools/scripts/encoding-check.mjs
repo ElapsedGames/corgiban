@@ -35,6 +35,7 @@ const ignoredPrefixes = [
   'artifacts/',
   'docs/_generated/',
 ];
+const ignoredFiles = new Set(['.github/PULL_REQUEST_TEMPLATE.md']);
 
 function getStagedFiles() {
   try {
@@ -48,7 +49,9 @@ function getStagedFiles() {
 }
 
 function isIgnoredPath(filePath) {
-  return ignoredPrefixes.some((prefix) => filePath.startsWith(prefix));
+  return (
+    ignoredFiles.has(filePath) || ignoredPrefixes.some((prefix) => filePath.startsWith(prefix))
+  );
 }
 
 function isBinaryExtension(filePath) {

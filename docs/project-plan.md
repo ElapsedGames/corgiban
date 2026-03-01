@@ -157,6 +157,9 @@ Engineering-Process-Playbook.md
 /adr
 (create ADRs for major decisions when you introduce or change them)
 
+Note: This structure includes planned files/modules that may not exist yet. Check the repo tree
+for what is implemented in the current phase.
+
 ====================================================================
 1B) PRODUCT-ALIGNED TECHNOLOGY PLACEMENTS (BOUNDED ADAPTERS)
 ====================================================================
@@ -232,7 +235,7 @@ Levels use a static+dynamic split:
 Level data should remain editor-friendly and compatible with minified string rows from the existing implementation:
 
 - LevelDefinition: { id, name, rows: string[], knownSolution?: string | null, ... } // null = known-bad, undefined = not tested
-- Compile to LevelRuntime: { width, height, staticGrid, initialPlayerIndex, initialBoxes }
+- Compile to LevelRuntime: { levelId, width, height, staticGrid, initialPlayerIndex, initialBoxes }
   - initialBoxes uses Uint32Array in LevelRuntime; solver internal state nodes may use Uint16Array for memory efficiency.
 
 Core engine API (pure):
@@ -244,18 +247,20 @@ Core engine API (pure):
 - isWin(state): boolean
 - (optional) getLegalMoves(state): Direction[]
 
-GameState must be serializable and deterministic:
+GameState is deterministic. In the core package it contains:
 
-- levelId
-- staticGrid reference (or an id + lookups)
+- level: LevelRuntime
 - playerIndex
-- boxes (sorted indices array or bitset)
+- boxes (sorted Uint32Array)
 - history stack with minimal diffs for undo
 - stats (moves, pushes)
+
+Redux-facing state remains JSON-serializable (levelId plus plain arrays/objects) and keeps typed arrays out of slices.
 
 Invariants must be validated in tests:
 
 - player not on wall
+- player does not overlap a box
 - boxes do not overlap
 - boxes not on walls
 
@@ -269,7 +274,7 @@ Move string contract:
 Validation constraints (packages/shared/src/constraints.ts):
 
 - MAX_GRID_WIDTH = 64, MAX_GRID_HEIGHT = 64
-- MAX_BOXES = 32
+- MAX_BOXES = 40
 - MAX_BENCH_SUITE_LEVELS = 200
 - MAX_IMPORT_BYTES = 1_048_576 (1 MB)
   Both packages/core (parseLevel) and the import parser enforce these using the same constants. Reject malformed rows at parse time with a descriptive error message. Imported JSON is size-checked before JSON.parse, then strict-schema validated after parse (unknown keys rejected).
@@ -590,6 +595,8 @@ Phase 0 Integration Proofs
 - Vitest runs without loading the Remix plugin, or uses a separate Vite config.
 
 Phase 1 - Levels + Core engine
+
+Status: Complete (Phase 1 scope delivered in this PR)
 
 1. Add packages/shared/src/constraints.ts with MAX_GRID_WIDTH, MAX_GRID_HEIGHT, MAX_BOXES, MAX_BENCH_SUITE_LEVELS, MAX_IMPORT_BYTES
 2. Port levels into packages/levels (preserve minified rows compatibility); verify and re-encode any knownSolution strings to UDLR

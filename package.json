@@ -14,6 +14,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run --workspace vitest.workspace.ts",
     "test:coverage": "vitest run --coverage --coverage.all false --workspace vitest.workspace.ts",
+    "zip:source": "node tools/scripts/make-source-zip.mjs",
     "prepare": "simple-git-hooks",
     "graph:deps": "pnpm exec depcruise --validate dependency-cruiser.config.mjs packages/ apps/ --output-type dot | dot -T svg > docs/_generated/dep-graph.svg",
     "best-practices": "tsx tools/src/bestPracticesReport.ts --out-dir docs/_generated/analysis"

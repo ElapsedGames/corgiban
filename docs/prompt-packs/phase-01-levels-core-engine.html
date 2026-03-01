@@ -1027,7 +1027,16 @@
             role="tab"
             aria-selected="false"
           >
-            5. Verification
+            5. Documentation
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-six"
+            role="tab"
+            aria-selected="false"
+          >
+            6. Verification
           </button>
         </div>
         <div class="tabs-divider" aria-hidden="true"></div>
@@ -1085,9 +1094,9 @@ B) File plan (scope is explicit)
 
 C) Acceptance criteria (measurable)
 4) Write acceptance criteria as a numbered checklist that is objectively verifiable.
-   - Include constraint enforcement checks with explicit values: MAX_GRID_WIDTH = 64, MAX_GRID_HEIGHT = 64, MAX_BOXES = 32, MAX_BENCH_SUITE_LEVELS = 200, MAX_IMPORT_BYTES = 1_048_576.
+   - Include constraint enforcement checks with explicit values: MAX_GRID_WIDTH = 64, MAX_GRID_HEIGHT = 64, MAX_BOXES = 40, MAX_BENCH_SUITE_LEVELS = 200, MAX_IMPORT_BYTES = 1_048_576.
    - Include knownSolution UDLR re-encoding validation (uppercase, no whitespace); invalid values become null and undefined means not tested.
-   - Explicitly define the level source as artifacts/levels.js and treat whitespace as empty floor (not 'E') when mapping rows.
+   - Explicitly define the built-in level source as packages/levels/src/builtinLevels.ts and treat whitespace as empty floor (not 'E') when mapping rows.
    - Include token mapping and cell-model requirements: W=wall, E or space=floor+empty, T=target+empty, P=floor+player, B=floor+box, S=target+box, Q=target+player. Do not add a new cell type for S; decompose it to floor+occupant.
    - Include core engine determinism and invariants coverage.
    - Include vitest workspace wiring: pnpm test and pnpm test:coverage must execute core tests.
@@ -1104,6 +1113,87 @@ E) Open questions / risks
 6) List ambiguities that must be resolved before implementation starts (example: hashing canonical key strategy, level id/name scheme, test fixture strategy, and whether Phase 1 should be split across multiple prompt packs).
 
 Output the plan only. Do not edit files in this phase.</code></pre>
+<pre>OUTPUT:<code id="prompt-phase-one">
+A) Scope Lock (Verbatim)
+1. Add packages/shared/src/constraints.ts with MAX_GRID_WIDTH, MAX_GRID_HEIGHT, MAX_BOXES, MAX_BENCH_SUITE_LEVELS, MAX_IMPORT_BYTES
+2. Port levels into packages/levels (preserve minified rows compatibility); verify and re-encode any knownSolution strings to UDLR
+3. Implement core model + engine functions with high unit coverage; enforce constraint limits in parseLevel
+4. Add hashing utilities for solver use
+
+B) File Plan (Scope Explicit)
+packages/shared
+(new) packages/shared/src/constraints.ts - shared constraint constants for grid/boxes/import limits.
+(new) packages/shared/src/types.ts - shared domain types (Direction UDLR, ids).
+(modified) packages/shared/src/index.ts - re-export constraints and shared types.
+
+packages/levels
+(new) packages/levels/src/builtinLevels.ts - Canonical built-in LevelDefinition data with normalized knownSolution and minified rows.
+(new) packages/levels/src/levelSchema.ts - LevelDefinition type plus helpers for row/solution validation.
+(new) packages/levels/src/__tests__/levelSchema.test.ts - schema and knownSolution validation tests.
+(new) packages/levels/vitest.config.ts - levels test config and coverage thresholds.
+(modified) packages/levels/src/index.ts - public exports for builtin levels and schema.
+(modified) packages/levels/package.json - add dependency on @corgiban/shared (workspace) for shared types/constraints.
+(modified) packages/levels/tsconfig.json - add project reference to packages/shared.
+
+packages/core
+(new) packages/core/src/model/cell.ts - cell/static grid encoding and target/wall/floor semantics.
+(new) packages/core/src/model/direction.ts - direction vectors and helpers using shared Direction type.
+(new) packages/core/src/model/position.ts - index/row/col helpers for grid math.
+(new) packages/core/src/model/level.ts - LevelRuntime and related types.
+(new) packages/core/src/model/gameState.ts - GameState shape and createGame factory.
+(new) packages/core/src/engine/applyMove.ts - pure move application and push rules.
+(new) packages/core/src/engine/undo.ts - undo using history diffs.
+(new) packages/core/src/engine/restart.ts - restart to initial state.
+(new) packages/core/src/engine/rules.ts - isWin and optional legal move helpers.
+(new) packages/core/src/encoding/parseLevel.ts - parse LevelDefinition rows into LevelRuntime with constraint enforcement.
+(new) packages/core/src/encoding/serializeLevel.ts - serialize LevelRuntime back to row encoding.
+(new) packages/core/src/hashing/hash.ts - deterministic hashing for solver use.
+(new) packages/core/src/hashing/normalize.ts - canonicalize box order/state for hashing.
+(modified) packages/core/src/index.ts - public exports for model, engine, encoding, hashing.
+(modified) packages/core/package.json - add dependencies on @corgiban/shared and @corgiban/levels (workspace).
+(modified) packages/core/tsconfig.json - ensure project references to shared and levels.
+
+tests + vitest wiring
+(new) packages/core/vitest.config.ts - core test config and coverage thresholds.
+(modified) vitest.workspace.ts - include levels/core vitest configs so pnpm test and pnpm test:coverage run them.
+(new) packages/core/src/engine/__tests__/applyMove.test.ts - movement, pushing, win detection.
+(new) packages/core/src/engine/__tests__/undo.test.ts - undo behavior and invariants.
+(new) packages/core/src/engine/__tests__/restart.test.ts - restart behavior and invariants.
+(new) packages/core/src/engine/__tests__/rules.test.ts - win detection and legal move checks (if implemented).
+(new) packages/core/src/encoding/__tests__/parseLevel.test.ts - constraints enforcement, token mapping, whitespace-as-floor, knownSolution normalization rules.
+(new) packages/core/src/encoding/__tests__/serializeLevel.test.ts - serialize/parse round-trip.
+(new) packages/core/src/hashing/__tests__/normalize.test.ts - canonical key generation.
+(new) packages/core/src/hashing/__tests__/hash.test.ts - hash determinism and box-order normalization.
+
+C) Acceptance Criteria (Measurable)
+1. packages/shared/src/constraints.ts exports: MAX_GRID_WIDTH = 64, MAX_GRID_HEIGHT = 64, MAX_BOXES = 40, MAX_BENCH_SUITE_LEVELS = 200, MAX_IMPORT_BYTES = 1_048_576, and these are re-exported from packages/shared/src/index.ts.
+2. Level source is packages/levels/src/builtinLevels.ts; rows preserve minified compatibility, and whitespace in row strings is treated as empty floor (not as E) when mapping to cells.
+3. Token mapping is enforced in parsing and tests: W = wall, E or space = floor + empty, T = target + empty, P = floor + player, B = floor + box, S = target + box, Q = target + player; S does not create a new cell type and is decomposed into target + box.
+4. Level ids and names follow: id = {category}-{NNN} (zero-padded 3 digits, 1-based), name = "{Category} {N}"; category comes from top-level keys in packages/levels/src/builtinLevels.ts.
+5. knownSolution values are normalized to uppercase UDLR with no whitespace; lowercase is uppercased; any non-UDLR or whitespace yields null; empty after trim yields null; undefined means not tested.
+6. parseLevel rejects levels exceeding MAX_GRID_WIDTH, MAX_GRID_HEIGHT, or MAX_BOXES with descriptive errors; tests cover violations for each constraint boundary.
+7. Core engine is deterministic and pure: repeated runs of createGame, applyMove, undo, restart, and isWin on identical inputs yield identical outputs; tests cover these invariants.
+8. GameState invariants are tested and hold: player never on wall, boxes never overlap, boxes never on walls.
+9. normalize() builds a canonical key using playerIndex and sorted box indices; hash() is deterministic and 32-bit unsigned; tests cover stable keys and order-independence.
+10. pnpm test and pnpm test:coverage execute levels and core tests via vitest.workspace.ts and their vitest.config.ts files.
+
+D) Prompt-Pack Coverage Map
+Tab 2) Shared constraints + levels covers Task 1 and Task 2.
+Tab 3) Core model + engine covers Task 3.
+Tab 4) Core encoding + hashing covers Task 4.
+
+E) Open Questions / Risks
+- None. All prior questions resolved and locked below.
+
+F) Decisions / Resolutions
+1. Hashing strategy: Phase 1 core normalize/hash uses playerIndex + sorted box indices; solver Phase 3 replaces playerIndex with reachable-region representative after reachability flood fill.
+2. Level id/name scheme: id = {category}-{NNN} (zero-padded 3 digits, 1-based); name = "{Category} {N}".
+3. knownSolution normalization: toUpperCase(), trim, any non-UDLR or whitespace -> null; empty after trim -> null; undefined means not tested.
+4. Row normalization: strip common leading whitespace per level and right-pad ragged rows with spaces; internal spaces are floor.
+5. Schema validation split: packages/levels validates tokens/knownSolution; packages/core/encoding enforces runtime constraints.
+6. No shared fixtures module in Phase 1 tests; use inline fixtures per test file.
+7. Single prompt pack for Phase 1 is confirmed.
+</code></pre>
           </div>
         </section>
 
@@ -1127,7 +1217,7 @@ Reference the coverage map and acceptance criteria defined in Phase 1.
 
 Context:
 - Add shared constraints and port level data/schema into packages/levels with UDLR-verified knownSolution values.
-- Source levels from artifacts/levels.js. Treat whitespace as empty floor, not 'E', if you map tokens.
+- Source levels from packages/levels/src/builtinLevels.ts. Treat whitespace as empty floor, not 'E', if you map tokens.
 - Token mapping table (S/Q are parsing details, not new cell kinds):
   Token | floor | occupant | notes
   W | - | - | wall
@@ -1148,6 +1238,7 @@ Coverage assignments for this tab:
 File scope (required):
 Create:
 - packages/shared/src/constraints.ts
+- packages/shared/src/types.ts
 - packages/levels/src/builtinLevels.ts
 - packages/levels/src/levelSchema.ts
 - packages/levels/src/__tests__/levelSchema.test.ts
@@ -1163,12 +1254,14 @@ Steps:
 1. Define constraint constants in packages/shared/src/constraints.ts and export them from packages/shared/src/index.ts.
    - MAX_GRID_WIDTH = 64
    - MAX_GRID_HEIGHT = 64
-   - MAX_BOXES = 32
+   - MAX_BOXES = 40
    - MAX_BENCH_SUITE_LEVELS = 200
    - MAX_IMPORT_BYTES = 1_048_576
-2. Port levels from artifacts/levels.js into packages/levels/src/builtinLevels.ts:
+   - Create packages/shared/src/types.ts exporting Direction = 'U' | 'D' | 'L' | 'R', and re-export it from packages/shared/src/index.ts.
+2. Define levels in packages/levels/src/builtinLevels.ts:
    - Preserve row ordering and minified rows compatibility (comma or newline separated rows are acceptable inputs).
-   - Trim only leading/trailing indentation; keep internal spaces as meaningful cells.
+   - Assign ids and names using: id = {category}-{NNN} (zero-padded 3 digits, 1-based), name = "{Category} {N}"; category comes from the top-level key in packages/levels/src/builtinLevels.ts.
+   - Allow common indentation; keep internal spaces as meaningful cells; ragged right edges are padded with spaces in core.
    - Treat whitespace as empty floor when mapping; do not replace it with 'E'.
    - Preserve source tokens; supported row characters include W, E, T, P, B, S (box on target). Do not invent a new token for S.
    - Do not introduce Q into artifacts-derived rows; Q (player on target) is reserved for core parsing and serialization.
@@ -1410,7 +1503,48 @@ You are not done until all of the following pass with no errors:
         </section>
         <section class="tab-panel" data-tab="phase-five" role="tabpanel" hidden>
           <div class="panel-title">
-            <h2>5) Verification</h2>
+            <h2>5) Documentation</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Review and update all project documentation affected by this PR. Run after all
+            implementation tabs are complete, before Verification.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-five">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-five">Read LLM_GUIDE.md, docs/Architecture.md, and docs/adr/* before proceeding.
+Do not write any new implementation code in this phase.
+
+Read the Planning tab output for this PR before reviewing documentation.
+Open docs/prompt-packs/phase-01-levels-core-engine.html and locate the OUTPUT section inside the
+Planning (phase-one) panel. This contains the scope lock, coverage map, and acceptance criteria
+that define what changed in this PR.
+
+Review every documentation file that may be affected by the changes made in this PR:
+- docs/Architecture.md -- update if any architectural boundaries, module structure, or data flow changed.
+- docs/adr/ -- create a new ADR if any architectural decision was made (new pattern, trade-off chosen, approach locked in).
+- packages/*/README.md -- update each package README to reflect new exports, public API, or usage examples added in this PR.
+- docs/project-plan.md -- mark completed tasks/phases as done if applicable.
+- LLM_GUIDE.md -- update if new conventions, patterns, or constraints were established.
+- CONTRIBUTING.md -- update if developer workflow, setup steps, or tooling changed.
+
+For each file:
+1. Read it in full.
+2. Identify any section that is stale, missing, or contradicts what was built.
+3. Update or create as needed.
+
+Do not mark this tab complete until every affected doc has been reviewed and either updated or explicitly confirmed as current.</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-six" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>6) Verification</h2>
             <span class="status-pill" data-status-pill>Not Started</span>
           </div>
           <p>
@@ -1420,18 +1554,18 @@ You are not done until all of the following pass with no errors:
           <div class="prompt-block">
             <header>
               <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
-              <button class="copy-btn" type="button" data-copy-target="prompt-phase-five">
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-six">
                 Copy prompt
               </button>
             </header>
-            <pre><code id="prompt-phase-five">Read LLM_GUIDE.md and docs/Architecture.md.
+            <pre><code id="prompt-phase-six">Read LLM_GUIDE.md and docs/Architecture.md.
 Review all changes made in this PR against the acceptance criteria from Phase 1 (Planning).
 
 Confirm each of the following:
 1. Every acceptance criterion from Phase 1 is met.
 2. No files outside the agreed scope were modified.
 3. All package boundary rules from LLM_GUIDE.md are satisfied.
-4. No dead code, debug artifacts, commented-out blocks, or console logs remain.
+4. No dead code, debug artifacts, or commented-out blocks remain in package source files. No console.* calls remain in packages/*/src/ (tools/, scripts, and server entry points are exempt).
 5. Test coverage meets or exceeds the pre-PR baseline.
 6. pnpm format:check, pnpm typecheck, pnpm lint, and pnpm test:coverage all pass with no errors.
 
@@ -1716,3 +1850,5 @@ pnpm test:coverage</code></pre>
     </script>
   </body>
 </html>
+
+

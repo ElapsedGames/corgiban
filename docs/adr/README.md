@@ -51,3 +51,4 @@ If an ADR is superseded, link bidirectionally:
 - `0005-canvas-renderplan-split.md`
 - `0006-embed-shadow-dom-styling-delivery.md`
 - `0007-indexeddb-persistence-migration-retention.md`
+- `0008-tsconfig-project-references-emission-policy.md`

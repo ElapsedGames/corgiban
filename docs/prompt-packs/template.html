@@ -13,6 +13,11 @@
   Location rule:
   - Always place in docs/prompt-packs/. Do not create a new folder.
   - One file per PR.
+
+  IMPORTANT - after copying, update the storageKey in the <script> section near the bottom of
+  the file. Change 'promptPackTabColors' to 'promptPackTabColors_phase-NN-your-slug' (matching
+  your filename). If you skip this step, tab status from one pack will bleed into another when
+  both are open in the same browser.
 -->
 <html lang="en">
   <head>
@@ -1027,6 +1032,15 @@
             role="tab"
             aria-selected="false"
           >
+            Documentation
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-six"
+            role="tab"
+            aria-selected="false"
+          >
             Verification
           </button>
         </div>
@@ -1067,6 +1081,10 @@ Required planning output:
 6. Flag ambiguities, risks, and open questions before implementation starts.
 
 Output structured text only. Do not open files for editing.</code></pre>
+<pre>OUTPUT:<code id="prompt-phase-one-output">
+[Paste the structured planning output here after completing the Planning prompt above.
+The Documentation tab reads this section to identify scope, coverage map, and acceptance criteria.]
+</code></pre>
           </div>
         </section>
 
@@ -1222,6 +1240,48 @@ You are not done until all of the following pass with no errors:
 
         <section class="tab-panel" data-tab="phase-five" role="tabpanel" hidden>
           <div class="panel-title">
+            <h2>Documentation</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Review and update all project documentation affected by this PR. Run after all
+            implementation tabs are complete, before Verification.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-five">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-five">Read LLM_GUIDE.md, docs/Architecture.md, and docs/adr/* before proceeding.
+Do not write any new implementation code in this phase.
+
+Read the Planning tab output for this PR before reviewing documentation.
+Use Glob to list docs/prompt-packs/*.html, identify the pack for this PR (it will be the most
+recently modified file or match the phase you are working on), then Read that file and locate the
+OUTPUT section inside the Planning (phase-one) panel. This contains the scope lock, coverage map,
+and acceptance criteria that define what changed in this PR.
+
+Review every documentation file that may be affected by all uncommitted, unstaged, and untracked changes in the repo:
+- docs/Architecture.md - update if any architectural boundaries, module structure, or data flow changed.
+- docs/adr/ - create a new ADR if any architectural decision was made (new pattern, trade-off chosen, approach locked in).
+- packages/*/README.md - update each package README to reflect new exports, public API, or usage examples added in this PR.
+- docs/project-plan.md - mark completed tasks/phases as done if applicable.
+- LLM_GUIDE.md - update if new conventions, patterns, or constraints were established.
+- CONTRIBUTING.md - update if developer workflow, setup steps, or tooling changed.
+
+For each file:
+1. Read it in full.
+2. Identify any section that is stale, missing, or contradicts what was built.
+3. Update or create as needed.
+
+Do not mark this tab complete until every affected doc has been reviewed and either updated or explicitly confirmed as current.</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-six" role="tabpanel" hidden>
+          <div class="panel-title">
             <h2>Verification</h2>
             <span class="status-pill" data-status-pill>Not Started</span>
           </div>
@@ -1232,18 +1292,18 @@ You are not done until all of the following pass with no errors:
           <div class="prompt-block">
             <header>
               <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
-              <button class="copy-btn" type="button" data-copy-target="prompt-phase-five">
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-six">
                 Copy prompt
               </button>
             </header>
-            <pre><code id="prompt-phase-five">Read LLM_GUIDE.md and docs/Architecture.md.
+            <pre><code id="prompt-phase-six">Read LLM_GUIDE.md and docs/Architecture.md.
 Review all changes made in this PR against the acceptance criteria from Phase 1 (Planning).
 
 Confirm each of the following:
 1. Every acceptance criterion from Phase 1 is met.
 2. No files outside the agreed scope were modified.
 3. All package boundary rules from LLM_GUIDE.md are satisfied.
-4. No dead code, debug artifacts, commented-out blocks, or console logs remain.
+4. No dead code, debug artifacts, or commented-out blocks remain in package source files. No console.* calls remain in packages/*/src/ (tools/, scripts, and server entry points are exempt).
 5. Test coverage meets or exceeds the pre-PR baseline.
 6. pnpm typecheck, pnpm lint, and pnpm test:coverage all pass with no errors.
 
@@ -1295,6 +1355,8 @@ pnpm test:coverage</code></pre>
           yellow: 'Prompt in Progress',
           green: 'Prompt Complete',
         };
+        // IMPORTANT: change this key to match your pack filename when copying the template
+        // (e.g. 'promptPackTabColors_phase-01-your-slug') to avoid status collisions.
         const storageKey = 'promptPackTabColors';
 
         function setActive(name) {

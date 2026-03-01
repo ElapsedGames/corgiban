@@ -189,6 +189,7 @@ See ADR-0006 (`docs/adr/0006-embed-shadow-dom-styling-delivery.md`).
 /packages
   /shared
     src/
+      constraints.ts
       types.ts
       invariants.ts
       result.ts
@@ -279,6 +280,9 @@ See ADR-0006 (`docs/adr/0006-embed-shadow-dom-styling-delivery.md`).
     ...
 ```
 
+Note: This layout includes planned files/modules that may not exist yet. Always check the repo
+tree (and `docs/project-plan.md`) for what is implemented in the current phase.
+
 ### 4.1 Boundary rules (enforced)
 
 - `packages/core` imports from `packages/shared` and `packages/levels` only.
@@ -322,23 +326,25 @@ A level is defined in an editor-friendly and human-readable format, but compiled
 - optional: `knownSolution?: string | null` (null = known-bad, undefined = not tested)
 - optional: tags/difficulty/author
 
+Row normalization: `parseLevel` strips common leading whitespace and right-pads ragged rows with spaces (spaces are floor).
+
 **LevelRuntime (engine)**
 
+- `levelId`
 - `width`, `height`
 - `staticGrid: Uint8Array` (walls/targets/floor)
-- `initialPlayer: number` (index)
+- `initialPlayerIndex: number` (index)
 - `initialBoxes: Uint32Array` (indices)
 
 Note: solver internal state nodes may store box indices as Uint16Array (grid max 64x64) for memory efficiency.
 
 ### 5.2 GameState (engine boundary)
 
-`GameState` is serializable and deterministic.
+`GameState` is deterministic. In the core package it contains:
 
-- `levelId`
-- `staticGrid`
+- `level: LevelRuntime`
 - `playerIndex`
-- `boxes` (sorted array or bitset)
+- `boxes` (sorted `Uint32Array`)
 - `history` (stack of reversible diffs: player prev, box moved, etc.)
 - `stats` (moves, pushes, timestamps optional)
 
@@ -348,6 +354,7 @@ JSON-serializable (ids/plain arrays/objects only).
 **Invariants**
 
 - player never overlaps a wall
+- player never overlaps a box
 - boxes never overlap each other
 - box positions always valid floor/target cells
 
@@ -705,6 +712,7 @@ Current accepted ADRs:
 - ADR-0005: Canvas rendering testability via RenderPlan split
 - ADR-0006: Web Component embed strategy (Shadow DOM and styling delivery)
 - ADR-0007: Persistence model (IndexedDB stores, migration policy, retention)
+- ADR-0008: TypeScript project references and emission policy
 
 ---
 

@@ -1,13 +1,14 @@
 # Corgiban
 
 Corgiban is a Sokoban-style puzzle game with a solver and benchmark focus. The project targets a clean TypeScript monorepo with a deterministic core engine, worker-based solvers, and strong test coverage.
-Domain packages (`core`, `solver`, `worker`, `benchmarks`) are framework-agnostic and reusable outside the Remix app shell.
+Domain packages (`core`, `solver`, `benchmarks`) are framework-agnostic and reusable outside the Remix app shell. `worker` is an infrastructure adapter that runs domain logic off the main thread.
 
 ## Next milestone
 
 - Governance baseline, ADRs, and package scaffolding are in place.
-- Next: implement Phase 1 (levels + core engine) with high unit coverage.
-- Follow-up phases will implement the play UI, worker protocol, solver algorithms, and benchmarks.
+- Phase 1 (levels + core engine) is complete with high unit coverage.
+- Next: consider any changes needed based on other sokoban standards (integrate in to Phase 0/1 and update project plan and docs for future).
+- Deferred: implement Phase 2 (play UI parity and canvas renderer).
 
 ## Goals
 
@@ -21,12 +22,12 @@ Domain packages (`core`, `solver`, `worker`, `benchmarks`) are framework-agnosti
 
 - Governance docs, ADRs, and package scaffolding are in place.
 - Architecture, planning, tooling, and process docs are in place.
-- Core packages (`core`, `solver`, `worker`) and `apps/web` have README boundaries defined; implementation begins in Phase 1.
+- Core packages (`shared`, `levels`, `core`) now include the Phase 1 engine and level data baseline.
 - The repository is public for visibility, but it is not accepting PRs yet and issues are disabled for now.
 
 ## Quickstart
 
-Root commands (available once Phase 0 scaffold is fully wired):
+Root commands (available after `pnpm i`):
 
 ```bash
 pnpm i

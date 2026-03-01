@@ -74,5 +74,5 @@ Desktop.ini
 # Misc
 *.local
 
-# Local commit message scratchpad
-commit-message.txt
+# Local commit message
+commit-message.md
