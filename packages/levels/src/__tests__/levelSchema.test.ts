@@ -8,8 +8,9 @@ import {
 } from '../levelSchema';
 
 describe('normalizeKnownSolution', () => {
-  it('uppercases lowercase input', () => {
-    expect(normalizeKnownSolution('lurd')).toBe('LURD');
+  it('preserves case and accepts lowercase input', () => {
+    expect(normalizeKnownSolution('lurd')).toBe('lurd');
+    expect(normalizeKnownSolution('LuRd')).toBe('LuRd');
   });
 
   it('rejects whitespace and empty strings', () => {
@@ -46,7 +47,7 @@ describe('normalizeLevelDefinition', () => {
       knownSolution: 'lurd',
     });
 
-    expect(normalized.knownSolution).toBe('LURD');
+    expect(normalized.knownSolution).toBe('lurd');
     expect(normalized.id).toBe('classic-001');
     expect(normalized.name).toBe('Classic 1');
   });

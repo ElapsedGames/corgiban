@@ -75,6 +75,14 @@ result.ts
 src/
 builtinLevels.ts
 levelSchema.ts
+/formats
+src/
+index.ts
+parseXsb.ts
+parseSok017.ts
+parseSlcXml.ts
+serializeXsb.ts
+normalizeGrid.ts
 /core
 src/
 model/
@@ -197,6 +205,7 @@ Support + fallback matrix (minimum):
 # ==================================================================== 2) HARD PACKAGE BOUNDARIES (ENFORCE WITH TS + ESLINT)
 
 - packages/core imports ONLY: packages/shared, packages/levels
+- packages/formats imports ONLY: packages/shared, packages/levels
 - packages/solver imports ONLY: packages/core, packages/shared
 - packages/worker imports ONLY: packages/solver, packages/core, packages/shared, packages/benchmarks
 - packages/benchmarks imports ONLY: packages/solver, packages/core, packages/shared
@@ -223,7 +232,7 @@ Enforce with:
   Runs as part of pnpm lint.
 - dependency-cruiser: dependency-cruiser.config.mjs at repo root imports boundary-rules.mjs and
   enforces import-graph rules for supplementary validation and graph generation.
-  Run on-demand via pnpm exec depcruise --validate dependency-cruiser.config.mjs packages/ apps/.
+  Run on-demand via pnpm exec depcruise --config dependency-cruiser.config.mjs packages/ apps/.
 
 # ==================================================================== 3) DOMAIN MODEL AND ENGINE REQUIREMENTS
 
@@ -234,7 +243,11 @@ Levels use a static+dynamic split:
 
 Level data should remain editor-friendly and compatible with minified string rows from the existing implementation:
 
-- LevelDefinition: { id, name, rows: string[], knownSolution?: string | null, ... } // null = known-bad, undefined = not tested
+- LevelDefinition: { id, name, rows: string[], knownSolution?: string | null, ... }
+  - knownSolution allows only UDLR/udlr, preserves case (lowercase = move, uppercase = push)
+  - null = no usable known solution (absent, empty, or failed validation)
+  - undefined = field not present in source pre-normalization only
+- LevelCollection: { id, title, levels: LevelDefinition[], ... } with collection metadata
 - Compile to LevelRuntime: { levelId, width, height, staticGrid, initialPlayerIndex, initialBoxes }
   - initialBoxes uses Uint32Array in LevelRuntime; solver internal state nodes may use Uint16Array for memory efficiency.
 
@@ -242,9 +255,11 @@ Core engine API (pure):
 
 - createGame(levelRuntime): GameState
 - applyMove(state, direction): { state: GameState, changed: boolean, pushed: boolean }
+- applyMoves(state, directions, options?): { state: GameState, changed: boolean, stoppedAt?: number }
 - undo(state): GameState
 - restart(state): GameState
 - isWin(state): boolean
+- selectCellAt(levelOrState, index): { wall: boolean, target: boolean, box: boolean, player: boolean }
 - (optional) getLegalMoves(state): Direction[]
 
 GameState is deterministic. In the core package it contains:
@@ -268,8 +283,12 @@ Move string contract:
 
 - Canonical direction encoding defined once in packages/shared/src/types.ts:
   export type Direction = 'U' | 'D' | 'L' | 'R'; // U=up D=down L=left R=right
-- All move strings, knownSolution fields, solver output, and sequence inputs use this encoding. No other encoding exists in the repo.
-- When porting legacy levels, verify and re-encode any knownSolution strings to UDLR before committing.
+- Engine move strings, solver output, and sequence inputs use uppercase UDLR only.
+- knownSolution may be mixed-case UDLR/udlr; preserve case for push markers.
+- When porting legacy levels, verify knownSolution uses only UDLR/udlr, strip whitespace,
+  and preserve case (invalid values become null).
+- Built-in knownSolution strings are legacy direction-only uppercase; push-marker conversion
+  is deferred until formats import/export work is implemented.
 
 Validation constraints (packages/shared/src/constraints.ts):
 
@@ -277,7 +296,27 @@ Validation constraints (packages/shared/src/constraints.ts):
 - MAX_BOXES = 40
 - MAX_BENCH_SUITE_LEVELS = 200
 - MAX_IMPORT_BYTES = 1_048_576 (1 MB)
-  Both packages/core (parseLevel) and the import parser enforce these using the same constants. Reject malformed rows at parse time with a descriptive error message. Imported JSON is size-checked before JSON.parse, then strict-schema validated after parse (unknown keys rejected).
+  Both packages/core (parseLevel) and the import parser enforce these using the same constants.
+  No separate solver limits. Reject malformed rows at parse time with a descriptive error message.
+  Imported JSON is size-checked before JSON.parse, then strict-schema validated after parse
+  (unknown keys rejected).
+
+Format interop (packages/formats):
+
+- CORG stays canonical; core/encoding handles CORG only.
+- formats package handles XSB/SOK/SLC import/export and emits LevelDefinition/LevelCollection.
+- Full SOK 0.17 grammar support (including RLE and row separators).
+- Import normalization rules:
+  - Never trim rows; ragged rows allowed (pad to max width with floor).
+  - Support interior empty rows via two-pass normalization.
+  - Accept floor aliases `-` and `_` only in converters.
+  - Reject tabs by default; never store tabs internally.
+  - Use topology-aware crop (outside-void flood fill), not naive common-indent stripping.
+  - Detect open/unclosed puzzles; reject by default with explicit override policies only.
+  - Closed-puzzle validation yields warnings by default; strict mode optional.
+  - Reject levels with all boxes on targets at start.
+  - Detect unsupported variants (numbered, multiban, hexoban, modern) and reject by default
+    with optional metadata carry.
 
 # ==================================================================== 4) SOLVER REQUIREMENTS
 
@@ -285,6 +324,11 @@ Solver action model MUST be push-based:
 
 - Search graph edges are box pushes; between pushes compute player reachability.
 - Return solution as move string for playback (expand macro pushes to UDLR steps).
+  - expandSolutionFromStart(levelRuntime, pushes) returns the full UDLR walk+push sequence.
+  - expandSolution(levelRuntime, pushes, start) expands from an explicit start state when needed.
+  - Push = { boxIndex, direction } where boxIndex is the box position before the push.
+  - Walk-path reconstruction uses BFS from the player position to the push-entry cell,
+    expanding neighbors in canonical order U, D, L, R (same order as reachability).
 
 Baseline algorithms (start with one, structure for many):
 
@@ -298,6 +342,20 @@ Solver API:
 - deterministic given same inputs
 - cooperative cancellation via CancelToken (checked every N expansions)
 - progress callbacks are throttled and stable
+
+SolverOptions (packages/solver/api/solverTypes.ts):
+
+- timeBudgetMs?: number (if provided, > 0)
+- nodeBudget?: number (if provided, > 0)
+- heuristicId?: 'manhattan' | 'assignment' (rejected for bfsPush)
+- heuristicWeight?: number (1.0-10.0; > 1.0 enables Weighted A\*)
+- enableSpectatorStream?: boolean (when true, SOLVE_PROGRESS may include bestPathSoFar)
+
+Defaults and validation:
+
+- heuristicWeight outside [1.0, 10.0] is rejected.
+- heuristicId defaults to 'manhattan' for astarPush and idaStarPush.
+- heuristicWeight defaults to 1.0 for astarPush and idaStarPush.
 
 Add at least one deadlock pruning rule early:
 
@@ -349,8 +407,10 @@ Main -> Worker:
 
 Worker -> Main:
 
-- SOLVE_PROGRESS { runId, protocolVersion, expanded, frontier, depth, elapsedMs, bestHeuristic? }
+- SOLVE_PROGRESS { runId, protocolVersion, expanded, frontier, depth, elapsedMs, bestHeuristic?, bestPathSoFar? }
+  - bestPathSoFar (when present) is a fully expanded UDLR walk+push string.
 - SOLVE_RESULT { runId, protocolVersion, status, solutionMoves?, metrics }
+  - metrics: elapsedMs, expanded, generated, maxDepth, maxFrontier, pushCount, moveCount
 - SOLVE_ERROR { runId, protocolVersion, message, details? }
 - BENCH_PROGRESS { ... }
 - BENCH_RESULT { ... }
@@ -376,6 +436,14 @@ Progress throttling:
 Cancellation:
 
 - Must cancel quickly and release resources; never leave UI hanging.
+
+Concurrency model:
+
+- Multiple concurrent SOLVE_START messages with distinct runIds are supported.
+- The worker pool assigns one active run per worker and queues additional runs.
+- The worker pool supports cancelling queued runs by runId before they dispatch.
+- In-flight cancellation uses SOLVE_CANCEL; pool cancel only affects queued runs.
+- Worker pool dispose drains queued runs and rejects their promises.
 
 SharedArrayBuffer/Atomics:
 
@@ -432,12 +500,22 @@ Canvas rendering:
   - RenderPlan is serializable and emitted in stable order (deterministic).
   - The RAF loop calls buildRenderPlan then draw. Only buildRenderPlan requires test coverage.
 
+Replay pipeline:
+
+- solutionMoves string arrives in SOLVE_RESULT as a fully expanded UDLR string.
+- Parse into Direction[] and store in the replay controller's shadow state (not Redux).
+- Replay scheduler uses a RAF loop with a time accumulator (not setInterval).
+- Each replay tick applies one move to a shadow GameState held outside Redux (useRef in the replay controller).
+- Replay controller dispatches replayIndex updates; Redux never stores typed arrays.
+- When replay finishes, user can apply the solution to gameSlice or dismiss it.
+- Playback controls: Play/Pause, Step Back, Step Forward, Speed selector, and progress indicator.
+
 State slices (RTK):
 
 - gameSlice: current level, GameState, history pointers, input mode
-- solverSlice: active runs, progress, last solution, status, recommendation ({ algorithmId, features } from analyzeLevel), workerHealth ('idle' | 'healthy' | 'crashed')
+- solverSlice: active runs, progress, last solution, status, recommendation ({ algorithmId, features } from analyzeLevel), workerHealth ('idle' | 'healthy' | 'crashed'), replayState, replayIndex, replayTotalSteps
 - benchSlice: suites, active run status, results, filters
-- settingsSlice: animation speed, theme, debug flags
+- settingsSlice: tileAnimationDuration, solverReplaySpeed, theme, debug flags
 
 Redux serializability strategy (required):
 
@@ -528,7 +606,7 @@ CI gate (required on every PR):
 - pnpm lint
 - pnpm test:coverage (enforced thresholds)
 - boundary checks (eslint-plugin-boundaries + no-restricted-imports/no-restricted-syntax pass)
-- encoding policy check (UTF-8 without BOM, ASCII-default text, no smart punctuation unless justified)
+- encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
 
 Pre-commit hooks:
 
@@ -536,7 +614,7 @@ Pre-commit hooks:
 - pnpm lint
 - unit tests for affected packages
 - affected-test strategy must be explicit and deterministic (for example, changed workspace filter using pnpm --filter)
-- encoding policy check (UTF-8 without BOM, ASCII-default text, no smart punctuation unless justified)
+- encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
 
 CONTRIBUTING.md (required at repo root):
 
@@ -548,6 +626,7 @@ CONTRIBUTING.md (required at repo root):
 Testing requirements:
 
 - core: movement rules, push rules, win detection, undo/restart, parsing/encoding, constraint enforcement (rejects grids exceeding MAX_GRID_WIDTH etc.)
+- formats: import/export parsing, normalization rules, open/variant detection, and warnings
 - solver: reachability basics, corner deadlock rule, BFS solves small level(s), cancellation behavior (deterministic), chooseAlgorithm covering every rule branch, analyzeLevel covering edge cases (0 boxes, max boxes, minimal grid)
 - worker: protocol schema validation, cancellation path, throttled progress (deterministic simulation), workerHealth transitions on onerror/onmessageerror
 - web: key component behaviors (dispatches, renders state), keyboard input handler, buildRenderPlan output correctness for known states
@@ -599,7 +678,7 @@ Phase 1 - Levels + Core engine
 Status: Complete (Phase 1 scope delivered in this PR)
 
 1. Add packages/shared/src/constraints.ts with MAX_GRID_WIDTH, MAX_GRID_HEIGHT, MAX_BOXES, MAX_BENCH_SUITE_LEVELS, MAX_IMPORT_BYTES
-2. Port levels into packages/levels (preserve minified rows compatibility); verify and re-encode any knownSolution strings to UDLR
+2. Port levels into packages/levels (preserve minified rows compatibility); verify knownSolution uses only UDLR/udlr and preserve case
 3. Implement core model + engine functions with high unit coverage; enforce constraint limits in parseLevel
 4. Add hashing utilities for solver use
 
@@ -609,12 +688,19 @@ Decision dependencies: ADR-0001 (app shell) and ADR-0005 (RenderPlan split).
 1. Remix app (`apps/web`, Vite mode) + Tailwind layout; configure content globs for workspace packages; set up tokens.css and dark mode class strategy
 2. Remix route modules for /play, /bench, /dev/ui-kit with route-level ErrorBoundary exports
 3. RTK store + gameSlice
-4. Canvas renderer split: buildRenderPlan(state): RenderPlan (pure, tested) + draw(ctx, plan): void (thin, untested); RAF loop; keyboard input + move history + restart + undo + next level
-5. Sequence input applies moves deterministically
-6. Add /dev/ui-kit route rendering all design system primitives
+4. Add core helpers applyMoves and selectCellAt with tests (Phase 2 glue)
+5. Canvas renderer split: buildRenderPlan(state): RenderPlan (pure, tested) + draw(ctx, plan): void (thin, untested); RAF loop; keyboard input + move history + restart + undo + next level
+6. Sequence input applies moves deterministically
+7. Add /dev/ui-kit route rendering all design system primitives
 
 Phase 3 - Worker + baseline solver
 Decision dependencies: ADR-0003 (worker protocol) and ADR-0004 (push-based solver model).
+
+Status: Partial (protocol schemas + validation tests, solver options normalization,
+expandSolution utility, worker pool, and replay controller scaffolding implemented early;
+worker runtime and solver algorithms still pending).
+Note: Phase 3 scaffolding landed before Phase 2 by request; integration is deferred until
+Phase 2 UI wiring and Phase 3 runtime work are complete.
 
 1. Implement protocol schemas + runtime validation
 2. Implement solver BFS push-based with cancel token + throttled progress hooks
@@ -631,6 +717,7 @@ Decision dependency: ADR-0007 (IndexedDB model, migration policy, retention).
 4. Call navigator.storage.persist() on adapter init when feature-detected; record outcome in bench diagnostics and log only in dev/debug
 5. Add performance.mark/measure instrumentation around solve dispatch and worker response; wire PerformanceObserver to debug perf panel in benchSlice
 6. File System Access API export/import for benchmark reports and level packs (anchor-download fallback)
+7. TODO: add protocol schema union discriminator tests (workerInboundSchema/workerOutboundSchema reject unknown message types)
 
 Phase 5 - Quality and offline
 
@@ -639,13 +726,28 @@ Phase 5 - Quality and offline
 3. Add minimal Playwright smoke test (play a level, run a bench, verify IndexedDB persistence)
 4. Add PWA: service worker/Workbox integration compatible with Remix hosting; verify app loads without network
 
+Deferred notes:
+
+- ReplayController dispatches slice actions directly; consider injecting callbacks or ports when solverSlice expands.
+- expandSolution uses per-push array lookup; consider O(1) box index map if hot.
+- encoding-check.mjs skips null-byte files; consider hard-failing instead of skipping.
+- Replay controller tests rely on action type strings; re-audit when solverSlice expands.
+
 Phase 6 - Adapters, tooling, and performance
-Decision dependency: ADR-0006 (embed Shadow DOM and styling delivery strategy).
+Decision dependencies: ADR-0006 (embed Shadow DOM and styling delivery strategy) and ADR-0010 (format interop policy).
 
 1. Level Lab page (/lab): level editor (text input for row encoding) + preview/play area + one-click solver/bench run + export/import JSON
-2. Embed adapter (`packages/embed`): `<corgiban-embed>` custom element mounting a minimal React subtree with Shadow DOM + scoped stylesheet injection. Bundle React as a dependency (not peer). Follow ADR-0006 lifecycle/cleanup constraints and add integration tests covering attribute changes, DOM events, and unmount
-3. OffscreenCanvas: move sprite pre-rendering into a worker using OffscreenCanvas; keep main-thread renderer as fallback for browsers that don't support it
-4. WASM kernels (`packages/solver-kernels`): implement reachability flood fill, state hashing, and assignment heuristic in TS first; promote bottlenecks to Rust + `wasm-pack` kernels loaded lazily in workers (`instantiateStreaming` + fallback)
+2. formats package: XSB/SOK/SLC import/export with full SOK 0.17 grammar, normalization rules, and variant detection; integrate with Level Lab and import/export flows
+3. Embed adapter (`packages/embed`): `<corgiban-embed>` custom element mounting a minimal React subtree with Shadow DOM + scoped stylesheet injection. Bundle React as a dependency (not peer). Follow ADR-0006 lifecycle/cleanup constraints and add integration tests covering attribute changes, DOM events, and unmount
+4. OffscreenCanvas: move sprite pre-rendering into a worker using OffscreenCanvas; keep main-thread renderer as fallback for browsers that don't support it
+5. WASM kernels (`packages/solver-kernels`): implement reachability flood fill, state hashing, and assignment heuristic in TS first; promote bottlenecks to Rust + `wasm-pack` kernels loaded lazily in workers (`instantiateStreaming` + fallback)
+6. Race Mode (deferred):
+   - Add SolverPersonality type and built-in personality bundles in packages/solver.
+   - Extend solverSlice to hold runId -> { personality, progress, result, replayState } for multi-runner support.
+   - Race Mode UI on /play with multiple corgis and progress metrics.
+   - Worker pool runs concurrent solver runs; pool size capped at max(1, min(4, hardwareConcurrency - 1)).
+   - Race result screen shows winner by elapsedMs and plays back each solution.
+   - Depends on worker pool, bestPathSoFar in SOLVE_PROGRESS, and SolverPersonality type.
 
 Phase 7 - Optional browser-dev adapters
 
@@ -653,6 +755,19 @@ Phase 7 - Optional browser-dev adapters
    - loaded via dynamic import
    - gated behind an explicit feature flag (default OFF)
    - not required for normal play/solve/bench product flows
+
+Phase 8 - Solver optimization and advanced search (planned)
+Decision dependency: ADR-0009 (solver-optimized state representation and hashing).
+
+1. Decide solver optimality target (push-optimal vs move-optimal vs any-solution) and document in an ADR if it changes from push-optimal; keep the push-based action model.
+2. Introduce solver-only CompiledLevel precomputations: neighbor table, walls/goals bitsets, dead squares, and goal-distance tables; keep data immutable and shareable across algorithms.
+3. Introduce SolverState minimal representation: sorted boxes list plus occupancy bitset (or boolean array), canonical player index within the reachable region, and 64-bit Zobrist key (bigint or two uint32) for visited/transposition use.
+4. Replace string visited keys with numeric Zobrist keys; define an optional collision check strategy and add determinism tests.
+5. Add advanced heuristics: assignment (Hungarian) using precomputed distances, optional pattern database lookups; keep admissibility for optimal solvers.
+6. Expand deadlock pruning: 2x2 blocks, frozen patterns/corrals, maze-specific deadlock tables or pattern search; add regression tests per rule.
+7. Add macro push generation (tunnels/rooms) to reduce effective depth; ensure solver output still expands to UDLR moves.
+8. Optional: reverse or bidirectional search support using the same SolverState encoding.
+9. Optional: portfolio/parallel solver runs in workers with shared caches and coordinated cancellation.
 
 # ==================================================================== 11) ACCEPTANCE CRITERIA (REQUIRED)
 

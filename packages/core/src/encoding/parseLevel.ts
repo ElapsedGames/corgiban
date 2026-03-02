@@ -5,13 +5,19 @@ import { STATIC_FLOOR, STATIC_TARGET, STATIC_WALL } from '../model/cell';
 import type { LevelRuntime } from '../model/level';
 
 function countLeadingWhitespace(row: string): number {
-  const match = row.match(/^[ \t]*/);
+  const match = row.match(/^[ ]*/);
   return match ? match[0].length : 0;
 }
 
 function normalizeRows(rows: string[]): { rows: string[]; width: number } {
   if (rows.length === 0) {
     throw new Error('Level must contain at least one row.');
+  }
+
+  for (const row of rows) {
+    if (row.includes('\t')) {
+      throw new Error('Tabs are not allowed in level rows.');
+    }
   }
 
   const nonEmptyRows = rows.filter((row) => row.trim().length > 0);
@@ -98,6 +104,11 @@ export function parseLevel(definition: LevelDefinition): LevelRuntime {
   }
 
   boxes.sort((a, b) => a - b);
+  const allBoxesOnTargets =
+    boxes.length > 0 && boxes.every((boxIndex) => staticGrid[boxIndex] === STATIC_TARGET);
+  if (allBoxesOnTargets) {
+    throw new Error('Levels with all boxes on targets at start are not supported.');
+  }
 
   return {
     levelId: definition.id,

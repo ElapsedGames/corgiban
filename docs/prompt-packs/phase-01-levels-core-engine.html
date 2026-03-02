@@ -1069,7 +1069,7 @@ Produce a Phase 1 execution plan + prompt-pack coverage map that is specific eno
 
 Phase 1 tasks (verbatim from docs/project-plan.md):
 1. Add packages/shared/src/constraints.ts with MAX_GRID_WIDTH, MAX_GRID_HEIGHT, MAX_BOXES, MAX_BENCH_SUITE_LEVELS, MAX_IMPORT_BYTES
-2. Port levels into packages/levels (preserve minified rows compatibility); verify and re-encode any knownSolution strings to UDLR
+2. Port levels into packages/levels (preserve minified rows compatibility); verify knownSolution uses only UDLR/udlr and preserve case
 3. Implement core model + engine functions with high unit coverage; enforce constraint limits in parseLevel
 4. Add hashing utilities for solver use
 
@@ -1095,7 +1095,7 @@ B) File plan (scope is explicit)
 C) Acceptance criteria (measurable)
 4) Write acceptance criteria as a numbered checklist that is objectively verifiable.
    - Include constraint enforcement checks with explicit values: MAX_GRID_WIDTH = 64, MAX_GRID_HEIGHT = 64, MAX_BOXES = 40, MAX_BENCH_SUITE_LEVELS = 200, MAX_IMPORT_BYTES = 1_048_576.
-   - Include knownSolution UDLR re-encoding validation (uppercase, no whitespace); invalid values become null and undefined means not tested.
+   - Include knownSolution validation (UDLR/udlr only, no whitespace; preserve case); invalid values become null and undefined means not tested.
    - Explicitly define the built-in level source as packages/levels/src/builtinLevels.ts and treat whitespace as empty floor (not 'E') when mapping rows.
    - Include token mapping and cell-model requirements: W=wall, E or space=floor+empty, T=target+empty, P=floor+player, B=floor+box, S=target+box, Q=target+player. Do not add a new cell type for S; decompose it to floor+occupant.
    - Include core engine determinism and invariants coverage.
@@ -1116,7 +1116,7 @@ Output the plan only. Do not edit files in this phase.</code></pre>
 <pre>OUTPUT:<code id="prompt-phase-one">
 A) Scope Lock (Verbatim)
 1. Add packages/shared/src/constraints.ts with MAX_GRID_WIDTH, MAX_GRID_HEIGHT, MAX_BOXES, MAX_BENCH_SUITE_LEVELS, MAX_IMPORT_BYTES
-2. Port levels into packages/levels (preserve minified rows compatibility); verify and re-encode any knownSolution strings to UDLR
+2. Port levels into packages/levels (preserve minified rows compatibility); verify knownSolution uses only UDLR/udlr and preserve case
 3. Implement core model + engine functions with high unit coverage; enforce constraint limits in parseLevel
 4. Add hashing utilities for solver use
 
@@ -1170,7 +1170,7 @@ C) Acceptance Criteria (Measurable)
 2. Level source is packages/levels/src/builtinLevels.ts; rows preserve minified compatibility, and whitespace in row strings is treated as empty floor (not as E) when mapping to cells.
 3. Token mapping is enforced in parsing and tests: W = wall, E or space = floor + empty, T = target + empty, P = floor + player, B = floor + box, S = target + box, Q = target + player; S does not create a new cell type and is decomposed into target + box.
 4. Level ids and names follow: id = {category}-{NNN} (zero-padded 3 digits, 1-based), name = "{Category} {N}"; category comes from top-level keys in packages/levels/src/builtinLevels.ts.
-5. knownSolution values are normalized to uppercase UDLR with no whitespace; lowercase is uppercased; any non-UDLR or whitespace yields null; empty after trim yields null; undefined means not tested.
+5. knownSolution values are trimmed, preserve case (UDLR/udlr only), and contain no whitespace; any non-UDLR or whitespace yields null; empty after trim yields null; undefined means not tested.
 6. parseLevel rejects levels exceeding MAX_GRID_WIDTH, MAX_GRID_HEIGHT, or MAX_BOXES with descriptive errors; tests cover violations for each constraint boundary.
 7. Core engine is deterministic and pure: repeated runs of createGame, applyMove, undo, restart, and isWin on identical inputs yield identical outputs; tests cover these invariants.
 8. GameState invariants are tested and hold: player never on wall, boxes never overlap, boxes never on walls.
@@ -1188,7 +1188,7 @@ E) Open Questions / Risks
 F) Decisions / Resolutions
 1. Hashing strategy: Phase 1 core normalize/hash uses playerIndex + sorted box indices; solver Phase 3 replaces playerIndex with reachable-region representative after reachability flood fill.
 2. Level id/name scheme: id = {category}-{NNN} (zero-padded 3 digits, 1-based); name = "{Category} {N}".
-3. knownSolution normalization: toUpperCase(), trim, any non-UDLR or whitespace -> null; empty after trim -> null; undefined means not tested.
+3. knownSolution normalization: trim, preserve case, any non-UDLR or whitespace -> null; empty after trim -> null; undefined means not tested.
 4. Row normalization: strip common leading whitespace per level and right-pad ragged rows with spaces; internal spaces are floor.
 5. Schema validation split: packages/levels validates tokens/knownSolution; packages/core/encoding enforces runtime constraints.
 6. No shared fixtures module in Phase 1 tests; use inline fixtures per test file.
@@ -1216,7 +1216,7 @@ F) Decisions / Resolutions
 Reference the coverage map and acceptance criteria defined in Phase 1.
 
 Context:
-- Add shared constraints and port level data/schema into packages/levels with UDLR-verified knownSolution values.
+- Add shared constraints and port level data/schema into packages/levels with UDLR/udlr-verified knownSolution values (case preserved).
 - Source levels from packages/levels/src/builtinLevels.ts. Treat whitespace as empty floor, not 'E', if you map tokens.
 - Token mapping table (S/Q are parsing details, not new cell kinds):
   Token | floor | occupant | notes
@@ -1232,7 +1232,7 @@ Context:
 Coverage assignments for this tab:
 - Tasks:
   1. Add packages/shared/src/constraints.ts with MAX_GRID_WIDTH, MAX_GRID_HEIGHT, MAX_BOXES, MAX_BENCH_SUITE_LEVELS, MAX_IMPORT_BYTES
-  2. Port levels into packages/levels (preserve minified rows compatibility); verify and re-encode any knownSolution strings to UDLR
+  2. Port levels into packages/levels (preserve minified rows compatibility); verify knownSolution uses only UDLR/udlr and preserve case
 - Integration proofs: none
 
 File scope (required):
@@ -1273,14 +1273,14 @@ Steps:
        rows: string[];
        knownSolution?: string | null; // null = known-bad, undefined = not tested
      }
-   - Enforce knownSolution alphabet = U, D, L, R only (uppercase, no whitespace).
-   - Normalize lowercase solutions to uppercase; if any non-UDLR symbol remains (including whitespace), set knownSolution to null. Do not attempt to guess or re-encode unknown symbols; leave a short inline note when dropping a value.
+   - Enforce knownSolution alphabet = U, D, L, R only (UDLR/udlr, no whitespace).
+   - Preserve case; trim; if any non-UDLR symbol remains (including whitespace), set knownSolution to null. Do not attempt to guess or re-encode unknown symbols; leave a short inline note when dropping a value.
    - Trim leading/trailing whitespace; if internal whitespace remains, set knownSolution to null.
    - If the string is empty after trimming, set knownSolution to null.
    - Validate row strings against the allowed token set: W, E, T, P, B, S, Q, and space. Document S=target+box and Q=target+player.
      Any character outside this set must be rejected with a descriptive error that includes the bad token and row index.
 4. Add unit tests in packages/levels/src/__tests__/levelSchema.test.ts:
-   - knownSolution normalization (lowercase -> uppercase).
+   - knownSolution normalization (preserve case; trim).
    - knownSolution rejection (whitespace, empty-after-trim, non-UDLR symbols).
    - row token validation (unknown token -> descriptive error).
 5. Add packages/levels/vitest.config.ts and register it in vitest.workspace.ts so pnpm test and pnpm test:coverage execute levels tests.
@@ -1850,5 +1850,7 @@ pnpm test:coverage</code></pre>
     </script>
   </body>
 </html>
+
+
 
 

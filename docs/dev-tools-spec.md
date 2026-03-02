@@ -25,7 +25,7 @@ between the two tools. Adding a new package or rule means editing only boundary-
 
 boundary-rules.mjs defines and exports:
 
-export const PACKAGES = ['shared', 'levels', 'core', 'solver', 'worker', 'benchmarks', 'web'];
+export const PACKAGES = ['shared', 'levels', 'formats', 'core', 'solver', 'worker', 'benchmarks', 'web'];
 // When Phase 6/7 packages are introduced (`embed`, `solver-kernels`),
 // extend PACKAGES and DIRECTION_RULES in the same change that adds those packages.
 
@@ -33,6 +33,7 @@ export const DIRECTION_RULES = [
 // { from: <glob pattern>, disallow: [<glob pattern>, ...], forbidSpecifiers: [...] }
 { from: 'packages/shared/src/**', disallow: ['packages/core/**', 'packages/solver/**', 'packages/worker/**', 'packages/benchmarks/**', 'packages/levels/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit', 'react-router', 'react-router-dom'] },
 { from: 'packages/levels/src/**', disallow: ['packages/core/**', 'packages/solver/**', 'packages/worker/**', 'packages/benchmarks/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit'] },
+{ from: 'packages/formats/src/**', disallow: ['packages/core/**', 'packages/solver/**', 'packages/worker/**', 'packages/benchmarks/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit'] },
 { from: 'packages/core/src/**', disallow: ['packages/solver/**', 'packages/worker/**', 'packages/benchmarks/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit', 'react-router', 'react-router-dom'] },
 { from: 'packages/solver/src/**', disallow: ['packages/worker/**', 'packages/benchmarks/**', 'packages/levels/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit', 'react-router', 'react-router-dom'] },
 { from: 'packages/worker/src/**', disallow: ['packages/levels/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', 'react-router', 'react-router-dom', '@reduxjs/toolkit'] },
@@ -110,7 +111,7 @@ Assume `apps/web` runs Remix in Vite mode for resolver/bundling behavior.
    forbidden rules format. Do NOT map WORKER_CREATION_RULE - dependency-cruiser resolves module
    imports, not runtime constructor calls, so new Worker() placement cannot be enforced here.
    Add pnpm script: graph:deps
-   pnpm exec depcruise --validate dependency-cruiser.config.mjs packages/ apps/
+   pnpm exec depcruise --config dependency-cruiser.config.mjs packages/ apps/
    --output-type dot | dot -T svg > docs/\_generated/dep-graph.svg
    Run on-demand only (not in CI gate). Useful for architecture visualization.
 
@@ -229,7 +230,7 @@ E) Wire into package scripts
 
 Add pnpm scripts at repo root (package.json):
 
-- graph:deps: pnpm exec depcruise --validate dependency-cruiser.config.mjs packages/ apps/ --output-type dot | dot -T svg > docs/\_generated/dep-graph.svg
+- graph:deps: pnpm exec depcruise --config dependency-cruiser.config.mjs packages/ apps/ --output-type dot | dot -T svg > docs/\_generated/dep-graph.svg
 - best-practices: tsx tools/src/bestPracticesReport.ts --out-dir docs/\_generated/analysis
 
 CI gate (GitHub Actions, every PR):
@@ -238,7 +239,7 @@ CI gate (GitHub Actions, every PR):
 - pnpm typecheck (project references + exports field catches deep imports)
 - pnpm lint (eslint-plugin-boundaries, no-restricted-globals, no-restricted-syntax)
 - pnpm test:coverage
-- encoding policy check (UTF-8 without BOM, ASCII-default text, no smart punctuation unless justified)
+- encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
   graph:deps and best-practices run on-demand only.
 
 Create docs/\_generated/analysis/README.md:

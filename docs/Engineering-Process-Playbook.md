@@ -37,15 +37,16 @@ It is project-specific and aligns with `docs/Architecture.md`, `docs/project-pla
 Enforce dependency direction continuously:
 
 1. `packages/core` may import only `packages/shared` and `packages/levels`.
-2. `packages/solver` may import only `packages/core` and `packages/shared`.
-3. `packages/worker` may import only `packages/solver`, `packages/core`, `packages/shared`, and `packages/benchmarks`.
-4. `packages/benchmarks` may import only `packages/solver`, `packages/core`, and `packages/shared`.
-5. `apps/web` imports package code only through public entrypoints (`src/index.ts` exports).
-6. `packages/embed` (when introduced) is an adapter package; it may import React and package
+2. `packages/formats` may import only `packages/shared` and `packages/levels`.
+3. `packages/solver` may import only `packages/core` and `packages/shared`.
+4. `packages/worker` may import only `packages/solver`, `packages/core`, `packages/shared`, and `packages/benchmarks`.
+5. `packages/benchmarks` may import only `packages/solver`, `packages/core`, and `packages/shared`.
+6. `apps/web` imports package code only through public entrypoints (`src/index.ts` exports).
+7. `packages/embed` (when introduced) is an adapter package; it may import React and package
    public entrypoints, and bundles React as a dependency (not peer dependency) for self-contained
    embedding.
-7. Adapters (`apps/web/app/ui`, `apps/web/app/routes`, `apps/web/app/canvas`) must never access persistence directly.
-8. Persistence adapters in `apps/web/app/infra/persistence` must not import adapter folders.
+8. Adapters (`apps/web/app/ui`, `apps/web/app/routes`, `apps/web/app/canvas`) must never access persistence directly.
+9. Persistence adapters in `apps/web/app/infra/persistence` must not import adapter folders.
 
 Process requirements:
 
@@ -93,12 +94,16 @@ Solver process:
 
 1. Keep solver deterministic and side-effect free.
 2. Use push-based search transitions.
-3. Maintain canonical direction encoding only:
-   - `Direction = 'U' | 'D' | 'L' | 'R'`
-4. Keep algorithm recommendation flow deterministic:
+3. Maintain canonical direction encoding:
+   - `Direction = 'U' | 'D' | 'L' | 'R'` (engine/solver/output use uppercase)
+   - `knownSolution` may be mixed-case UDLR/udlr for round-trip fidelity, but internal
+     solver output and replay always use uppercase-only directions and treat knownSolution
+     as direction-only after normalization
+4. Expand push sequences to full UDLR walk+push strings in the solver (UDLR BFS order).
+5. Keep algorithm recommendation flow deterministic:
    - `analyzeLevel(levelRuntime)`
    - `chooseAlgorithm(features)`
-5. Allow UI override, but always store selected algorithm in result metadata.
+6. Allow UI override, but always store selected algorithm in result metadata.
 
 Worker process:
 
@@ -106,17 +111,23 @@ Worker process:
 2. Validate messages on both sides using shared schemas.
 3. Throttle progress messages.
 4. Support cancellation and budget enforcement.
-5. Disallow `SharedArrayBuffer` and `Atomics`.
-6. Create workers only from client modules (`*.client.ts`); no dynamic-import escape hatches for worker construction.
-7. Use module worker constructor pattern:
+5. SOLVE_PROGRESS may include bestPathSoFar (fully expanded UDLR).
+6. SOLVE_RESULT metrics include pushCount and moveCount.
+7. Disallow `SharedArrayBuffer` and `Atomics`.
+8. Create workers only from client modules (`*.client.ts`); no dynamic-import escape hatches for worker construction.
+9. Use module worker constructor pattern:
    - `new Worker(new URL("./solverWorker.ts", import.meta.url), { type: "module" })`
-8. Track health:
-   - solver: `idle | healthy | crashed`
-   - bench pool health tracked similarly
-9. On `worker.onerror` or `worker.onmessageerror`:
-   - set crashed state
-   - surface retry UI
-   - recreate worker client via retry action
+10. Worker pool runs one active solve per worker; additional runs queue.
+11. Track health:
+
+- solver: `idle | healthy | crashed`
+- bench pool health tracked similarly
+
+12. On `worker.onerror` or `worker.onmessageerror`:
+
+- set crashed state
+- surface retry UI
+- recreate worker client via retry action
 
 ## 6. Persistence And Benchmark Process
 
@@ -150,6 +161,8 @@ Validation process:
 2. Check import payload size before `JSON.parse`.
 3. Validate parsed JSON with strict schemas and reject unknown keys.
 4. Never ignore unknown config fields silently.
+5. External format adapters must follow ADR-0010 normalization rules (no trim, open-puzzle
+   handling, variant detection, tab rejection).
 
 ## 8. Tooling, CI, And Definition Of Done
 
@@ -175,14 +188,16 @@ CI gates on every PR:
 3. lint
 4. test coverage thresholds
 5. boundary checks
-6. encoding policy check (UTF-8 without BOM, ASCII-default text, no smart punctuation unless justified)
+6. encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
+
+Encoding policy enforcement runs in CI and pre-commit; pre-commit is a convenience, CI is the source of truth.
 
 Pre-commit process:
 
 1. run format:check
 2. run lint
 3. run affected tests with deterministic selection strategy
-4. run encoding policy check (UTF-8 without BOM, ASCII-default text, no smart punctuation unless justified)
+4. run encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
 
 Completion checklist per feature:
 
@@ -216,6 +231,7 @@ Use these phase gates from `docs/project-plan.md`:
 6. Phase 5: quality hardening + offline support.
 7. Phase 6: optional adapters and performance expansions.
 8. Phase 7: optional browser-dev adapters for `/lab` (Sandpack/WebContainers, flag-gated).
+9. Phase 8: solver optimization and advanced search (planned).
 
 Do not start a later phase until earlier acceptance checks pass for the affected subsystem.
 

@@ -9,9 +9,17 @@ Solver algorithms, heuristics, and pruning logic.
 - Algorithm registry (BFS/A*/IDA* etc.)
 - `analyzeLevel(levelRuntime): LevelFeatures` - pure; extracts box count, grid size, reachability complexity
 - `chooseAlgorithm(features): AlgorithmId` - deterministic rule table; both are part of the public API
+- `expandSolutionFromStart(levelRuntime, pushes): Direction[]` - expands push sequences into full UDLR walk+push paths from the initial state
+- `expandSolution(levelRuntime, pushes, start): Direction[]` - expands push sequences from an explicit starting state (UDLR neighbor order)
 - Heuristics (Manhattan baseline; assignment heuristic optional)
 - Deadlock detection/pruning (corner deadlocks first, expand over time)
 - Deterministic progress reporting hooks
+- SolverOptions validation (budgets, heuristic defaults, weighted A\*, rejects heuristics for bfsPush)
+
+## Current status (Phase 3 partial)
+
+- Implemented: solver option normalization/validation, solver constants, solution expansion utilities.
+- Pending: solver algorithms, registry/selection (`analyzeLevel`/`chooseAlgorithm`), heuristics, deadlock pruning, cancel token, and progress hooks.
 
 ## Allowed imports
 

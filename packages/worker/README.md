@@ -9,6 +9,12 @@ Worker runtime, protocol, validation, and main-thread clients.
 - Cancellation, throttled progress streaming, and crash recovery hooks
 - Main-thread worker client(s) and optional worker pool
 - `workerHealth` state tracking: `'idle' | 'healthy' | 'crashed'`
+- Solver protocol metrics include pushCount and moveCount, plus optional bestPathSoFar for spectator streams
+
+## Current status (Phase 3 partial)
+
+- Implemented: protocol message types and Zod schemas, worker pool client.
+- Pending: worker runtime entrypoints, solver/benchmark clients, cancellation/throttle wiring, and worker health tracking.
 
 ## Allowed imports
 
@@ -23,6 +29,10 @@ Worker runtime, protocol, validation, and main-thread clients.
 - Progress messages must be throttled (target: <= 10-20 messages/sec)
 - Cancellation must be responsive and release resources without leaving the UI hanging
 - Worker construction (`new Worker(...)`) is only allowed in `*.client.ts` modules
+- Worker pool runs one active solve per worker and queues additional runs
+- Worker pool supports cancelling queued runs by `runId` (in-flight cancellation uses SOLVE_CANCEL)
+- Worker pool dispose rejects queued and in-flight tasks without waiting for running tasks to settle
+- When provided, the worker pool disposer callback is responsible for terminating workers
 
 ## Client module naming
 

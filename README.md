@@ -7,8 +7,8 @@ Domain packages (`core`, `solver`, `benchmarks`) are framework-agnostic and reus
 
 - Governance baseline, ADRs, and package scaffolding are in place.
 - Phase 1 (levels + core engine) is complete with high unit coverage.
-- Next: consider any changes needed based on other sokoban standards (integrate in to Phase 0/1 and update project plan and docs for future).
-- Deferred: implement Phase 2 (play UI parity and canvas renderer).
+- Standards/interop decisions are captured; planning/docs reflect a dedicated formats package and import rules.
+- Next: implement Phase 2 (play UI parity and canvas renderer).
 
 ## Goals
 
@@ -23,6 +23,7 @@ Domain packages (`core`, `solver`, `benchmarks`) are framework-agnostic and reus
 - Governance docs, ADRs, and package scaffolding are in place.
 - Architecture, planning, tooling, and process docs are in place.
 - Core packages (`shared`, `levels`, `core`) now include the Phase 1 engine and level data baseline.
+- Phase 3 scaffolding exists (protocol schemas, solver options, worker pool, replay controller); runtime and algorithms are pending.
 - The repository is public for visibility, but it is not accepting PRs yet and issues are disabled for now.
 
 ## Quickstart
@@ -73,6 +74,8 @@ pnpm build
    - results storage and comparison
 7. Optional browser dev environments
    - Sandpack/WebContainers in `/lab` via dynamic import + feature flag (default OFF)
+8. Solver optimization and advanced search
+   - solver-specific state, hashing, heuristics, and deadlocks
 
 ## Repo Layout (Planned)
 
@@ -82,6 +85,7 @@ pnpm build
 /packages
   /shared
   /levels
+  /formats
   /core
   /solver
   /worker

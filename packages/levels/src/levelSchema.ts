@@ -2,6 +2,8 @@ export interface LevelDefinition {
   id: string;
   name: string;
   rows: string[];
+  // null = no usable known solution (absent, empty, or failed validation).
+  // undefined = field not present in source (pre-normalization only).
   knownSolution?: string | null;
 }
 
@@ -11,6 +13,8 @@ const allowedRowTokens = new Set(['W', 'E', 'T', 'P', 'B', 'S', 'Q', ' ']);
 export function normalizeKnownSolution(
   value: string | null | undefined,
 ): string | null | undefined {
+  // Returns null for empty/invalid content; undefined only means the field was absent.
+  // After normalization, invalid strings never yield undefined.
   if (value === undefined || value === null) {
     return value;
   }
@@ -24,12 +28,11 @@ export function normalizeKnownSolution(
     return null;
   }
 
-  const upper = trimmed.toUpperCase();
-  if (/[^UDLR]/.test(upper)) {
+  if (/[^UDLRudlr]/.test(trimmed)) {
     return null;
   }
 
-  return upper;
+  return trimmed;
 }
 
 export function validateRowTokens(rows: string[]): void {

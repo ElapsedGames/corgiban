@@ -7,9 +7,15 @@ Remix application containing the product UI, routes, and orchestration.
 - Remix routes: `/play`, `/bench`, `/lab` (and `/dev/ui-kit`)
 - UI composition (React components) and Tailwind styling
 - State orchestration (Redux Toolkit) and workflow/thunks
-- Canvas host + animation playback scheduling
+- Canvas host + animation playback scheduling (RAF time accumulator, shadow GameState outside Redux)
 - Worker clients (via ports/adapters) for solver + benchmarks
 - Persistence adapters (IndexedDB, File System Access export/import)
+
+## Current status (Phase 2 pending)
+
+- Routes: only `_index` exists; `/play`, `/bench`, `/lab`, and `/dev/ui-kit` are planned.
+- State: RTK store scaffold with solver/settings slices; game/bench slices and UI wiring are pending.
+- Replay: controller scaffolding exists; UI integration is pending.
 
 ## Non-responsibilities
 

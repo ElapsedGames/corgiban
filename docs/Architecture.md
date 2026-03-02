@@ -168,6 +168,19 @@ See ADR-0006 (`docs/adr/0006-embed-shadow-dom-styling-delivery.md`).
 
 ---
 
+### 3.11 Level format interop: **CORG canonical + formats adapters**
+
+**Decision:** Keep the internal CORG encoding canonical and introduce a dedicated
+`packages/formats` package for XSB/SOK/SLC import/export.
+
+**Why**
+
+- Preserves the deterministic core encoding and avoids bloating `core/encoding`.
+- Enables broad Sokoban ecosystem compatibility through explicit adapters.
+- Keeps format parsing/normalization separate from engine rules and solver logic.
+
+See ADR-0010 (`docs/adr/0010-level-format-interop-policy.md`).
+
 ## 4. Monorepo layout
 
 ```
@@ -176,6 +189,7 @@ See ADR-0006 (`docs/adr/0006-embed-shadow-dom-styling-delivery.md`).
     /app
       /ui
       /canvas
+      /replay
       /routes
       /state
       /styles
@@ -197,6 +211,14 @@ See ADR-0006 (`docs/adr/0006-embed-shadow-dom-styling-delivery.md`).
     src/
       builtinLevels.ts
       levelSchema.ts
+  /formats
+    src/
+      index.ts
+      parseXsb.ts
+      parseSok017.ts
+      parseSlcXml.ts
+      serializeXsb.ts
+      normalizeGrid.ts
   /core
     src/
       model/
@@ -220,9 +242,12 @@ See ADR-0006 (`docs/adr/0006-embed-shadow-dom-styling-delivery.md`).
     src/
       api/
         solverTypes.ts
+        solverOptions.ts
         algorithm.ts
         registry.ts
         selection.ts
+      solution/
+        expandSolution.ts
       algorithms/
         bfsPush.ts
         astarPush.ts
@@ -286,12 +311,16 @@ tree (and `docs/project-plan.md`) for what is implemented in the current phase.
 ### 4.1 Boundary rules (enforced)
 
 - `packages/core` imports from `packages/shared` and `packages/levels` only.
+- `packages/formats` imports from `packages/shared` and `packages/levels` only.
 - `packages/solver` imports from `core` and `shared` only.
 - `packages/worker` imports from `solver`, `core`, `shared`, and `benchmarks` only. No React.
 - `packages/benchmarks` imports from `solver`, `core`, and `shared` only.
 - `apps/web` imports from all packages, but only via public entrypoints.
 - Benchmark runner domain logic lives in `packages/benchmarks` and is executed from worker
   runtime modules by importing `benchmarks` entrypoints (one-way dependency: worker -> benchmarks).
+
+Note: If `packages/formats` ever needs to depend on `core` (for solution validation or
+simulation), add an explicit boundary rule and document the rationale in an ADR.
 
 Enforcement:
 
@@ -322,11 +351,41 @@ A level is defined in an editor-friendly and human-readable format, but compiled
 
 - `id: string`
 - `name: string`
-- `rows: string[]` (minified rows using tokens; compatible with current style)
-- optional: `knownSolution?: string | null` (null = known-bad, undefined = not tested)
+- `rows: string[]` (CORG tokens; compatible with current style)
+- optional: `knownSolution?: string | null` (null = no usable known solution: absent, empty, or
+  failed validation; undefined means field not present in source pre-normalization only; accepts
+  `UDLRudlr` with case preserved for push markers)
 - optional: tags/difficulty/author
 
-Row normalization: `parseLevel` strips common leading whitespace and right-pads ragged rows with spaces (spaces are floor).
+**LevelCollection (data)**
+
+- `id: string`
+- `title: string`
+- optional: description/author/email/url
+- optional: maxWidth/maxHeight metadata
+- `levels: LevelDefinition[]`
+
+Row normalization: `parseLevel` handles CORG only (strips common leading whitespace and right-pads
+ragged rows with spaces; spaces are floor). External format normalization lives in
+`packages/formats`.
+
+#### 5.1.1 Format interop (packages/formats)
+
+External adapters convert to/from CORG and emit `LevelDefinition` / `LevelCollection`.
+
+Import rules:
+
+- Never trim rows; ragged rows are allowed (width = max row length, pad with floor).
+- Support interior empty rows via two-pass normalization.
+- Accept floor aliases `-` and `_` only in converters; internal schema stays strict.
+- Reject tabs by default (never store tabs internally).
+- Normalize indentation via topology-aware crop (outside-void flood fill), not naive common-indent.
+- Detect open/unclosed puzzles; reject by default with explicit override policies only.
+- Closed-puzzle validation yields warnings by default; strict mode optional.
+- Reject levels with all boxes on targets at start.
+- Detect unsupported variants (numbered, multiban, hexoban, modern); reject by default with
+  optional metadata carry.
+- Support full SOK 0.17 grammar (including RLE and row separators).
 
 **LevelRuntime (engine)**
 
@@ -420,11 +479,17 @@ All messages include:
 **Worker -> Main**
 
 - `SOLVE_PROGRESS` (throttled)
+  - fields: `runId`, `protocolVersion`, `expanded`, `generated`, `depth`, `frontier`, `elapsedMs`, `bestHeuristic?`, `bestPathSoFar?`
+  - `bestPathSoFar` (when present) is a fully expanded UDLR walk+push string
 - `SOLVE_RESULT`
+  - fields: `runId`, `protocolVersion`, `status`, `solutionMoves?`, `metrics`
+  - metrics: `elapsedMs`, `expanded`, `generated`, `maxDepth`, `maxFrontier`, `pushCount`, `moveCount`
 - `SOLVE_ERROR`
 - `BENCH_PROGRESS`
 - `BENCH_RESULT`
 - `PONG`
+
+See ADR-0011 (`docs/adr/0011-solver-protocol-solution-contract.md`).
 
 ### 7.3 Runtime validation
 
@@ -439,6 +504,12 @@ Use schema validation (example: Zod) at both ends:
 - `timeBudgetMs` enforced in worker loop.
 - `nodeBudget` optional.
 - Benchmarks always run with budgets to avoid infinite searches.
+- Multiple concurrent runs are supported through the worker pool: one active run per worker,
+  additional runs are queued until a worker is free.
+- Worker pool supports cancelling queued runs by `runId` before they dispatch.
+- In-flight cancellation is handled through the worker protocol (SOLVE_CANCEL); pool cancel is queue-only.
+- Worker pool dispose rejects queued and in-flight tasks without waiting for running tasks to
+  settle; callers should provide a worker-disposer callback when they need workers terminated.
 
 ---
 
@@ -450,8 +521,8 @@ Use schema validation (example: Zod) at both ends:
 - `solve(levelRuntime, options, hooks)` entry point
 - `SolveResult` includes:
   - `status: "solved" | "unsolved" | "timeout" | "cancelled" | "error"`
-  - `solutionMoves?: string`
-  - metrics: `expanded`, `generated`, `elapsedMs`, `maxDepth`, `maxFrontier`
+  - `solutionMoves?: string` (fully expanded UDLR walk+push string)
+  - metrics: `expanded`, `generated`, `elapsedMs`, `maxDepth`, `maxFrontier`, `pushCount`, `moveCount`
 
 ### 8.2 Algorithm interface
 
@@ -460,12 +531,15 @@ All algorithms implement the same interface:
 - deterministic given the same level + options
 - reports progress through callback hooks
 - uses cancel token cooperatively
+- macro push sequences are expanded to full UDLR using solver-side walk reconstruction (UDLR neighbor order)
 
 ### 8.3 Core solver building blocks
 
+- Solver-only state representation (`SolverState`) and `CompiledLevel` precomputations
+  (neighbor table, dead squares, goal distances). See ADR-0009.
 - Reachability computation (flood fill) to determine legal pushes
 - State hashing:
-  - stable hash of `playerReachableRegionId + boxes positions`
+  - Zobrist hash of canonical player index + boxes positions
   - transposition table for visited pruning
 - Deadlock detection:
   - corner deadlocks (box in corner not on target)
@@ -542,6 +616,16 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 - deadlock highlights
 - solver frontier visualization for debugging
 
+### 10.4 Replay pipeline
+
+- `solutionMoves` arrives as a fully expanded UDLR walk+push string.
+- Replay runs in a dedicated controller using a RAF loop with a time accumulator.
+- The replay `GameState` lives outside Redux (shadow state in a useRef); Redux stores only
+  serializable replay metadata (state, index, totals). The move list lives in the controller
+  shadow state. Replay speed is sourced from settings.
+
+See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
+
 ---
 
 ## 11. UI architecture
@@ -584,10 +668,11 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
   - current level id, gameState, input mode, history pointers
 - `solverSlice`
   - active runs, progress map, last solution, status
+  - replay metadata: replayState, replayIndex, replayTotalSteps
 - `benchSlice`
   - suites, active benchmark status, results, filters
 - `settingsSlice`
-  - animation speed, theme, debug flags
+  - tileAnimationDuration, solverReplaySpeed, theme, debug flags
 
 ### 12.2 Side effects
 
@@ -618,6 +703,7 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 **Package unit tests**
 
 - `core`: movement rules, push logic, win detection, undo/redo, parsing/encoding
+- `formats`: import/export parsing, normalization, and validation warnings
 - `solver`: reachability, hashing, visited behavior, algorithm correctness on small levels
 - `worker`: protocol validation, cancellation, throttling
 
@@ -653,7 +739,7 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 - typecheck (tsc -b)
 - lint
 - unit tests with coverage gates
-- encoding policy check (UTF-8 without BOM, ASCII-default text, no smart punctuation unless justified)
+- encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
 - build (Remix)
 - Playwright smoke (optional, nightly or on main)
 
@@ -680,6 +766,7 @@ See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
   - frontier size
   - elapsed time
   - best heuristic score
+  - pushCount and moveCount for solved runs
 - benchmark persists metrics for comparison
 
 ---
@@ -713,6 +800,10 @@ Current accepted ADRs:
 - ADR-0006: Web Component embed strategy (Shadow DOM and styling delivery)
 - ADR-0007: Persistence model (IndexedDB stores, migration policy, retention)
 - ADR-0008: TypeScript project references and emission policy
+- ADR-0009: Solver-optimized state representation and hashing
+- ADR-0010: Level format interop and import validation policy
+- ADR-0011: Solver protocol solution contract and options validation
+- ADR-0012: Replay pipeline shadow state and RAF scheduling
 
 ---
 

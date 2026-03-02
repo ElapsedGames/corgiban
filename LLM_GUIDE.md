@@ -140,6 +140,7 @@ Rule: Adapters must not import storage/persistence directly. Adapters call workf
 ### 4.2 Package boundary rules (hard)
 
 - `packages/core` imports only `packages/shared` and `packages/levels`.
+- `packages/formats` imports only `packages/shared` and `packages/levels`.
 - `packages/solver` imports only `core` and `shared`.
 - `packages/worker` imports only `solver`, `core`, `shared`, and `benchmarks`.
 - `packages/benchmarks` imports only `solver`, `core`, and `shared`.
@@ -221,7 +222,8 @@ Workers and benchmark runners should tolerate restarts and cancellations without
 
 ### 7.1 Centralize serialization
 
-- Level encoding/decoding lives in one place (`core/encoding` + `levels` schema).
+- CORG encoding/decoding lives in one place (`core/encoding` + `levels` schema).
+- External format adapters (XSB/SOK/SLC) live in `packages/formats`, not in `core/encoding`.
 - Worker messages are shaped and validated centrally (`packages/worker/protocol`).
 
 Rule: No ad-hoc JSON shape copies across features.
@@ -392,8 +394,8 @@ the archive includes the current worktree.
 ### 12.4 Encoding and character set
 
 - Text files must be UTF-8 without BOM.
-- Default to ASCII characters only.
-- No smart punctuation (curly double quotes, curly single quotes, em dash, en dash, ellipsis, right arrow, less-than-or-equal symbol) unless explicitly justified in the PR description or ADR.
+- ASCII-only by default; any non-ASCII requires an explicit allow list entry and ADR/PR justification.
+- No smart punctuation (curly double quotes, curly single quotes, em dash, en dash, ellipsis, right arrow, less-than-or-equal symbol) unless allowlisted with justification.
 
 ---
 

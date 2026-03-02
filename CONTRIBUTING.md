@@ -60,7 +60,7 @@ The pre-commit hook runs:
 - `pnpm format:check`
 - `pnpm lint`
 - Deterministic affected unit tests via `node tools/scripts/run-affected-tests.mjs`
-- Encoding policy check via `node tools/scripts/encoding-check.mjs` (UTF-8 without BOM, ASCII-only text)
+- Encoding policy check via `node tools/scripts/encoding-check.mjs` (UTF-8 without BOM, ASCII-only text except allow list)
 
 Affected test selection strategy (deterministic):
 

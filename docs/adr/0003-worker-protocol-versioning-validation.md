@@ -15,6 +15,8 @@ workers must be stable, explicit, and safe against schema drift.
 - Message schemas are validated on both sides using shared protocol definitions.
 - Unknown fields and mismatched versions are rejected with explicit errors.
 - Protocol shape changes require versioned updates, not ad-hoc JSON evolution.
+- Worker payloads are transferred via structured-clone postMessage. Typed array fields
+  (for example `staticGrid` and `initialBoxes`) must not be JSON-stringified.
 - `algorithmId` in `SOLVE_START` is always a concrete resolved value (e.g. `'bfsPush'`, `'astarPush'`). Resolution via `analyzeLevel`/`chooseAlgorithm` happens on the main thread before dispatch. The worker protocol never carries `'auto'` or any unresolved value.
 
 ## Consequences

@@ -52,3 +52,7 @@ If an ADR is superseded, link bidirectionally:
 - `0006-embed-shadow-dom-styling-delivery.md`
 - `0007-indexeddb-persistence-migration-retention.md`
 - `0008-tsconfig-project-references-emission-policy.md`
+- `0009-solver-optimized-state-representation-hashing.md`
+- `0010-level-format-interop-policy.md`
+- `0011-solver-protocol-solution-contract.md`
+- `0012-replay-pipeline-shadow-state.md`

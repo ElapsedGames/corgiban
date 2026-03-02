@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { TextDecoder } from 'node:util';
 
 const binaryExtensions = new Set([
   '.png',
@@ -35,13 +36,33 @@ const ignoredPrefixes = [
   'artifacts/',
   'docs/_generated/',
 ];
-const ignoredFiles = new Set(['.github/PULL_REQUEST_TEMPLATE.md']);
+const ignoredFiles = new Set([]);
+
+const allowedNonAsciiByFile = new Map([
+  [
+    '.github/PULL_REQUEST_TEMPLATE.md',
+    new Set([String.fromCodePoint(0x2705), String.fromCodePoint(0x274c)]),
+  ],
+]);
+
+// In CI (or when --all is passed) scan every tracked file.
+// In pre-commit, scan only staged files so the hook stays fast.
+const scanAll = process.argv.includes('--all') || Boolean(process.env.CI);
 
 function getStagedFiles() {
   try {
     const output = execSync('git diff --name-only --cached --diff-filter=ACMRTUXB', {
       encoding: 'utf8',
     }).trim();
+    return output ? output.split(/\r?\n/) : [];
+  } catch {
+    return [];
+  }
+}
+
+function getTrackedFiles() {
+  try {
+    const output = execSync('git ls-files', { encoding: 'utf8' }).trim();
     return output ? output.split(/\r?\n/) : [];
   } catch {
     return [];
@@ -62,6 +83,15 @@ function hasUtf8Bom(buffer) {
   return buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf;
 }
 
+function decodeUtf8(buffer, filePath) {
+  try {
+    const decoder = new TextDecoder('utf-8', { fatal: true });
+    return decoder.decode(buffer);
+  } catch (error) {
+    return { error: `${filePath}: invalid UTF-8 encoding (${error?.message ?? 'decode failed'})` };
+  }
+}
+
 function findInvalidAsciiByte(buffer) {
   for (let index = 0; index < buffer.length; index += 1) {
     const value = buffer[index];
@@ -73,10 +103,10 @@ function findInvalidAsciiByte(buffer) {
   return null;
 }
 
-const stagedFiles = getStagedFiles();
+const filesToCheck = scanAll ? getTrackedFiles() : getStagedFiles();
 const errors = [];
 
-for (const filePath of stagedFiles) {
+for (const filePath of filesToCheck) {
   if (isIgnoredPath(filePath) || isBinaryExtension(filePath)) {
     continue;
   }
@@ -104,8 +134,26 @@ for (const filePath of stagedFiles) {
   }
 
   const invalidByte = findInvalidAsciiByte(buffer);
-  if (invalidByte) {
-    errors.push(`${filePath}: non-ASCII byte 0x${invalidByte.value.toString(16)}`);
+  if (!invalidByte) {
+    continue;
+  }
+
+  const decoded = decodeUtf8(buffer, filePath);
+  if (typeof decoded === 'object' && decoded.error) {
+    errors.push(decoded.error);
+    continue;
+  }
+
+  const allowed = allowedNonAsciiByFile.get(filePath) ?? new Set();
+  for (const char of decoded) {
+    if (char <= '\u007f') {
+      continue;
+    }
+    if (!allowed.has(char)) {
+      const codePoint = char.codePointAt(0)?.toString(16).toUpperCase() ?? 'UNKNOWN';
+      errors.push(`${filePath}: disallowed non-ASCII character U+${codePoint}`);
+      break;
+    }
   }
 }
 
@@ -117,4 +165,5 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('Encoding policy check passed.');
+const scope = scanAll ? 'all tracked files' : 'staged files';
+console.log(`Encoding policy check passed (${scope}).`);

@@ -60,13 +60,33 @@ describe('parseLevel', () => {
     const definition: LevelDefinition = {
       id: 'box-target',
       name: 'Box Target',
-      rows: ['WSW', 'WPW'],
+      rows: ['WSW', 'WPB'],
     };
 
     const level = parseLevel(definition);
 
-    expect(Array.from(level.initialBoxes)).toEqual([1]);
+    expect(Array.from(level.initialBoxes)).toEqual([1, 5]);
     expect(level.staticGrid[1]).toBe(STATIC_TARGET);
+  });
+
+  it('rejects levels with all boxes on targets at start', () => {
+    const definition: LevelDefinition = {
+      id: 'all-targets',
+      name: 'All Targets',
+      rows: ['WSW', 'WPW'],
+    };
+
+    expect(() => parseLevel(definition)).toThrow('all boxes on targets');
+  });
+
+  it('rejects levels with all boxes on targets at start with many boxes', () => {
+    const definition: LevelDefinition = {
+      id: 'all-targets-max',
+      name: 'All Targets Max',
+      rows: [`P${'S'.repeat(MAX_BOXES)}`],
+    };
+
+    expect(() => parseLevel(definition)).toThrow('all boxes on targets');
   });
 
   it('keeps extra indentation beyond the common prefix as floor', () => {
@@ -91,6 +111,16 @@ describe('parseLevel', () => {
     };
 
     expect(() => parseLevel(definition)).toThrow('rows must not be empty');
+  });
+
+  it('rejects tabs in rows', () => {
+    const definition: LevelDefinition = {
+      id: 'tabs',
+      name: 'Tabs',
+      rows: ['\tWPE', 'WPW'],
+    };
+
+    expect(() => parseLevel(definition)).toThrow('Tabs are not allowed');
   });
 
   it('rejects unknown tokens', () => {
