@@ -15,6 +15,7 @@ const coverageExclude = [
 ];
 
 export default defineConfig({
+  root: './apps/web',
   test: {
     environment: 'node',
     include: ['app/**/*.{test,spec}.{ts,tsx}'],

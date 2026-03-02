@@ -49,7 +49,9 @@ Use a pnpm workspaces monorepo with this structure:
 /ui
 /canvas
 buildRenderPlan.ts
+renderPlan.ts
 draw.ts
+GameCanvas.tsx
 /routes
 play.tsx
 bench.tsx
@@ -93,6 +95,8 @@ level.ts
 gameState.ts
 engine/
 applyMove.ts
+applyMoves.ts
+selectCellAt.ts
 undo.ts
 restart.ts
 rules.ts
@@ -512,7 +516,7 @@ Replay pipeline:
 
 State slices (RTK):
 
-- gameSlice: current level, GameState, history pointers, input mode
+- gameSlice: current level id, move history (direction + pushed), stats (moves/pushes); GameState is derived outside Redux
 - solverSlice: active runs, progress, last solution, status, recommendation ({ algorithmId, features } from analyzeLevel), workerHealth ('idle' | 'healthy' | 'crashed'), replayState, replayIndex, replayTotalSteps
 - benchSlice: suites, active run status, results, filters
 - settingsSlice: tileAnimationDuration, solverReplaySpeed, theme, debug flags
@@ -684,6 +688,7 @@ Status: Complete (Phase 1 scope delivered in this PR)
 
 Phase 2 - Web UI parity (Play page)
 Decision dependencies: ADR-0001 (app shell) and ADR-0005 (RenderPlan split).
+Status: Complete (Phase 2 scope delivered in this PR)
 
 1. Remix app (`apps/web`, Vite mode) + Tailwind layout; configure content globs for workspace packages; set up tokens.css and dark mode class strategy
 2. Remix route modules for /play, /bench, /dev/ui-kit with route-level ErrorBoundary exports
@@ -732,6 +737,14 @@ Deferred notes:
 - expandSolution uses per-push array lookup; consider O(1) box index map if hot.
 - encoding-check.mjs skips null-byte files; consider hard-failing instead of skipping.
 - Replay controller tests rely on action type strings; re-audit when solverSlice expands.
+- /play Redux Provider is scoped to the route until cross-route state sharing is needed.
+- RenderPlan build is O(cells x boxes); no measured perf issue with current Sokoban sizes or the idle draw loop. Revisit only if profiling shows regressions.
+- Two sources of truth (GameState ref + Redux history) are intentional in Phase 2; revisit if replay or solver integration needs shared state outside /play.
+- Canvas distortion on small screens needs a responsive cellSize design; schedule a dedicated PR.
+- A11y gaps (Dialog focus trap, Tabs arrow navigation, Tooltip aria-describedby merge) are deferred while primitives are only used in /dev/ui-kit; fix before they move into user-facing routes.
+- Theme hardcoded dark class vs Redux theme state is deferred; SSR theme flash needs a dedicated follow-up.
+- Core engine linear scans and allocations are deferred until profiling indicates a need.
+- Process: keep PR scope manageable; split when Phase 2 and Phase 3 changes start to mix.
 
 Phase 6 - Adapters, tooling, and performance
 Decision dependencies: ADR-0006 (embed Shadow DOM and styling delivery strategy) and ADR-0010 (format interop policy).

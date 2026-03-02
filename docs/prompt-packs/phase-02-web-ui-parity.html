@@ -1,0 +1,1815 @@
+<!doctype html>
+<!--
+  PROMPT PACK TEMPLATE
+  Do NOT fill in this file. Copy it, then save the copy to:
+
+    docs/prompt-packs/phase-NN-slug.html
+
+  Naming rules:
+  - NN   : zero-padded phase number matching docs/project-plan.md (00, 01, 02 ...)
+  - slug : short kebab-case description of the work (e.g. scaffold, core-engine, worker-protocol)
+  - Full example: phase-00-scaffold.html, phase-01-core-engine.html
+
+  Location rule:
+  - Always place in docs/prompt-packs/. Do not create a new folder.
+  - One file per PR.
+
+  IMPORTANT - after copying, update the storageKey in the <script> section near the bottom of
+  the file. Change 'promptPackTabColors' to 'promptPackTabColors_phase-NN-your-slug' (matching
+  your filename). If you skip this step, tab status from one pack will bleed into another when
+  both are open in the same browser.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 02 - Web UI Parity Prompt Pack</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600&family=Unbounded:wght@600;700&display=swap');
+
+      :root {
+        color-scheme: dark;
+        --bg-body: #070b16;
+        --bg-panel: rgba(15, 23, 42, 0.9);
+        --bg-panel-muted: rgba(30, 41, 59, 0.7);
+        --border-strong: rgba(148, 163, 184, 0.28);
+        --border-soft: rgba(148, 163, 184, 0.16);
+        --text-main: #f8fafc;
+        --text-muted: #9aa4b7;
+        --focus-ring: rgba(248, 250, 252, 0.9);
+        --glow-blue: rgba(56, 189, 248, 0.25);
+        --glow-orange: rgba(249, 115, 22, 0.25);
+        --glow-green: rgba(34, 197, 94, 0.18);
+        --accent-red: #ef4444;
+        --accent-yellow: #facc15;
+        --accent-green: #22c55e;
+        --accent-blue: #38bdf8;
+        --accent-teal: #2dd4bf;
+        --shadow-panel: 0 18px 44px rgba(2, 6, 23, 0.6);
+        --shadow-soft: 0 20px 60px rgba(2, 6, 23, 0.45);
+        --shell-edge: rgba(248, 250, 252, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+        background:
+          radial-gradient(1200px 800px at 8% -10%, var(--glow-blue), transparent 60%),
+          radial-gradient(900px 600px at 92% 0%, var(--glow-orange), transparent 65%),
+          radial-gradient(800px 600px at 50% 120%, var(--glow-green), transparent 70%),
+          var(--bg-body);
+        color: var(--text-main);
+        overflow-x: hidden;
+        position: relative;
+        z-index: 0;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image:
+          radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.08), transparent 35%),
+          radial-gradient(circle at 78% 22%, rgba(255, 255, 255, 0.05), transparent 40%),
+          repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0 2px, transparent 2px 12px);
+        opacity: 0.35;
+        pointer-events: none;
+        z-index: -2;
+      }
+
+      body::after {
+        content: '';
+        position: fixed;
+        top: -20%;
+        left: -10%;
+        right: -10%;
+        height: 70vh;
+        background:
+          radial-gradient(600px 600px at 10% 40%, rgba(56, 189, 248, 0.28), transparent 60%),
+          radial-gradient(480px 480px at 85% 20%, rgba(249, 115, 22, 0.22), transparent 65%);
+        filter: blur(30px);
+        opacity: 0.7;
+        animation: floatGlow 18s ease-in-out infinite alternate;
+        pointer-events: none;
+        z-index: -1;
+      }
+
+      .shell {
+        width: 100%;
+        min-height: 100vh;
+        margin: 0;
+        border-radius: 0;
+        border: 1px solid var(--shell-edge);
+        border-left: none;
+        border-right: none;
+        background: rgba(7, 12, 24, 0.8);
+        box-shadow: var(--shadow-soft);
+        overflow: hidden;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        position: relative;
+      }
+
+      .shell::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        padding: 1px;
+        background: linear-gradient(
+          120deg,
+          rgba(56, 189, 248, 0.4),
+          rgba(249, 115, 22, 0.3),
+          rgba(34, 197, 94, 0.3)
+        );
+        -webkit-mask:
+          linear-gradient(#000, #000) content-box,
+          linear-gradient(#000, #000);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        opacity: 0.6;
+      }
+
+      @keyframes floatGlow {
+        0% {
+          transform: translate3d(0, 0, 0) scale(1);
+        }
+        100% {
+          transform: translate3d(6%, -6%, 0) scale(1.05);
+        }
+      }
+
+      header {
+        padding: 28px 32px 20px;
+        background: linear-gradient(140deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.85));
+        border-bottom: 1px solid var(--border-strong);
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+
+      header::after {
+        content: '';
+        position: absolute;
+        left: 32px;
+        right: 32px;
+        bottom: 8px;
+        height: 3px;
+        border-radius: 999px;
+        background: var(
+          --progress-gradient,
+          linear-gradient(
+            90deg,
+            #ef4444 0%,
+            #ef4444 33.33%,
+            #facc15 33.33%,
+            #facc15 66.66%,
+            #22c55e 66.66%,
+            #22c55e 100%
+          )
+        );
+        box-shadow: 0 0 12px rgba(248, 250, 252, 0.25);
+        opacity: 0.95;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 1.6rem;
+        font-family: 'Unbounded', 'Space Grotesk', sans-serif;
+        letter-spacing: 0.02em;
+        color: #f8fafc;
+        background: linear-gradient(90deg, #f97316, #facc15, #38bdf8);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      header p {
+        margin: 6px 0 0;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        max-width: 680px;
+      }
+
+      .header-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+
+      .header-copy {
+        min-width: 240px;
+        flex: 1 1 320px;
+      }
+
+      .header-aside {
+        flex: 0 1 auto;
+      }
+
+      .status-legend {
+        display: grid;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.6);
+        box-shadow: 0 12px 30px rgba(2, 6, 23, 0.4);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+
+      .legend-title {
+        font-size: 0.7rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: rgba(226, 232, 240, 0.7);
+      }
+
+      .legend-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .legend-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+      }
+
+      .legend-count {
+        min-width: 20px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-align: center;
+        background: rgba(15, 23, 42, 0.5);
+        color: rgba(248, 250, 252, 0.9);
+      }
+
+      .legend-chip.legend-red {
+        background: linear-gradient(140deg, #ef4444, #b91c1c);
+        color: #ffffff;
+        border-color: rgba(248, 113, 113, 0.8);
+      }
+
+      .legend-chip.legend-yellow {
+        background: linear-gradient(140deg, #facc15, #f59e0b);
+        color: #111827;
+        border-color: rgba(253, 224, 71, 0.9);
+      }
+
+      .legend-chip.legend-green {
+        background: linear-gradient(140deg, #22c55e, #16a34a);
+        color: #0f172a;
+        border-color: rgba(74, 222, 128, 0.9);
+      }
+
+      .legend-tip {
+        font-size: 0.8rem;
+        color: rgba(226, 232, 240, 0.7);
+      }
+
+      .action-btn {
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: linear-gradient(120deg, rgba(59, 130, 246, 0.8), rgba(15, 23, 42, 0.9));
+        color: #f8fafc;
+        padding: 6px 12px;
+        border-radius: 10px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+        box-shadow: 0 10px 18px rgba(2, 6, 23, 0.45);
+        align-self: center;
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+
+      .action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 24px rgba(2, 6, 23, 0.5);
+      }
+
+      .action-btn:active {
+        transform: translateY(1px);
+      }
+
+      .action-btn:focus-visible {
+        outline: 2px solid rgba(248, 250, 252, 0.7);
+        outline-offset: 2px;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 6px;
+        padding: 8px 32px;
+        background:
+          linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.7)),
+          repeating-linear-gradient(90deg, rgba(248, 250, 252, 0.04) 0 1px, transparent 1px 80px);
+        border-bottom: 1px solid var(--border-strong);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        position: relative;
+        align-items: center;
+      }
+
+      .tabs::after {
+        content: '';
+        position: absolute;
+        left: 32px;
+        right: 32px;
+        bottom: 6px;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          rgba(56, 189, 248, 0.35),
+          rgba(249, 115, 22, 0.35),
+          rgba(34, 197, 94, 0.3)
+        );
+        opacity: 0.5;
+      }
+
+      .tabs-scroll {
+        display: flex;
+        gap: 6px;
+        flex: 1 1 0;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+        padding-top: 8px;
+        padding-bottom: 16px;
+      }
+
+      .tabs-divider {
+        width: 1px;
+        align-self: stretch;
+        margin: 6px 14px;
+        background: var(--border-strong);
+        flex-shrink: 0;
+      }
+
+      .tabs-scroll::-webkit-scrollbar {
+        height: 6px;
+      }
+
+      .tabs-scroll::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.35);
+        border-radius: 999px;
+      }
+
+      .tab-btn {
+        border: 1px solid var(--border-soft);
+        background: var(--bg-panel-muted);
+        color: inherit;
+        padding: 9px 16px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        position: relative;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease,
+          border-color 0.2s ease;
+        user-select: none;
+      }
+
+      .tab-btn::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          120deg,
+          rgba(255, 255, 255, 0.2),
+          transparent 35%,
+          transparent 65%,
+          rgba(255, 255, 255, 0.2)
+        );
+        opacity: 0.2;
+        background-size: 220% 100%;
+        background-position: 0% 50%;
+        transition: background-position 0.3s ease;
+        pointer-events: none;
+      }
+
+      .tab-btn::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.45), transparent 55%);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+      }
+
+      .tab-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 26px rgba(2, 6, 23, 0.4);
+        border-color: rgba(248, 250, 252, 0.35);
+      }
+
+      .tab-btn:hover::after {
+        opacity: 0.5;
+      }
+
+      .tab-btn:hover::before {
+        background-position: 100% 50%;
+      }
+
+      .tab-btn:active {
+        transform: translateY(1px);
+      }
+
+      .tab-btn:focus-visible {
+        outline: 2px solid rgba(248, 250, 252, 0.7);
+        outline-offset: 2px;
+      }
+
+      .tab-btn.is-active {
+        border-color: var(--focus-ring);
+        box-shadow:
+          0 0 0 1px var(--focus-ring) inset,
+          0 16px 30px rgba(2, 6, 23, 0.45);
+        animation: tabPop 0.35s ease;
+      }
+
+      .tab-btn.is-flash {
+        animation: tabFlash 0.4s ease;
+      }
+
+      @keyframes tabPop {
+        0% {
+          transform: translateY(4px);
+          opacity: 0.7;
+        }
+        100% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes tabFlash {
+        0% {
+          transform: translateY(2px);
+          filter: brightness(0.95);
+        }
+        50% {
+          transform: translateY(-1px);
+          filter: brightness(1.08);
+        }
+        100% {
+          transform: translateY(0);
+          filter: brightness(1);
+        }
+      }
+
+      .tab-color-red {
+        background: linear-gradient(140deg, #ef4444, #b91c1c);
+        color: #ffffff;
+        border-color: #f87171;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 12px 20px rgba(239, 68, 68, 0.3);
+      }
+
+      .tab-color-yellow {
+        background: linear-gradient(140deg, #facc15, #f59e0b);
+        color: #111827;
+        border-color: #fde047;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 12px 20px rgba(251, 191, 36, 0.28);
+      }
+
+      .tab-color-green {
+        background: linear-gradient(140deg, #22c55e, #16a34a);
+        color: #0f172a;
+        border-color: #4ade80;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 12px 20px rgba(34, 197, 94, 0.28);
+      }
+
+      main {
+        padding: 32px 32px 44px;
+        display: grid;
+        gap: 20px;
+      }
+
+      .tab-panel {
+        display: none;
+        background: linear-gradient(160deg, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.9));
+        border: 1px solid var(--border-strong);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: var(--shadow-panel);
+        position: relative;
+        overflow: hidden;
+        --state-accent: #ef4444;
+        --state-glow: rgba(239, 68, 68, 0.3);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+
+      .tab-panel.is-active {
+        display: block;
+        animation: panelIn 0.45s ease both;
+        box-shadow:
+          var(--shadow-panel),
+          0 0 40px var(--state-glow);
+      }
+
+      .tab-panel::before {
+        content: '';
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--state-accent), rgba(248, 250, 252, 0.1));
+        opacity: 0.9;
+      }
+
+      .tab-panel::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 12% 20%, rgba(248, 250, 252, 0.08), transparent 35%),
+          radial-gradient(circle at 85% 15%, rgba(56, 189, 248, 0.08), transparent 45%);
+        opacity: 0.6;
+        pointer-events: none;
+      }
+
+      .tab-panel > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      @keyframes panelIn {
+        0% {
+          transform: translateY(12px);
+          opacity: 0;
+        }
+        100% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .panel-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+      }
+
+      .tab-panel h2 {
+        margin: 0;
+        font-size: 1.2rem;
+        font-family: 'Unbounded', 'Space Grotesk', sans-serif;
+        letter-spacing: 0.01em;
+      }
+
+      .status-pill {
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+        box-shadow: 0 8px 16px rgba(2, 6, 23, 0.35);
+      }
+
+      .status-pill.is-pulse {
+        animation: pillPop 0.35s ease;
+      }
+
+      @keyframes pillPop {
+        0% {
+          transform: scale(0.94);
+          opacity: 0.75;
+        }
+        50% {
+          transform: scale(1.06);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
+      .state-red .panel-title h2 {
+        color: #f87171;
+      }
+
+      .state-red .status-pill {
+        background: linear-gradient(140deg, #ef4444, #b91c1c);
+        color: #ffffff;
+        border-color: #f87171;
+      }
+
+      .state-red {
+        --state-accent: #ef4444;
+        --state-glow: rgba(239, 68, 68, 0.32);
+        --prompt-status-position: 16.66%;
+        --prompt-status-color: #fca5a5;
+      }
+
+      .state-yellow .panel-title h2 {
+        color: #facc15;
+      }
+
+      .state-yellow .status-pill {
+        background: linear-gradient(140deg, #facc15, #f59e0b);
+        color: #111827;
+        border-color: #fde047;
+      }
+
+      .state-yellow {
+        --state-accent: #facc15;
+        --state-glow: rgba(250, 204, 21, 0.35);
+        --prompt-status-position: 50%;
+        --prompt-status-color: #fde047;
+      }
+
+      .state-green .panel-title h2 {
+        color: #4ade80;
+      }
+
+      .state-green .status-pill {
+        background: linear-gradient(140deg, #22c55e, #16a34a);
+        color: #0f172a;
+        border-color: #4ade80;
+      }
+
+      .state-green {
+        --state-accent: #22c55e;
+        --state-glow: rgba(34, 197, 94, 0.32);
+        --prompt-status-position: 83.33%;
+        --prompt-status-color: #86efac;
+      }
+
+      .tab-panel p {
+        margin: 0 0 16px;
+        color: var(--text-muted);
+        font-size: 0.98rem;
+      }
+
+      .prompt-block {
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(11, 18, 32, 0.95), rgba(2, 6, 23, 0.9));
+        color: #e2e8f0;
+        overflow: hidden;
+        box-shadow: 0 18px 34px rgba(2, 6, 23, 0.5);
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+
+      .prompt-block:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 22px 40px rgba(2, 6, 23, 0.6);
+      }
+
+      .commands-block {
+        border: 1px solid rgba(34, 197, 94, 0.2);
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(2, 8, 18, 0.98), rgba(2, 6, 23, 0.9));
+        overflow: hidden;
+        box-shadow: 0 18px 34px rgba(2, 6, 23, 0.5);
+        margin-top: 16px;
+      }
+
+      .commands-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.85));
+        border-bottom: 1px solid rgba(34, 197, 94, 0.2);
+        min-height: 44px;
+      }
+
+      .commands-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent-green);
+      }
+
+      .commands-block pre {
+        min-height: unset;
+      }
+
+      .commands-block code {
+        min-height: unset;
+      }
+
+      .prompt-block header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px 16px;
+        background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.85));
+        border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+        position: relative;
+        min-height: 44px;
+      }
+
+      .prompt-block header::before {
+        content: '';
+        display: inline-block;
+        width: 36px;
+        height: 10px;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle, #f87171 45%, transparent 46%) 0 50% / 10px 10px no-repeat,
+          radial-gradient(circle, #facc15 45%, transparent 46%) 13px 50% / 10px 10px no-repeat,
+          radial-gradient(circle, #4ade80 45%, transparent 46%) 26px 50% / 10px 10px no-repeat;
+        opacity: 0.8;
+        position: relative;
+        z-index: 1;
+      }
+
+      .prompt-block header::after {
+        content: '';
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 6px;
+        height: 3px;
+        border-radius: 999px;
+        background: linear-gradient(
+          90deg,
+          #ef4444 0%,
+          #ef4444 33.33%,
+          #facc15 33.33%,
+          #facc15 66.66%,
+          #22c55e 66.66%,
+          #22c55e 100%
+        );
+        opacity: 0.85;
+        z-index: 0;
+      }
+
+      .prompt-block header > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .prompt-status {
+        position: absolute !important;
+        left: var(--prompt-status-position, 16.66%);
+        top: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        color: var(--prompt-status-color, #fca5a5);
+        text-shadow: 0 6px 14px rgba(2, 6, 23, 0.5);
+        pointer-events: none;
+        white-space: nowrap;
+        transition:
+          left 0.25s ease,
+          color 0.25s ease;
+        z-index: 2;
+      }
+
+      .prompt-status.is-shift {
+        animation: promptShift 0.3s ease;
+      }
+
+      @keyframes promptShift {
+        0% {
+          transform: translate(-50%, -50%) scale(0.96);
+          opacity: 0.7;
+        }
+        100% {
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 1;
+        }
+      }
+
+      .copy-btn {
+        border: 1px solid rgba(56, 189, 248, 0.7);
+        background: linear-gradient(120deg, #38bdf8, #0ea5e9);
+        color: #ffffff;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+        box-shadow: 0 10px 20px rgba(14, 165, 233, 0.35);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .copy-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 26px rgba(14, 165, 233, 0.4);
+      }
+
+      .copy-btn:active {
+        transform: translateY(1px);
+      }
+
+      .copy-btn:focus-visible {
+        outline: 2px solid rgba(248, 250, 252, 0.7);
+        outline-offset: 2px;
+      }
+
+      .copy-btn::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          120deg,
+          transparent 20%,
+          rgba(255, 255, 255, 0.35) 50%,
+          transparent 80%
+        );
+        transform: translateX(-120%);
+        transition: transform 0.4s ease;
+        pointer-events: none;
+      }
+
+      .copy-btn:hover::after {
+        transform: translateX(120%);
+      }
+
+      .copy-btn:disabled {
+        opacity: 0.7;
+        cursor: default;
+      }
+
+      pre {
+        margin: 0;
+        padding: 14px 12px;
+        min-height: 120px;
+        white-space: pre-wrap;
+        font-family: 'JetBrains Mono', 'Consolas', 'SFMono-Regular', Menlo, monospace;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        background:
+          linear-gradient(180deg, rgba(2, 6, 23, 0.85), rgba(2, 6, 23, 0.65)),
+          repeating-linear-gradient(
+            0deg,
+            rgba(148, 163, 184, 0.06) 0,
+            rgba(148, 163, 184, 0.06) 1px,
+            transparent 1px,
+            transparent 26px
+          );
+        border-radius: 0 0 14px 14px;
+      }
+
+      code {
+        display: block;
+        min-height: 92px;
+      }
+
+      .tab-panel.is-active .panel-title {
+        animation: fadeUp 0.35s ease both;
+      }
+
+      .tab-panel.is-active p {
+        animation: fadeUp 0.45s ease 0.05s both;
+      }
+
+      .tab-panel.is-active .prompt-block {
+        animation: fadeUp 0.5s ease 0.1s both;
+      }
+
+      @keyframes fadeUp {
+        0% {
+          transform: translateY(10px);
+          opacity: 0;
+        }
+        100% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      @media (max-width: 720px) {
+        header {
+          padding: 20px 18px 16px;
+        }
+
+        header h1 {
+          font-size: 1.15rem;
+        }
+
+        .tabs {
+          padding: 12px 14px;
+        }
+
+        main {
+          padding: 20px 16px 26px;
+        }
+
+        .tab-panel {
+          padding: 14px;
+        }
+
+        .status-legend {
+          width: 100%;
+        }
+
+        .header-aside {
+          width: 100%;
+          justify-content: flex-start;
+          align-items: flex-start;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div class="header-row">
+          <div class="header-copy">
+            <h1>Phase 02 Prompt Pack - Web UI Parity</h1>
+            <p>Phase 02 scope: Web UI parity for the Play page (routes, state, render plan, UI kit).</p>
+          </div>
+          <div class="header-aside">
+            <div class="status-legend" aria-label="Status legend">
+              <div class="legend-title">Status legend</div>
+              <div class="legend-items">
+                <span class="legend-chip legend-red"
+                  >Not Started <span class="legend-count" data-count="red">0</span></span
+                >
+                <span class="legend-chip legend-yellow"
+                  >In Progress <span class="legend-count" data-count="yellow">0</span></span
+                >
+                <span class="legend-chip legend-green"
+                  >Complete <span class="legend-count" data-count="green">0</span></span
+                >
+              </div>
+              <div class="legend-tip">Double-click a tab to cycle status.</div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="tabs">
+        <div class="tabs-scroll" role="tablist" aria-label="Prompt phases">
+          <button
+            class="tab-btn tab-color-red is-active"
+            type="button"
+            data-tab="phase-one"
+            role="tab"
+            aria-selected="true"
+          >
+            1. Planning
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-two"
+            role="tab"
+            aria-selected="false"
+          >
+            2. App shell + state
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-three"
+            role="tab"
+            aria-selected="false"
+          >
+            3. Play UI + canvas
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-four"
+            role="tab"
+            aria-selected="false"
+          >
+            4. Integration Proofs
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-five"
+            role="tab"
+            aria-selected="false"
+          >
+            Documentation
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-six"
+            role="tab"
+            aria-selected="false"
+          >
+            Verification
+          </button>
+        </div>
+        <div class="tabs-divider" aria-hidden="true"></div>
+        <button class="action-btn" type="button" data-copy-completed>Copy Completed Prompts</button>
+      </div>
+
+      <main>
+        <section class="tab-panel is-active" data-tab="phase-one" role="tabpanel">
+          <div class="panel-title">
+            <h2>1) Planning</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Define phase scope, copy Tasks and Integration Proofs verbatim, build a coverage map,
+            and set acceptance criteria. No implementation code in this phase.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-one">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-one">Read LLM_GUIDE.md, docs/Architecture.md, docs/project-plan.md (Phase 2), apps/web/README.md, and packages/core/README.md before proceeding.
+Do not write any implementation code in this phase.
+
+Context:
+- Phase 2 - Web UI parity (Play page).
+- Decision dependencies: ADR-0001 (Remix-first app shell) and ADR-0005 (RenderPlan split).
+
+Required planning output:
+A) Scope lock (verbatim copy)
+1) Re-list the Phase 2 tasks from docs/project-plan.md verbatim in your plan output.
+
+B) Integration proofs (verbatim copy)
+2) Copy the Phase 2 Integration Proofs verbatim from docs/project-plan.md (if any). If none are listed, state "None listed for Phase 2."
+
+C) File plan (scope explicit)
+3) List every file that will be created or modified for Phase 2.
+   Group by Implementation tab (Implementation A, Implementation B).
+   For each file: (new|modified) + one-line purpose.
+
+D) Acceptance criteria (measurable)
+4) Write acceptance criteria as a numbered checklist that is objectively verifiable.
+   - Include Tailwind + tokens.css + dark mode class strategy.
+   - Include route modules and ErrorBoundary exports.
+   - Include gameSlice and core helper tests.
+   - Include render plan split, RAF loop, keyboard controls, move history, restart/undo/next level.
+   - Include sequence input deterministic application.
+   - Include /dev/ui-kit rendering all primitives.
+
+E) Prompt-pack coverage map
+5) Provide a coverage map assigning every Phase 2 task to exactly one implementation tab in this pack.
+   If a task spans multiple tabs, flag it as a risk before implementation.
+
+F) Open questions / risks
+6) List ambiguities that must be resolved before implementation starts.
+
+Output the plan only. Do not edit files in this phase.
+</code></pre>
+<pre>OUTPUT:<code id="prompt-phase-one-output">
+A) Scope Lock (Verbatim)
+1. Remix app (`apps/web`, Vite mode) + Tailwind layout; configure content globs for workspace packages; set up tokens.css and dark mode class strategy
+2. Remix route modules for /play, /bench, /dev/ui-kit with route-level ErrorBoundary exports
+3. RTK store + gameSlice
+4. Add core helpers applyMoves and selectCellAt with tests (Phase 2 glue)
+5. Canvas renderer split: buildRenderPlan(state): RenderPlan (pure, tested) + draw(ctx, plan): void (thin, untested); RAF loop; keyboard input + move history + restart + undo + next level
+6. Sequence input applies moves deterministically
+7. Add /dev/ui-kit route rendering all design system primitives
+
+B) Integration Proofs (Verbatim)
+- None listed for Phase 2 in docs/project-plan.md.
+
+C) File Plan (Scope Explicit)
+
+Implementation A - App shell + state + core helpers
+Create:
+- (new) apps/web/tailwind.config.ts - Tailwind config with content globs and darkMode class.
+- (new) apps/web/postcss.config.cjs - PostCSS config for Tailwind and autoprefixer.
+- (new) apps/web/app/styles/tokens.css - design tokens as CSS variables.
+- (new) apps/web/app/routes/play.tsx - /play route shell with ErrorBoundary.
+- (new) apps/web/app/routes/bench.tsx - /bench route shell with ErrorBoundary.
+- (new) apps/web/app/routes/dev.ui-kit.tsx - /dev/ui-kit route shell with ErrorBoundary.
+- (new) apps/web/app/state/gameSlice.ts - Redux game slice for level state, moves, and history.
+- (new) apps/web/app/state/__tests__/gameSlice.test.ts - reducer tests for gameSlice.
+- (new) packages/core/src/engine/applyMoves.ts - deterministic batch move helper.
+- (new) packages/core/src/engine/selectCellAt.ts - cell query helper for rendering.
+- (new) packages/core/src/engine/__tests__/applyMoves.test.ts - applyMoves unit tests.
+- (new) packages/core/src/engine/__tests__/selectCellAt.test.ts - selectCellAt unit tests.
+Modify:
+- (modified) apps/web/app/styles/app.css - Tailwind directives and base layout styles.
+- (modified) apps/web/app/root.tsx - add tokens.css, Redux Provider, and dark mode class.
+- (modified) apps/web/app/routes/_index.tsx - direct users to /play or list route links.
+- (modified) apps/web/app/state/store.ts - include gameSlice reducer.
+- (modified) apps/web/app/state/index.ts - export gameSlice types and selectors.
+- (modified) apps/web/package.json - add tailwindcss/postcss/autoprefixer dev deps; add @corgiban/levels as runtime dep.
+- (modified) apps/web/tsconfig.json - add packages/levels project reference (PlayPage imports @corgiban/levels directly; required for tsc -b).
+- (modified) packages/core/src/index.ts - export applyMoves and selectCellAt.
+
+Implementation B - Play UI + canvas + UI kit
+Create:
+- (new) apps/web/app/canvas/renderPlan.ts - RenderPlan types for deterministic render output.
+- (new) apps/web/app/canvas/buildRenderPlan.ts - pure render plan builder.
+- (new) apps/web/app/canvas/draw.ts - thin canvas draw adapter.
+- (new) apps/web/app/canvas/GameCanvas.tsx - canvas host with RAF render loop.
+- (new) apps/web/app/canvas/__tests__/buildRenderPlan.test.ts - buildRenderPlan tests.
+- (new) apps/web/app/play/PlayPage.tsx - play page layout composition.
+- (new) apps/web/app/play/SidePanel.tsx - level info, move history, restart/undo/next level.
+- (new) apps/web/app/play/MoveHistory.tsx - move history list.
+- (new) apps/web/app/play/BottomControls.tsx - sequence input container.
+- (new) apps/web/app/play/SequenceInput.tsx - parse and submit UDLR sequences.
+- (new) apps/web/app/play/useKeyboardControls.ts - keyboard bindings for UDLR.
+- (new) apps/web/app/ui/Button.tsx - primary button primitive.
+- (new) apps/web/app/ui/IconButton.tsx - icon button primitive.
+- (new) apps/web/app/ui/Input.tsx - input primitive.
+- (new) apps/web/app/ui/Select.tsx - select primitive.
+- (new) apps/web/app/ui/Tabs.tsx - tabs primitive.
+- (new) apps/web/app/ui/Dialog.tsx - dialog primitive.
+- (new) apps/web/app/ui/Tooltip.tsx - tooltip primitive.
+- (new) apps/web/app/ui/index.ts - UI primitive exports.
+Modify:
+- (modified) apps/web/app/routes/play.tsx - render PlayPage and wire store state.
+- (modified) apps/web/app/routes/dev.ui-kit.tsx - render UI primitives showcase.
+- (modified) apps/web/app/state/gameSlice.ts - add actions/selectors for moves, history, and level navigation.
+- (modified) apps/web/app/state/__tests__/gameSlice.test.ts - cover new reducer behavior.
+
+D) Acceptance Criteria (Measurable)
+1. Tailwind is configured in apps/web with content globs covering apps/web/app and packages/*/src, darkMode uses class strategy, and tokens are defined in apps/web/app/styles/tokens.css and wired into app.css/root.
+2. /play, /bench, and /dev/ui-kit routes exist with ErrorBoundary exports, and _index routes users to /play or lists links to the new routes.
+3. The Redux store includes gameSlice, and gameSlice reducer tests cover initialization, move application, undo, restart, and level navigation behavior.
+4. packages/core exports applyMoves and selectCellAt; both functions are deterministic and have unit tests.
+5. Canvas rendering is split into buildRenderPlan (pure, tested) and draw (thin). Play page uses a RAF loop, keyboard input, move history, restart, undo, and next level controls.
+6. Sequence input accepts UDLR strings and applies moves deterministically using applyMoves; invalid characters are rejected or ignored deterministically.
+7. /dev/ui-kit renders Button, IconButton, Input, Select, Tabs, Dialog, and Tooltip primitives with visible focus states and ARIA where needed.
+
+E) Prompt-Pack Coverage Map
+- Implementation A: Tasks 1, 2, 3, 4
+- Implementation B: Tasks 5, 6, 7
+- Integration proofs: none
+
+F) Open Questions / Risks -- RESOLVED after codebase analysis
+
+Q: Should /bench route be a minimal placeholder in Phase 2 or a more complete stub?
+A: Route shell only -- export default + ErrorBoundary, placeholder heading. No bench logic in Phase 2.
+
+Q: Does the dark mode class live on html or body, and how is it toggled?
+A: On the html element (per docs/project-plan.md section 6). settingsSlice.theme drives it via a
+   client-only ThemeApplicator component (useEffect + useSelector) in root.tsx. Initial theme
+   changed from 'light' to 'dark' to match existing dark visual design (background: #0b1120).
+
+Q: What are the initial level selection rules, and how is move history reset when switching levels?
+A: Load index 0 from builtinLevels (from @corgiban/levels, parseLevel from @corgiban/core).
+   nextLevelLoaded action wraps with modulo over totalLevels. History and stats reset to zero
+   on every level load or level switch.
+
+G) Implementation Notes (from codebase analysis)
+
+- @corgiban/levels must be added as a runtime dependency to apps/web/package.json (currently absent).
+  builtinLevels exports the classic Sokoban catalog. PlayPage reads index 0 on mount.
+
+- LevelRuntime (Uint8Array/Uint32Array) cannot go in Redux. gameSlice stores JSON-serializable
+  equivalents: playerIndex (number), boxes (number[]), initialPlayerIndex, initialBoxes (number[]).
+  PlayPage holds LevelRuntime in a useRef; components reconstruct GameState on demand.
+
+- gameSlice state shape:
+    { levelId, levelIndex, totalLevels, playerIndex, boxes: number[],
+      initialPlayerIndex, initialBoxes: number[], history: SerializableHistoryEntry[], stats }
+  Actions: loadLevel, moveMade, undoDone, restarted (no payload -- uses stored initial fields),
+           nextLevelLoaded.
+
+- postcss.config must use .cjs extension (not .mjs) because apps/web has "type": "module".
+
+- applyMoves(state, directions, options?): { state, changed, stoppedAt? }
+  stopOnNoChange option stops early when a move has no effect and sets stoppedAt index.
+
+- selectCellAt(state, index): { wall, target, box, player }
+  Reads staticGrid for wall/target; scans boxes array for box; compares playerIndex for player.
+
+- RenderPlan: { gridWidth, gridHeight, commands: DrawCommand[] }
+  DrawCommand: { kind: DrawKind; col: number; row: number }
+  DrawKind: 'wall' | 'floor' | 'target' | 'player' | 'playerOnTarget' | 'box' | 'boxOnTarget'
+  buildRenderPlan iterates cells in row-major order (deterministic). draw uses color map only.
+
+- vitest.config in apps/web uses environment: 'node'. gameSlice and buildRenderPlan tests are
+  pure unit tests; no DOM or jsdom required. No config change needed.
+
+- settingsSlice.ts: change initial theme from 'light' to 'dark' (1 line change).
+</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-two" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>2) App Shell + State + Core Helpers</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Implement app shell, routes, state, and core helpers. Keep scope file-specific and
+            reviewable.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-two">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-two">Read LLM_GUIDE.md, docs/Architecture.md, docs/project-plan.md (Phase 2 tasks 1-4), apps/web/README.md, and packages/core/README.md before making changes.
+Reference the coverage map and acceptance criteria defined in Phase 1.
+
+Context:
+- Set up Tailwind and tokens, scaffold Remix routes, add gameSlice, and add core helpers needed by the Play UI.
+- Keep scope to Phase 2 only; do not start worker or solver wiring.
+
+Coverage assignments for this tab:
+- Tasks:
+  1. Remix app (`apps/web`, Vite mode) + Tailwind layout; configure content globs for workspace packages; set up tokens.css and dark mode class strategy
+  2. Remix route modules for /play, /bench, /dev/ui-kit with route-level ErrorBoundary exports
+  3. RTK store + gameSlice
+  4. Add core helpers applyMoves and selectCellAt with tests (Phase 2 glue)
+- Integration proofs: none
+
+File scope (required):
+Create:
+- apps/web/tailwind.config.ts
+- apps/web/postcss.config.cjs
+- apps/web/app/styles/tokens.css
+- apps/web/app/routes/play.tsx
+- apps/web/app/routes/bench.tsx
+- apps/web/app/routes/dev.ui-kit.tsx
+- apps/web/app/state/gameSlice.ts
+- apps/web/app/state/__tests__/gameSlice.test.ts
+- packages/core/src/engine/applyMoves.ts
+- packages/core/src/engine/selectCellAt.ts
+- packages/core/src/engine/__tests__/applyMoves.test.ts
+- packages/core/src/engine/__tests__/selectCellAt.test.ts
+Modify:
+- apps/web/app/styles/app.css
+- apps/web/app/root.tsx
+- apps/web/app/routes/_index.tsx
+- apps/web/app/state/store.ts
+- apps/web/app/state/index.ts
+- apps/web/package.json
+- apps/web/tsconfig.json
+- packages/core/src/index.ts
+
+Steps:
+1. Tailwind + tokens setup:
+   - Add tailwindcss, postcss, and autoprefixer to apps/web/package.json devDependencies; add @corgiban/levels as a runtime dependency.
+   - Add { "path": "../../packages/levels" } to the references array in apps/web/tsconfig.json (PlayPage imports builtinLevels directly from @corgiban/levels; required for tsc -b to resolve the project).
+   - Create apps/web/tailwind.config.ts with content globs covering apps/web/app and packages/*/src, and darkMode: 'class'.
+   - Create apps/web/postcss.config.cjs (must be .cjs, not .mjs -- apps/web has "type": "module") wiring tailwindcss and autoprefixer.
+   - Add apps/web/app/styles/tokens.css and update apps/web/app/styles/app.css to import tokens and include @tailwind base/components/utilities.
+   - Update apps/web/app/root.tsx: wrap in Redux Provider (module-level store singleton); set className="dark" on the html element (not body); add a ThemeApplicator component (useEffect + useSelector) to sync settingsSlice.theme to document.documentElement.
+2. Remix routes:
+   - Create routes play.tsx, bench.tsx, dev.ui-kit.tsx with basic layout and ErrorBoundary exports.
+   - Update _index.tsx to link or redirect to /play.
+3. RTK gameSlice:
+   - Create gameSlice with serializable state (levelId, move history, stats) and actions for move, undo, restart, next level.
+   - Add gameSlice tests for reducer behavior.
+   - Wire gameSlice into store and re-export types in apps/web/app/state/index.ts.
+4. Core helpers:
+   - Implement applyMoves in packages/core/src/engine/applyMoves.ts using applyMove in a loop with early stop support.
+   - Implement selectCellAt in packages/core/src/engine/selectCellAt.ts to query wall/target/player/box at a grid index.
+   - Export both from packages/core/src/index.ts and add unit tests.
+
+Constraints:
+- packages/core imports only packages/shared and packages/levels
+- apps/web imports packages through their public entrypoints only
+- Only modify files listed in this tab. Flag deviation before acting.
+- Main thread must stay responsive; heavy compute runs in workers.
+- Core and solver packages must remain deterministic and free of DOM/Web APIs.
+
+Local verification for this tab:
+- pnpm test -- --project packages/core/vitest.config.ts
+- Expected: core tests pass.
+- pnpm test -- --project apps/web/vitest.config.ts
+- Expected: apps/web tests pass.
+
+You are not done until all of the following pass with no errors:
+  pnpm typecheck
+  pnpm lint
+  pnpm test:coverage
+</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-three" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>3) Play UI + Canvas + UI Kit</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Implement Play UI, render plan pipeline, inputs, and UI kit primitives. Keep this tab independent and
+            file-scoped.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-three">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-three">Read LLM_GUIDE.md, docs/Architecture.md, docs/project-plan.md (Phase 2 tasks 5-7), and apps/web/README.md before making changes.
+Reference the coverage map and acceptance criteria defined in Phase 1.
+
+Context:
+- Build the Play UI, render plan pipeline, input handling, and UI kit primitives.
+- Use applyMoves and selectCellAt from packages/core; keep Redux state serializable.
+
+Coverage assignments for this tab:
+- Tasks:
+  5. Canvas renderer split: buildRenderPlan(state): RenderPlan (pure, tested) + draw(ctx, plan): void (thin, untested); RAF loop; keyboard input + move history + restart + undo + next level
+  6. Sequence input applies moves deterministically
+  7. Add /dev/ui-kit route rendering all design system primitives
+- Integration proofs: none
+
+File scope (required):
+Create:
+- apps/web/app/canvas/renderPlan.ts
+- apps/web/app/canvas/buildRenderPlan.ts
+- apps/web/app/canvas/draw.ts
+- apps/web/app/canvas/GameCanvas.tsx
+- apps/web/app/canvas/__tests__/buildRenderPlan.test.ts
+- apps/web/app/play/PlayPage.tsx
+- apps/web/app/play/SidePanel.tsx
+- apps/web/app/play/MoveHistory.tsx
+- apps/web/app/play/BottomControls.tsx
+- apps/web/app/play/SequenceInput.tsx
+- apps/web/app/play/useKeyboardControls.ts
+- apps/web/app/ui/Button.tsx
+- apps/web/app/ui/IconButton.tsx
+- apps/web/app/ui/Input.tsx
+- apps/web/app/ui/Select.tsx
+- apps/web/app/ui/Tabs.tsx
+- apps/web/app/ui/Dialog.tsx
+- apps/web/app/ui/Tooltip.tsx
+- apps/web/app/ui/index.ts
+Modify:
+- apps/web/app/routes/play.tsx
+- apps/web/app/routes/dev.ui-kit.tsx
+- apps/web/app/state/gameSlice.ts
+- apps/web/app/state/__tests__/gameSlice.test.ts
+
+Steps:
+1. Render plan + canvas:
+   - Define RenderPlan types in apps/web/app/canvas/renderPlan.ts.
+   - Implement buildRenderPlan as a pure, deterministic function and add unit tests.
+   - Implement draw(ctx, plan) as a thin adapter with no game logic.
+   - Add GameCanvas with a RAF loop that calls buildRenderPlan then draw.
+2. Play page layout and controls:
+   - Build PlayPage and subcomponents (SidePanel, MoveHistory, BottomControls, SequenceInput).
+   - Wire keyboard controls via useKeyboardControls (UDLR).
+   - Hook gameSlice actions for move, undo, restart, and next level; update move history UI.
+3. Sequence input:
+   - Parse UDLR strings, ignore whitespace, reject invalid chars deterministically.
+   - Use applyMoves to update state and report how many moves were applied.
+4. UI kit:
+   - Implement Button, IconButton, Input, Select, Tabs, Dialog, and Tooltip primitives.
+   - Ensure visible focus states and required ARIA attributes.
+   - Update /dev/ui-kit route to render each primitive and usage states.
+
+Constraints:
+- apps/web imports packages through their public entrypoints only
+- Only modify files listed in this tab. Flag deviation before acting.
+- Main thread must stay responsive; heavy compute runs in workers.
+- Core and solver packages must remain deterministic and free of DOM/Web APIs.
+
+Local verification for this tab:
+- pnpm test -- --project apps/web/vitest.config.ts
+- Expected: apps/web tests pass.
+- pnpm lint
+- Expected: lint passes with no errors.
+
+You are not done until all of the following pass with no errors:
+  pnpm typecheck
+  pnpm lint
+  pnpm test:coverage
+</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-four" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>4) Integration Proofs</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Validate integration proofs explicitly with commands and pass/fail criteria, then
+            document outcomes in-repo.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-four">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-four">Read LLM_GUIDE.md, docs/Architecture.md, and docs/project-plan.md before running proof validation.
+Phase 2 lists no Integration Proofs. Keep this tab empty unless the plan changes.
+
+Coverage assignments for this tab:
+- Integration proofs: none
+
+File scope (required):
+Create:
+- none
+Modify:
+- none
+
+Do not mark this tab complete unless Phase 2 gains integration proofs and the Planning OUTPUT section is updated.
+
+You are not done until all of the following pass with no errors:
+  pnpm typecheck
+  pnpm lint
+  pnpm test:coverage
+</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-five" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>Documentation</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Review and update all project documentation affected by this PR. Run after all
+            implementation tabs are complete, before Verification.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-five">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-five">Read LLM_GUIDE.md, docs/Architecture.md, and docs/adr/* before proceeding.
+Do not write any new implementation code in this phase.
+
+Read the Planning tab output for this PR before reviewing documentation.
+Use Glob to list docs/prompt-packs/*.html, identify the pack for this PR (it will be the most
+recently modified file or match the phase you are working on), then Read that file and locate the
+OUTPUT section inside the Planning (phase-one) panel. This contains the scope lock, coverage map,
+and acceptance criteria that define what changed in this PR.
+
+Review every documentation file that may be affected by all uncommitted, unstaged, and untracked changes in the repo:
+- docs/Architecture.md - update if any architectural boundaries, module structure, or data flow changed.
+- docs/adr/ - create a new ADR if any architectural decision was made (new pattern, trade-off chosen, approach locked in).
+- packages/*/README.md - update each package README to reflect new exports, public API, or usage examples added in this PR.
+- docs/project-plan.md - mark completed tasks/phases as done if applicable.
+- LLM_GUIDE.md - update if new conventions, patterns, or constraints were established.
+- CONTRIBUTING.md - update if developer workflow, setup steps, or tooling changed.
+
+For each file:
+1. Read it in full.
+2. Identify any section that is stale, missing, or contradicts what was built.
+3. Update or create as needed.
+
+Do not mark this tab complete until every affected doc has been reviewed and either updated or explicitly confirmed as current.</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-six" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>Verification</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Generic end-of-PR check. Run after all implementation tabs and Integration Proofs are
+            complete and commands pass.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-six">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-six">Read LLM_GUIDE.md and docs/Architecture.md.
+Review all changes made in this PR against the acceptance criteria from Phase 1 (Planning).
+
+Confirm each of the following:
+1. Every acceptance criterion from Phase 1 is met.
+2. No files outside the agreed scope were modified.
+3. All package boundary rules from LLM_GUIDE.md are satisfied.
+4. No dead code, debug artifacts, or commented-out blocks remain in package source files. No console.* calls remain in packages/*/src/ (tools/, scripts, and server entry points are exempt).
+5. Test coverage meets project standards.
+6. pnpm typecheck, pnpm lint, and pnpm test:coverage all pass with no errors.
+
+If any item is not confirmed, list exactly what is missing and what changes are needed.
+Do not mark this phase complete until every item above is confirmed.</code></pre>
+          </div>
+          <div class="commands-block">
+            <div class="commands-header">
+              <span class="commands-label">Verification Commands</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-verify-commands">
+                Copy commands
+              </button>
+            </div>
+            <pre><code id="prompt-verify-commands">pnpm typecheck
+pnpm lint
+pnpm test:coverage</code></pre>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      (function () {
+        const buttons = Array.from(document.querySelectorAll('.tab-btn'));
+        const panels = Array.from(document.querySelectorAll('.tab-panel'));
+        const copyButtons = Array.from(document.querySelectorAll('.copy-btn'));
+        const headerEl = document.querySelector('header');
+        const copyCompletedBtn = document.querySelector('[data-copy-completed]');
+        const countEls = {
+          red: document.querySelector('[data-count="red"]'),
+          yellow: document.querySelector('[data-count="yellow"]'),
+          green: document.querySelector('[data-count="green"]'),
+        };
+        const colorOrder = ['red', 'yellow', 'green'];
+        const colorHex = {
+          red: '#ef4444',
+          yellow: '#facc15',
+          green: '#22c55e',
+        };
+        const colorClasses = colorOrder.map((color) => `tab-color-${color}`);
+        const panelStateClasses = colorOrder.map((color) => `state-${color}`);
+        const statusLabels = {
+          red: 'Not Started',
+          yellow: 'In Progress',
+          green: 'Complete',
+        };
+        const promptStatusLabels = {
+          red: 'Prompt Not Started',
+          yellow: 'Prompt in Progress',
+          green: 'Prompt Complete',
+        };
+        // IMPORTANT: change this key to match your pack filename when copying the template
+        // (e.g. 'promptPackTabColors_phase-01-your-slug') to avoid status collisions.
+        const storageKey = 'promptPackTabColors_phase-02-web-ui-parity';
+
+        function setActive(name) {
+          buttons.forEach((btn) => {
+            const isActive = btn.dataset.tab === name;
+            btn.classList.toggle('is-active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+          });
+          panels.forEach((panel) => {
+            const isActive = panel.dataset.tab === name;
+            panel.classList.toggle('is-active', isActive);
+            panel.hidden = !isActive;
+          });
+        }
+
+        function loadColorMap() {
+          try {
+            const raw = window.localStorage.getItem(storageKey);
+            return raw ? JSON.parse(raw) : {};
+          } catch (err) {
+            return {};
+          }
+        }
+
+        function saveColorMap(map) {
+          try {
+            window.localStorage.setItem(storageKey, JSON.stringify(map));
+          } catch (err) {
+            // ignore
+          }
+        }
+
+        function applyTabColor(btn, color) {
+          colorClasses.forEach((className) => btn.classList.remove(className));
+          btn.classList.add(`tab-color-${color}`);
+          btn.dataset.color = color;
+        }
+
+        function getPanel(tabKey) {
+          return panels.find((item) => item.dataset.tab === tabKey);
+        }
+
+        function applyPanelState(tabKey, color, animate) {
+          const panel = getPanel(tabKey);
+          if (!panel) {
+            return;
+          }
+          panelStateClasses.forEach((className) => panel.classList.remove(className));
+          panel.classList.add(`state-${color}`);
+          const statusPill = panel.querySelector('[data-status-pill]');
+          if (statusPill) {
+            statusPill.textContent = statusLabels[color] || '';
+            if (animate) {
+              statusPill.classList.remove('is-pulse');
+              void statusPill.offsetWidth;
+              statusPill.classList.add('is-pulse');
+            }
+          }
+          const promptStatuses = panel.querySelectorAll('[data-prompt-status]');
+          promptStatuses.forEach((statusEl) => {
+            statusEl.textContent = promptStatusLabels[color] || '';
+            if (animate) {
+              statusEl.classList.remove('is-shift');
+              void statusEl.offsetWidth;
+              statusEl.classList.add('is-shift');
+            }
+          });
+        }
+
+        function updateProgress() {
+          const counts = { red: 0, yellow: 0, green: 0 };
+          const total = buttons.length;
+          const segment = total ? 100 / total : 100;
+          const stops = [];
+
+          buttons.forEach((btn, index) => {
+            const color = btn.dataset.color || 'red';
+            if (counts[color] !== undefined) {
+              counts[color] += 1;
+            }
+            const start = (segment * index).toFixed(2);
+            const end = (segment * (index + 1)).toFixed(2);
+            const hex = colorHex[color] || colorHex.red;
+            stops.push(`${hex} ${start}%`, `${hex} ${end}%`);
+          });
+
+          if (headerEl) {
+            const gradient = stops.length ? `linear-gradient(90deg, ${stops.join(', ')})` : '';
+            headerEl.style.setProperty('--progress-gradient', gradient);
+          }
+          if (countEls.red) {
+            countEls.red.textContent = `${counts.red}`;
+          }
+          if (countEls.yellow) {
+            countEls.yellow.textContent = `${counts.yellow}`;
+          }
+          if (countEls.green) {
+            countEls.green.textContent = `${counts.green}`;
+          }
+        }
+
+        function cycleTabColor(btn) {
+          const current = btn.dataset.color || 'red';
+          const index = colorOrder.indexOf(current);
+          const next = colorOrder[(index + 1) % colorOrder.length];
+          applyTabColor(btn, next);
+          return next;
+        }
+
+        function initTabColors() {
+          const stored = loadColorMap();
+          buttons.forEach((btn) => {
+            const tabKey = btn.dataset.tab;
+            const storedColor = tabKey ? stored[tabKey] : null;
+            const color = colorOrder.includes(storedColor) ? storedColor : 'red';
+            applyTabColor(btn, color);
+            if (tabKey) {
+              applyPanelState(tabKey, color);
+            }
+          });
+          updateProgress();
+        }
+
+        buttons.forEach((btn) => {
+          btn.addEventListener('click', () => setActive(btn.dataset.tab));
+          btn.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            const tabKey = btn.dataset.tab;
+            const nextColor = cycleTabColor(btn);
+            if (tabKey) {
+              applyPanelState(tabKey, nextColor, true);
+            }
+            if (!tabKey) {
+              return;
+            }
+            btn.classList.remove('is-flash');
+            void btn.offsetWidth;
+            btn.classList.add('is-flash');
+            const stored = loadColorMap();
+            stored[tabKey] = nextColor;
+            saveColorMap(stored);
+            updateProgress();
+          });
+        });
+
+        async function copyText(text) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            return true;
+          }
+          const input = document.createElement('textarea');
+          input.value = text;
+          input.setAttribute('readonly', '');
+          input.style.position = 'fixed';
+          input.style.left = '-9999px';
+          document.body.appendChild(input);
+          input.select();
+          try {
+            document.execCommand('copy');
+          } catch (err) {
+            // ignore
+          }
+          document.body.removeChild(input);
+          return true;
+        }
+
+        copyButtons.forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const targetId = btn.getAttribute('data-copy-target');
+            const target = targetId ? document.getElementById(targetId) : null;
+            const text = target ? target.textContent : '';
+            const original = btn.textContent;
+            btn.disabled = true;
+            await copyText(text);
+            btn.textContent = 'Copied';
+            setTimeout(() => {
+              btn.textContent = original;
+              btn.disabled = false;
+            }, 1200);
+          });
+        });
+
+        if (copyCompletedBtn) {
+          copyCompletedBtn.addEventListener('click', async () => {
+            const sections = [];
+            buttons.forEach((btn) => {
+              const color = btn.dataset.color || 'red';
+              if (color !== 'green') {
+                return;
+              }
+              const tabKey = btn.dataset.tab;
+              const panel = tabKey ? getPanel(tabKey) : null;
+              if (!panel) {
+                return;
+              }
+              const title = panel.querySelector('h2');
+              const prompt = panel.querySelector('pre code');
+              const titleText = title ? title.textContent.trim() : '';
+              const promptText = prompt ? prompt.textContent.trim() : '';
+              if (titleText || promptText) {
+                sections.push([titleText, promptText].filter(Boolean).join('\n'));
+              }
+            });
+
+            const output = sections.join('\n\n');
+            const original = copyCompletedBtn.textContent;
+            copyCompletedBtn.disabled = true;
+            if (!output) {
+              copyCompletedBtn.textContent = 'No completed prompts';
+              setTimeout(() => {
+                copyCompletedBtn.textContent = original;
+                copyCompletedBtn.disabled = false;
+              }, 1400);
+              return;
+            }
+            await copyText(output);
+            copyCompletedBtn.textContent = 'Copied completed prompts';
+            setTimeout(() => {
+              copyCompletedBtn.textContent = original;
+              copyCompletedBtn.disabled = false;
+            }, 1400);
+          });
+        }
+
+        if (buttons.length) {
+          initTabColors();
+          setActive(buttons[0].dataset.tab);
+        }
+      })();
+    </script>
+  </body>
+</html>

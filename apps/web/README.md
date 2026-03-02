@@ -11,10 +11,11 @@ Remix application containing the product UI, routes, and orchestration.
 - Worker clients (via ports/adapters) for solver + benchmarks
 - Persistence adapters (IndexedDB, File System Access export/import)
 
-## Current status (Phase 2 pending)
+## Current status (Phase 2 complete)
 
-- Routes: only `_index` exists; `/play`, `/bench`, `/lab`, and `/dev/ui-kit` are planned.
-- State: RTK store scaffold with solver/settings slices; game/bench slices and UI wiring are pending.
+- Routes: `/play` (interactive), `/bench` (placeholder), and `/dev/ui-kit` (design system); `/lab` is still planned.
+- State: RTK store includes `game`, `solver`, and `settings` slices; bench slice and solver wiring are pending.
+- Play: GameState is derived from move history using core helpers; render plan split and keyboard/sequence input are wired.
 - Replay: controller scaffolding exists; UI integration is pending.
 
 ## Non-responsibilities
@@ -37,7 +38,7 @@ Worker creation and browser-only APIs must be used in client-only contexts:
 - Route behavior tests: keep deterministic, prefer unit-style tests
 - Avoid snapshotting canvas pixels; test render plans where possible
 
-## Key dependencies (planned)
+## Key dependencies
 
 - React + TypeScript
 - TailwindCSS

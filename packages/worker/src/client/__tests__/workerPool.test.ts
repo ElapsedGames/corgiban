@@ -227,6 +227,29 @@ describe('WorkerPool', () => {
     expect(disposed).toEqual(['worker-1', 'worker-2']);
   });
 
+  it('throws when size is zero or negative', () => {
+    expect(() => new WorkerPool(() => ({ id: 'worker-1' }), 0)).toThrow(
+      'WorkerPool size must be > 0.',
+    );
+  });
+
+  it('dispose is idempotent', () => {
+    let counter = 0;
+    const disposed: string[] = [];
+    const pool = new WorkerPool(
+      () => ({ id: `worker-${(counter += 1)}` }),
+      2,
+      (worker) => {
+        disposed.push(worker.id);
+      },
+    );
+
+    pool.dispose();
+    pool.dispose();
+
+    expect(disposed).toEqual(['worker-1', 'worker-2']);
+  });
+
   it('rejects enqueue after dispose', async () => {
     const pool = new WorkerPool(() => ({ id: 'worker-1' }), 1);
 

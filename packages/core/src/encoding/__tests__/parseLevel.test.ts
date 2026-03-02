@@ -7,6 +7,16 @@ import { parseLevel } from '../parseLevel';
 import { STATIC_FLOOR, STATIC_TARGET, STATIC_WALL } from '../../model/cell';
 
 describe('parseLevel', () => {
+  it('rejects empty row arrays', () => {
+    const definition: LevelDefinition = {
+      id: 'empty-rows',
+      name: 'Empty Rows',
+      rows: [],
+    };
+
+    expect(() => parseLevel(definition)).toThrow('at least one row');
+  });
+
   it('parses tokens with common indentation and preserves internal spaces', () => {
     const definition: LevelDefinition = {
       id: 'test-1',
@@ -148,6 +158,16 @@ describe('parseLevel', () => {
       id: 'two-players',
       name: 'Two Players',
       rows: ['WPW', 'WQW', 'WWW'],
+    };
+
+    expect(() => parseLevel(definition)).toThrow('exactly one player');
+  });
+
+  it('rejects multiple players with duplicate P tokens', () => {
+    const definition: LevelDefinition = {
+      id: 'two-players-pp',
+      name: 'Two Players P P',
+      rows: ['PPW', 'WWW'],
     };
 
     expect(() => parseLevel(definition)).toThrow('exactly one player');

@@ -114,6 +114,16 @@ describe('applyMove', () => {
     expect(result.state).toBe(state);
   });
 
+  it('does not move beyond the grid boundary', () => {
+    const level = buildLevel(['PEE']);
+    const state = createGame(level);
+    const result = applyMove(state, 'L');
+
+    expect(result.changed).toBe(false);
+    expect(result.pushed).toBe(false);
+    expect(result.state).toBe(state);
+  });
+
   it('pushes a box when space is available', () => {
     const level = buildLevel(['WWWWW', 'WPBEW', 'WWWWW']);
     const state = createGame(level);
@@ -140,6 +150,16 @@ describe('applyMove', () => {
 
   it('does not push a box off the grid', () => {
     const level = buildLevel(['WWWW', 'WPBW', 'WWWW']);
+    const state = createGame(level);
+    const result = applyMove(state, 'R');
+
+    expect(result.changed).toBe(false);
+    expect(result.pushed).toBe(false);
+    expect(result.state).toBe(state);
+  });
+
+  it('does not push a box beyond the grid boundary', () => {
+    const level = buildLevel(['EPB']);
     const state = createGame(level);
     const result = applyMove(state, 'R');
 

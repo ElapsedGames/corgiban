@@ -1,8 +1,12 @@
 import type { LinksFunction, MetaFunction } from '@remix-run/node';
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from '@remix-run/react';
 import appStylesHref from './styles/app.css?url';
+import tokensHref from './styles/tokens.css?url';
 
-export const links: LinksFunction = () => [{ rel: 'stylesheet', href: appStylesHref }];
+export const links: LinksFunction = () => [
+  { rel: 'stylesheet', href: tokensHref },
+  { rel: 'stylesheet', href: appStylesHref },
+];
 
 export const meta: MetaFunction = () => [
   { title: 'Corgiban' },
@@ -11,7 +15,7 @@ export const meta: MetaFunction = () => [
 
 export default function App() {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <Meta />
         <Links />

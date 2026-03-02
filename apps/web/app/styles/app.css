@@ -1,26 +1,47 @@
-:root {
-  color-scheme: light;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, sans-serif;
-  background: #0b1120;
-  color: #e2e8f0;
+  font-family: var(--font-sans);
+  background: var(--bg-gradient);
+  color: var(--color-fg);
 }
 
-.app {
-  max-width: 48rem;
+a {
+  color: inherit;
+}
+
+.page-shell {
+  max-width: 68rem;
   margin: 0 auto;
-  padding: 3rem 1.5rem;
+  padding: 3.5rem 1.75rem 4.5rem;
 }
 
-.app h1 {
-  margin: 0 0 0.5rem;
-  font-size: 2.25rem;
-}
-
-.app p {
+.page-title {
   margin: 0;
-  opacity: 0.85;
+  font-family: var(--font-display);
+  font-size: 2.75rem;
+  letter-spacing: -0.02em;
+}
+
+.page-subtitle {
+  margin: 0.75rem 0 0;
+  max-width: 42rem;
+  color: var(--color-muted);
+}
+
+.route-card {
+  margin-top: 2rem;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: 1.5rem 1.75rem;
 }

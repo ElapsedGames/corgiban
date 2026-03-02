@@ -9,9 +9,11 @@ export type Position = { row: number; col: number };
 
 export { createGame } from './model/gameState';
 export { applyMove } from './engine/applyMove';
+export { applyMoves } from './engine/applyMoves';
 export { undo } from './engine/undo';
 export { restart } from './engine/restart';
 export { isWin } from './engine/rules';
+export { selectCellAt } from './engine/selectCellAt';
 export { parseLevel } from './encoding/parseLevel';
 export { serializeLevel } from './encoding/serializeLevel';
 export { normalize } from './hashing/normalize';

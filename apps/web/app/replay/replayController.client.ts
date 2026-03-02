@@ -58,6 +58,7 @@ export class ReplayController {
     this.currentState = createGame(this.level);
     this.dispatch(setReplayTotalSteps(this.replayMoves.length));
     this.dispatch(setReplayIndex(0));
+    this.dispatch(setReplayState('idle'));
     this.onStateChange?.(this.currentState);
   }
 
@@ -157,12 +158,18 @@ export class ReplayController {
 
   private applyStep(): void {
     const move = this.replayMoves[this.replayIndex];
-    // INVARIANT: solver solutions contain only legal moves, so applyMove always changes state.
-    // TODO(Phase 2): when replaying arbitrary user history, avoid advancing on blocked moves.
     const result = applyMove(this.currentState, move);
-    this.currentState = result.state;
+    // Index always advances so the replay never stalls. Move sequences fed to
+    // this class are expected to contain only successful moves (solver solutions
+    // and user history both filter out blocked moves via gameSlice.move's
+    // changed guard). If result.changed is false a solver produced an invalid
+    // move; the state update is skipped silently. stepBack is not designed to
+    // handle blocked-move entries in the sequence.
     this.replayIndex += 1;
     this.dispatch(setReplayIndex(this.replayIndex));
-    this.onStateChange?.(this.currentState);
+    if (result.changed) {
+      this.currentState = result.state;
+      this.onStateChange?.(this.currentState);
+    }
   }
 }

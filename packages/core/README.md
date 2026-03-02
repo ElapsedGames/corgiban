@@ -10,8 +10,11 @@ Pure, deterministic game engine and level runtime representation.
 - Pure engine operations:
   - createGame
   - applyMove
+  - applyMoves
   - undo/restart
   - win detection
+- Render helpers:
+  - selectCellAt
 - Hashing utilities for solver use (`normalize`, `hash`)
 - `LevelRuntime` includes immutable `levelId` metadata sourced from `LevelDefinition.id`
 
@@ -39,7 +42,7 @@ Export from `src/index.ts` only. Keep other modules internal.
 Public exports include:
 
 - Types: `Cell`, `FloorType`, `Occupant`, `LevelRuntime`, `GameState`, `Direction`, `Position`
-- Functions: `createGame`, `applyMove`, `undo`, `restart`, `isWin`, `parseLevel`, `serializeLevel`, `normalize`, `hash`, `isWall`
+- Functions: `createGame`, `applyMove`, `applyMoves`, `undo`, `restart`, `isWin`, `selectCellAt`, `parseLevel`, `serializeLevel`, `normalize`, `hash`, `isWall`
 
 ## Testing
 

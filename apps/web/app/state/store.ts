@@ -1,11 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit';
 
+import { gameSlice } from './gameSlice';
 import { settingsSlice } from './settingsSlice';
 import { solverSlice } from './solverSlice';
 
 export const createAppStore = () =>
   configureStore({
     reducer: {
+      game: gameSlice.reducer,
       settings: settingsSlice.reducer,
       solver: solverSlice.reducer,
     },

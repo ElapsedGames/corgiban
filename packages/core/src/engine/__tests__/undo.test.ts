@@ -116,6 +116,17 @@ describe('undo', () => {
     expect(undone).toBe(initial);
   });
 
+  it('throws when a pushed history entry is incomplete', () => {
+    const level = buildLevel(['WWWWW', 'WPBEW', 'WWWWW']);
+    const initial = createGame(level);
+    const badState = {
+      ...initial,
+      history: [{ prevPlayerIndex: initial.playerIndex, pushed: true }],
+    };
+
+    expect(() => undo(badState)).toThrow('Invalid history entry');
+  });
+
   it('is deterministic for identical inputs', () => {
     const level = buildLevel(['WWWWW', 'WPBEW', 'WWWWW']);
     const initial = createGame(level);

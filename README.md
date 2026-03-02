@@ -8,7 +8,8 @@ Domain packages (`core`, `solver`, `benchmarks`) are framework-agnostic and reus
 - Governance baseline, ADRs, and package scaffolding are in place.
 - Phase 1 (levels + core engine) is complete with high unit coverage.
 - Standards/interop decisions are captured; planning/docs reflect a dedicated formats package and import rules.
-- Next: implement Phase 2 (play UI parity and canvas renderer).
+- Phase 2 (play UI parity and canvas renderer) is complete with high unit coverage.
+- Next: implement Phase 3 (worker + baseline solver)
 
 ## Goals
 

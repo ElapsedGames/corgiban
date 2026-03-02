@@ -63,4 +63,17 @@ describe('serializeLevel', () => {
 
     expect(() => serializeLevel(level)).toThrow('staticGrid size');
   });
+
+  it('throws when the player overlaps a box', () => {
+    const level: LevelRuntime = {
+      levelId: 'overlap',
+      width: 2,
+      height: 1,
+      staticGrid: Uint8Array.from([STATIC_FLOOR, STATIC_FLOOR]),
+      initialPlayerIndex: 1,
+      initialBoxes: Uint32Array.from([1]),
+    };
+
+    expect(() => serializeLevel(level)).toThrow('overlapping player and box');
+  });
 });

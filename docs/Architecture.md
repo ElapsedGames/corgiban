@@ -229,6 +229,8 @@ See ADR-0010 (`docs/adr/0010-level-format-interop-policy.md`).
         gameState.ts
       engine/
         applyMove.ts
+        applyMoves.ts
+        selectCellAt.ts
         undo.ts
         restart.ts
         rules.ts
@@ -600,7 +602,7 @@ A dedicated route:
 
 ### 10.2 Rendering pipeline
 
-- state changes trigger a render (throttled with `requestAnimationFrame`)
+- rendering draws on state or size changes (single draw per change); requestAnimationFrame is reserved for replay or future animations and can be reintroduced with a dirty flag if needed
 - sprite assets loaded once (asset manager)
 - consistent coordinate system; DPR scaling supported
 - Rendering is split into `buildRenderPlan(state): RenderPlan` (pure, deterministic, unit-tested)
@@ -634,6 +636,7 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 
 - `/play` (default)
 - `/bench`
+- `/dev/ui-kit` (design system showcase)
 - `/lab` (optional developer tooling route; advanced browser-dev adapters are flag-gated)
 - `/tests` (optional internal harness page for interactive debugging)
 
@@ -665,7 +668,8 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 ### 12.1 Redux slices
 
 - `gameSlice`
-  - current level id, gameState, input mode, history pointers
+  - current level id, move history (direction + pushed), stats (moves/pushes)
+  - GameState is derived from history using core helpers; typed arrays stay out of Redux
 - `solverSlice`
   - active runs, progress map, last solution, status
   - replay metadata: replayState, replayIndex, replayTotalSteps
