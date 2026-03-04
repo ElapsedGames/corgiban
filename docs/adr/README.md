@@ -56,3 +56,4 @@ If an ADR is superseded, link bidirectionally:
 - `0010-level-format-interop-policy.md`
 - `0011-solver-protocol-solution-contract.md`
 - `0012-replay-pipeline-shadow-state.md`
+- `0013-solver-cancellation-worker-reset.md`

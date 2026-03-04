@@ -190,6 +190,8 @@ See ADR-0010 (`docs/adr/0010-level-format-interop-policy.md`).
       /ui
       /canvas
       /replay
+      /play
+      /ports
       /routes
       /state
       /styles
@@ -245,9 +247,11 @@ See ADR-0010 (`docs/adr/0010-level-format-interop-policy.md`).
       api/
         solverTypes.ts
         solverOptions.ts
+        solverConstants.ts
         algorithm.ts
         registry.ts
         selection.ts
+        solve.ts
       solution/
         expandSolution.ts
       algorithms/
@@ -270,6 +274,7 @@ See ADR-0010 (`docs/adr/0010-level-format-interop-policy.md`).
       protocol/
         protocol.ts
         schema.ts
+        validation.ts
       runtime/
         solverWorker.ts
         throttle.ts
@@ -431,10 +436,13 @@ All invariants are validated in unit tests and optionally in dev builds.
 [React UI] -> dispatch(action) -> [RTK reducers/thunks]
                       |                     |
                       v                     v
-                [core engine]         [solver client]
+                [core engine]      [SolverPort adapter]
                       |                     |
                       v                     v
-                [render canvas]     postMessage to worker
+                [render canvas]       [solver client]
+                                            |
+                                            v
+                                    postMessage to worker
                                            |
                                            v
                                    [solver algorithms]
@@ -464,32 +472,41 @@ All invariants are validated in unit tests and optionally in dev builds.
 
 ### 7.1 Versioning
 
-All messages include:
+All run-scoped messages include:
 
-- `protocolVersion: 1`
+- `protocolVersion: 2`
 - `runId: string` (UUID or monotonic unique)
+
+Worker lifecycle messages (`PING`/`PONG`) include `protocolVersion` only.
 
 ### 7.2 Messages
 
-**Main -> Worker**
+**Main -> Worker (implemented in protocol v2 baseline)**
 
 - `SOLVE_START` (level runtime payload + algorithm + limits)
-- `SOLVE_CANCEL`
-- `BENCH_START` (suite definition + limits)
 - `PING` (health check)
 
-**Worker -> Main**
+**Main -> Worker (planned for benchmark phase / future protocol extension)**
+
+- `SOLVE_CANCEL`
+- `BENCH_START` (suite definition + limits)
+
+**Worker -> Main (implemented in protocol v2 baseline)**
 
 - `SOLVE_PROGRESS` (throttled)
   - fields: `runId`, `protocolVersion`, `expanded`, `generated`, `depth`, `frontier`, `elapsedMs`, `bestHeuristic?`, `bestPathSoFar?`
   - `bestPathSoFar` (when present) is a fully expanded UDLR walk+push string
 - `SOLVE_RESULT`
-  - fields: `runId`, `protocolVersion`, `status`, `solutionMoves?`, `metrics`
+  - fields: `runId`, `protocolVersion`, `status`, `solutionMoves?`, `metrics`, `errorMessage?`, `errorDetails?`
+  - when `status === "error"`, `errorMessage` is provided and `errorDetails` may be provided
   - metrics: `elapsedMs`, `expanded`, `generated`, `maxDepth`, `maxFrontier`, `pushCount`, `moveCount`
 - `SOLVE_ERROR`
+- `PONG`
+
+**Worker -> Main (planned for benchmark phase / future protocol extension)**
+
 - `BENCH_PROGRESS`
 - `BENCH_RESULT`
-- `PONG`
 
 See ADR-0011 (`docs/adr/0011-solver-protocol-solution-contract.md`).
 
@@ -498,20 +515,32 @@ See ADR-0011 (`docs/adr/0011-solver-protocol-solution-contract.md`).
 Use schema validation (example: Zod) at both ends:
 
 - Worker rejects unknown/invalid messages with `SOLVE_ERROR`
-- Client logs protocol mismatch and fails gracefully
+- Client treats protocol mismatches as worker failures and enters a retryable crashed state
+- Typed-array fields are validated with `instanceof` and are expected to arrive through
+  structured-clone `postMessage`.
 
 ### 7.4 Cancellation and timeouts
 
-- Each run has a `CancelToken` checked every N expansions.
+- Solver algorithms support cooperative cancellation through `CancelToken` when a cancel token is
+  supplied in solver context.
+- In protocol v2 baseline, in-flight cancellation from the app is handled by a hard worker reset
+  in the solver client (`terminate` + recreate). `SOLVE_CANCEL` is reserved for a later protocol
+  extension once the worker runtime supports interruptible in-flight runs.
+- In Phase 3, `createSolverClient` is single-active-run oriented for `/play`; use `WorkerPool`
+  for concurrent solve orchestration.
+- App-level solve orchestration applies default budgets unless caller overrides:
+  `timeBudgetMs = 30_000`, `nodeBudget = 2_000_000`.
 - `timeBudgetMs` enforced in worker loop.
 - `nodeBudget` optional.
 - Benchmarks always run with budgets to avoid infinite searches.
 - Multiple concurrent runs are supported through the worker pool: one active run per worker,
   additional runs are queued until a worker is free.
 - Worker pool supports cancelling queued runs by `runId` before they dispatch.
-- In-flight cancellation is handled through the worker protocol (SOLVE_CANCEL); pool cancel is queue-only.
+- Worker pool cancel is queue-only.
 - Worker pool dispose rejects queued and in-flight tasks without waiting for running tasks to
   settle; callers should provide a worker-disposer callback when they need workers terminated.
+
+See ADR-0013 (`docs/adr/0013-solver-cancellation-worker-reset.md`).
 
 ---
 
@@ -520,10 +549,13 @@ Use schema validation (example: Zod) at both ends:
 ### 8.1 Public solver API (package boundary)
 
 - `AlgorithmId` registry
-- `solve(levelRuntime, options, hooks)` entry point
+- `analyzeLevel(levelRuntime)` and `chooseAlgorithm(features)` for deterministic recommendation
+  with fallback to implemented algorithms
+- `solve(levelRuntime, algorithmId, options?, hooks?, context?)` entry point
 - `SolveResult` includes:
   - `status: "solved" | "unsolved" | "timeout" | "cancelled" | "error"`
   - `solutionMoves?: string` (fully expanded UDLR walk+push string)
+  - `errorMessage?: string`, `errorDetails?: string` when `status === "error"`
   - metrics: `expanded`, `generated`, `elapsedMs`, `maxDepth`, `maxFrontier`, `pushCount`, `moveCount`
 
 ### 8.2 Algorithm interface
@@ -658,8 +690,12 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 - Workers are client-only: never create workers from Remix loaders/actions or server entrypoints.
 - Worker creation is allowed only in `*.client.ts` modules; do not rely on dynamic-import
   escape hatches from server-reachable modules.
-- Module worker construction uses:
-  `new Worker(new URL("./solverWorker.ts", import.meta.url), { type: "module" })`.
+- Module worker construction uses one of:
+  - package-internal default:
+    `new Worker(new URL("../runtime/solverWorker.ts", import.meta.url), { type: "module" })`
+  - app adapter url import (Remix/Vite):
+    `import solverWorkerUrl from "./solverWorker.client.ts?worker&url";`
+    `new Worker(solverWorkerUrl, { type: "module", name: "corgiban-solver" })`
 
 ---
 
@@ -671,7 +707,8 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
   - current level id, move history (direction + pushed), stats (moves/pushes)
   - GameState is derived from history using core helpers; typed arrays stay out of Redux
 - `solverSlice`
-  - active runs, progress map, last solution, status
+  - active run id, selected algorithm id, latest progress snapshot, last result, status,
+    recommendation, workerHealth
   - replay metadata: replayState, replayIndex, replayTotalSteps
 - `benchSlice`
   - suites, active benchmark status, results, filters
@@ -682,9 +719,13 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 
 - Use RTK thunks for:
   - starting/cancelling solver
-  - playback scheduling
   - benchmark scheduling
-- All thunks depend on ports (interfaces) injected at store creation:
+- Level changes route through a dedicated workflow thunk that cancels any active run before
+  resetting solver run state and recomputing recommendation.
+- Replay scheduling is handled by `ReplayController` (RAF loop + shadow state), not by a thunk.
+- Current thunks depend on `SolverPort` injected at store creation.
+- `BenchmarkPort` and `PersistencePort` are planned for benchmark-phase wiring.
+- Port interfaces used by thunks:
   - `SolverPort`
   - `BenchmarkPort`
   - `PersistencePort`
@@ -808,6 +849,7 @@ Current accepted ADRs:
 - ADR-0010: Level format interop and import validation policy
 - ADR-0011: Solver protocol solution contract and options validation
 - ADR-0012: Replay pipeline shadow state and RAF scheduling
+- ADR-0013: Solver cancellation via worker reset (Phase 3 baseline)
 
 ---
 

@@ -52,6 +52,14 @@ If documentation is missing, create the smallest doc needed (see Documentation r
 
 ## 2. Golden rules
 
+### 2.0 Fight entropy. Leave the codebase better than you found it.
+
+- This codebase will outlive you. Every shortcut you take becomes someone else's burden. Every hack compounds into technical debt that slows the whole team down.
+
+- You are not just writing code. You are shaping the future of this project. The patterns you establish will be copied. The corners you cut will be cut again.
+
+- Fight entropy. Leave the codebase better than you found it.
+
 ### 2.1 Keep code human-readable
 
 - Optimize for clarity over cleverness.
@@ -230,10 +238,16 @@ Rule: No ad-hoc JSON shape copies across features.
 
 ### 7.2 Version and validate worker protocol
 
-All worker messages must include:
+All run-scoped worker messages must include:
 
 - `protocolVersion`
 - `runId`
+
+Worker lifecycle messages (`PING`/`PONG`) include `protocolVersion` only.
+
+- Do not introduce ad-hoc cancel message shapes. If the active protocol version does not define
+  a run-cancel message, use the documented cancellation path for that version and record changes
+  in an ADR.
 
 Validate both directions:
 
@@ -254,8 +268,12 @@ Validate both directions:
 - `apps/web` runs Remix in Vite mode.
 - Worker creation is done only in client-only `*.client.ts` modules;
   never from Remix loaders/actions/server entrypoints.
-- Module worker construction pattern:
-  `new Worker(new URL("./solverWorker.ts", import.meta.url), { type: "module" })`.
+- Supported module worker construction patterns:
+  - package-internal default:
+    `new Worker(new URL("../runtime/solverWorker.ts", import.meta.url), { type: "module" })`
+  - Remix/Vite app adapter (asset-url worker module):
+    `import solverWorkerUrl from "./solverWorker.client.ts?worker&url";`
+    `new Worker(solverWorkerUrl, { type: "module", name: "corgiban-solver" })`
 - `packages/embed` (when introduced) defaults to Shadow DOM with scoped stylesheet injection and
   bundles React as a dependency (not a peer dependency).
 - `packages/solver-kernels` (when introduced) stays TS-first; WASM promotion uses Rust +
@@ -298,9 +316,9 @@ Most bug fixes must include:
 
 - Run full unit suite (not a partial subset)
 - Run typecheck and lint
-- Pre-commit hooks (simple-git-hooks) run `pnpm format:check`, `pnpm lint`,
+- Pre-commit hooks (simple-git-hooks) run `pnpm format:check`,
   `node tools/scripts/run-affected-tests.mjs`, and `node tools/scripts/encoding-check.mjs`
-  on staged files.
+  on staged files (lint/typecheck remain required via local verification + CI).
 
 ---
 
@@ -413,6 +431,7 @@ the archive includes the current worktree.
 - cancellation checks remain frequent enough
 - progress reporting remains throttled and stable
 - regression tests added for any pruning/deadlock change
+- keep `IMPLEMENTED_ALGORITHM_IDS`, `chooseAlgorithm`, and UI availability in sync
 - no DOM/Web APIs used
 
 ### 13.3 If you touch `packages/worker` protocol

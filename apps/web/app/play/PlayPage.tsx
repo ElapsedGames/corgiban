@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import {
@@ -11,9 +11,12 @@ import {
 } from '@corgiban/core';
 import { builtinLevels } from '@corgiban/levels';
 import type { Direction } from '@corgiban/shared';
+import type { AlgorithmId } from '@corgiban/solver';
 
 import { GameCanvas } from '../canvas/GameCanvas';
+import { ReplayController } from '../replay/replayController.client';
 import type { AppDispatch, RootState } from '../state';
+import { cancelSolve, handleLevelChange, retryWorker, startSolve } from '../state';
 import {
   applyMoveSequence,
   move,
@@ -22,8 +25,11 @@ import {
   undo,
   type GameMove,
 } from '../state/gameSlice';
+import { setSolverReplaySpeed } from '../state/settingsSlice';
+import { clearReplay, setSelectedAlgorithmId } from '../state/solverSlice';
 import { BottomControls } from './BottomControls';
 import { SidePanel } from './SidePanel';
+import { SolverPanel } from './SolverPanel';
 import { useKeyboardControls } from './useKeyboardControls';
 
 const fallbackLevel = builtinLevels[0] ?? {
@@ -61,9 +67,25 @@ function buildState(levelState: ReturnType<typeof parseLevel>, history: Directio
   return applyMoves(base, history).state;
 }
 
+function parseSolutionMoves(solutionMoves: string | undefined): Direction[] {
+  if (!solutionMoves) {
+    return [];
+  }
+
+  const directions: Direction[] = [];
+  for (const char of solutionMoves) {
+    if (char === 'U' || char === 'D' || char === 'L' || char === 'R') {
+      directions.push(char);
+    }
+  }
+  return directions;
+}
+
 export function PlayPage() {
   const dispatch = useDispatch<AppDispatch>();
   const { levelId, history, stats } = useSelector((state: RootState) => state.game);
+  const solver = useSelector((state: RootState) => state.solver);
+  const replaySpeed = useSelector((state: RootState) => state.settings.solverReplaySpeed);
 
   const levelDefinition = useMemo(() => getLevelById(levelId), [levelId]);
   const levelRuntime = useMemo(() => parseLevel(levelDefinition), [levelDefinition]);
@@ -79,36 +101,77 @@ export function PlayPage() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
+  const replayControllerRef = useRef<ReplayController | null>(null);
+  const replaySpeedRef = useRef(replaySpeed);
+  const [replayShadowState, setReplayShadowState] = useState<GameState | null>(null);
+
+  useEffect(() => {
+    replaySpeedRef.current = replaySpeed;
+  }, [replaySpeed]);
+
+  useEffect(() => {
+    const controller = new ReplayController({
+      level: levelRuntime,
+      dispatch,
+      getReplaySpeed: () => replaySpeedRef.current,
+      onStateChange: (state) => {
+        setReplayShadowState(state);
+      },
+    });
+
+    replayControllerRef.current = controller;
+    setReplayShadowState(null);
+    dispatch(clearReplay());
+    dispatch(handleLevelChange(levelRuntime));
+
+    return () => {
+      controller.pause();
+      if (replayControllerRef.current === controller) {
+        replayControllerRef.current = null;
+      }
+    };
+  }, [dispatch, levelRuntime]);
+
+  const stopReplay = useCallback(() => {
+    replayControllerRef.current?.stop();
+    setReplayShadowState(null);
+    dispatch(clearReplay());
+  }, [dispatch]);
+
   const handleMove = useCallback(
     (direction: Direction) => {
+      stopReplay();
       const result = applyMove(gameStateRef.current, direction);
       if (result.changed) {
         gameStateRef.current = result.state;
       }
       dispatch(move({ direction, pushed: result.pushed, changed: result.changed }));
     },
-    [dispatch],
+    [dispatch, stopReplay],
   );
 
   const handleUndo = useCallback(() => {
+    stopReplay();
     if (history.length === 0) {
       return;
     }
     dispatch(undo());
     gameStateRef.current = buildState(levelRuntime, moveDirections.slice(0, -1));
-  }, [dispatch, history.length, levelRuntime, moveDirections]);
+  }, [dispatch, history.length, levelRuntime, moveDirections, stopReplay]);
 
   const handleRestart = useCallback(() => {
+    stopReplay();
     dispatch(restart());
     gameStateRef.current = createGame(levelRuntime);
-  }, [dispatch, levelRuntime]);
+  }, [dispatch, levelRuntime, stopReplay]);
 
   const handleNextLevel = useCallback(() => {
+    stopReplay();
     const nextId = getNextLevelId(levelDefinition.id);
     dispatch(nextLevel({ levelId: nextId }));
     const nextDefinition = getLevelById(nextId);
     gameStateRef.current = createGame(parseLevel(nextDefinition));
-  }, [dispatch, levelDefinition.id]);
+  }, [dispatch, levelDefinition.id, stopReplay]);
 
   const handleApplySequence = useCallback(
     (directions: Direction[]) => {
@@ -141,12 +204,87 @@ export function PlayPage() {
     [dispatch],
   );
 
+  const latestSolutionDirections = useMemo(
+    () => parseSolutionMoves(solver.lastResult?.solutionMoves),
+    [solver.lastResult?.solutionMoves],
+  );
+
+  const handleRunSolver = useCallback(() => {
+    void dispatch(
+      startSolve({
+        levelRuntime,
+        algorithmId: solver.selectedAlgorithmId ?? undefined,
+      }),
+    );
+  }, [dispatch, levelRuntime, solver.selectedAlgorithmId]);
+
+  const handleCancelSolver = useCallback(() => {
+    dispatch(cancelSolve());
+  }, [dispatch]);
+
+  const handleRetryWorker = useCallback(() => {
+    dispatch(retryWorker());
+  }, [dispatch]);
+
+  const handleSelectAlgorithm = useCallback(
+    (algorithmId: AlgorithmId) => {
+      dispatch(setSelectedAlgorithmId(algorithmId));
+    },
+    [dispatch],
+  );
+
+  const handleApplySolution = useCallback(() => {
+    if (latestSolutionDirections.length === 0) {
+      return;
+    }
+    stopReplay();
+    dispatch(restart());
+    gameStateRef.current = createGame(levelRuntime);
+    handleApplySequence(latestSolutionDirections);
+  }, [dispatch, handleApplySequence, latestSolutionDirections, levelRuntime, stopReplay]);
+
+  const handleAnimateSolution = useCallback(() => {
+    if (latestSolutionDirections.length === 0) {
+      return;
+    }
+    replayControllerRef.current?.loadSolution(latestSolutionDirections, true);
+  }, [latestSolutionDirections]);
+
+  const handleReplayPlayPause = useCallback(() => {
+    const controller = replayControllerRef.current;
+    if (!controller) {
+      return;
+    }
+    if (solver.replayState === 'playing') {
+      controller.pause();
+      return;
+    }
+    controller.start();
+  }, [solver.replayState]);
+
+  const handleReplayStepBack = useCallback(() => {
+    replayControllerRef.current?.stepBack();
+  }, []);
+
+  const handleReplayStepForward = useCallback(() => {
+    replayControllerRef.current?.stepForward();
+  }, []);
+
+  const handleReplaySpeedChange = useCallback(
+    (speed: number) => {
+      dispatch(setSolverReplaySpeed(speed));
+    },
+    [dispatch],
+  );
+
   useKeyboardControls({
     onMove: handleMove,
     onUndo: handleUndo,
     onRestart: handleRestart,
     onNextLevel: handleNextLevel,
   });
+
+  const canvasState = replayShadowState ?? gameState;
 
   return (
     <main className="page-shell">
@@ -187,11 +325,35 @@ export function PlayPage() {
               </span>
             </div>
             <div className="flex justify-center rounded-[var(--radius-md)] bg-[color:var(--color-bg)] p-3">
-              <GameCanvas state={gameState} className="max-w-full" cellSize={32} />
+              <GameCanvas state={canvasState} className="max-w-full" cellSize={32} />
             </div>
           </section>
 
           <BottomControls onApplySequence={handleApplySequence} />
+
+          <SolverPanel
+            recommendation={solver.recommendation}
+            selectedAlgorithmId={solver.selectedAlgorithmId}
+            status={solver.status}
+            progress={solver.progress}
+            lastResult={solver.lastResult}
+            error={solver.error}
+            workerHealth={solver.workerHealth}
+            replayState={solver.replayState}
+            replayIndex={solver.replayIndex}
+            replayTotalSteps={solver.replayTotalSteps}
+            replaySpeed={replaySpeed}
+            onSelectAlgorithm={handleSelectAlgorithm}
+            onRun={handleRunSolver}
+            onCancel={handleCancelSolver}
+            onApply={handleApplySolution}
+            onAnimate={handleAnimateSolution}
+            onReplayPlayPause={handleReplayPlayPause}
+            onReplayStepBack={handleReplayStepBack}
+            onReplayStepForward={handleReplayStepForward}
+            onReplaySpeedChange={handleReplaySpeedChange}
+            onRetryWorker={handleRetryWorker}
+          />
         </div>
       </div>
     </main>

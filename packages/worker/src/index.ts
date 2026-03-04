@@ -4,7 +4,6 @@ export { PROTOCOL_VERSION } from './protocol/protocol';
 export type {
   PingMessage,
   PongMessage,
-  SolveCancelMessage,
   SolveErrorMessage,
   SolveProgressMessage,
   SolveResultMessage,
@@ -13,6 +12,26 @@ export type {
   WorkerOutboundMessage,
 } from './protocol/protocol';
 
-export { solverSchemas, workerInboundSchema, workerOutboundSchema } from './protocol/schema';
+export {
+  parseWorkerInboundMessage,
+  parseWorkerOutboundMessage,
+  solverSchemas,
+  workerInboundSchema,
+  workerOutboundSchema,
+} from './protocol/schema';
+export {
+  assertInboundMessage,
+  assertOutboundMessage,
+  ProtocolValidationError,
+  validateInboundMessage,
+  validateOutboundMessage,
+} from './protocol/validation';
 export { WorkerPool } from './client/workerPool.client';
 export type { WorkerTask } from './client/workerPool.client';
+export { createSolverClient } from './client/solverClient.client';
+export type {
+  CreateSolverClientOptions,
+  SolverClient,
+  SolverClientSolveRequest,
+  SolverWorkerHealth,
+} from './client/solverClient.client';

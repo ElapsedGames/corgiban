@@ -83,14 +83,11 @@ describe('isWin', () => {
     expect(isWin(state)).toBe(true);
   });
 
-  it('is deterministic for identical inputs', () => {
-    const level = buildLevel(['WWWWW', 'WPSEW', 'WWTWW']);
+  it('returns true when there are no boxes', () => {
+    const level = buildLevel(['WWWWW', 'WPEWW', 'WWWWW']);
     const state = createGame(level);
 
-    const first = isWin(state);
-    const second = isWin(state);
-
-    expect(first).toBe(second);
+    expect(isWin(state)).toBe(true);
   });
 });
 

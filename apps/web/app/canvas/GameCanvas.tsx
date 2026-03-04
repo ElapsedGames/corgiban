@@ -13,10 +13,14 @@ export type GameCanvasProps = {
 
 export function GameCanvas({ state, cellSize = 32, className }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [dpr, setDpr] = useState(() => window.devicePixelRatio || 1);
+  const [dpr, setDpr] = useState(1);
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
     const update = () => setDpr(window.devicePixelRatio || 1);
+    update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
   }, []);

@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./runtime/solverWorker": "./src/runtime/solverWorker.ts"
   },
   "dependencies": {
     "@corgiban/core": "workspace:*",

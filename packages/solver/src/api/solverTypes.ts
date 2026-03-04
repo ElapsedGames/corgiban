@@ -32,11 +32,26 @@ export type SolverMetrics = {
 
 export type SolveStatus = 'solved' | 'unsolved' | 'timeout' | 'cancelled' | 'error';
 
-export type SolveResult = {
-  status: SolveStatus;
+export type SolveSuccessResult = {
+  status: 'solved';
+  solutionMoves: string;
+  metrics: SolverMetrics;
+};
+
+export type SolveNonErrorResult = {
+  status: 'unsolved' | 'timeout' | 'cancelled';
   solutionMoves?: string;
   metrics: SolverMetrics;
 };
+
+export type SolveErrorResult = {
+  status: 'error';
+  metrics: SolverMetrics;
+  errorMessage: string;
+  errorDetails?: string;
+};
+
+export type SolveResult = SolveSuccessResult | SolveNonErrorResult | SolveErrorResult;
 
 export type SolverProgress = {
   expanded: number;
@@ -50,4 +65,12 @@ export type SolverProgress = {
 
 export type SolverHooks = {
   onProgress?: (progress: SolverProgress) => void;
+};
+
+export type LevelFeatures = {
+  width: number;
+  height: number;
+  boxCount: number;
+  walkableCount: number;
+  reachableCount: number;
 };

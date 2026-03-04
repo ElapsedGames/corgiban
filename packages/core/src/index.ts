@@ -1,7 +1,7 @@
 export const coreVersion = '0.0.0';
 
 export type { Cell, FloorType, Occupant } from './model/cell';
-export { isWall } from './model/cell';
+export { isTarget, isWall } from './model/cell';
 export type { LevelRuntime } from './model/level';
 export type { GameState } from './model/gameState';
 export type { Direction } from '@corgiban/shared';

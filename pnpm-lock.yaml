@@ -58,6 +58,12 @@ importers:
       '@corgiban/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@corgiban/solver':
+        specifier: workspace:*
+        version: link:../../packages/solver
+      '@corgiban/worker':
+        specifier: workspace:*
+        version: link:../../packages/worker
       '@reduxjs/toolkit':
         specifier: ^2.2.3
         version: 2.11.2(react-redux@9.2.0(@types/react@18.3.28)(react@18.3.1)(redux@5.0.1))(react@18.3.1)

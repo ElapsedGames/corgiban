@@ -7,16 +7,6 @@ import { STATIC_FLOOR, STATIC_TARGET, STATIC_WALL } from '../../model/cell';
 import { createGame } from '../../model/gameState';
 import type { LevelRuntime } from '../../model/level';
 
-function expectStateEqual(
-  left: ReturnType<typeof createGame>,
-  right: ReturnType<typeof createGame>,
-) {
-  expect(left.playerIndex).toBe(right.playerIndex);
-  expect(Array.from(left.boxes)).toEqual(Array.from(right.boxes));
-  expect(left.history).toEqual(right.history);
-  expect(left.stats).toEqual(right.stats);
-}
-
 function buildLevel(rows: string[]): LevelRuntime {
   const height = rows.length;
   const width = rows[0]?.length ?? 0;
@@ -94,14 +84,29 @@ describe('restart', () => {
     validateInvariants(restarted);
   });
 
-  it('is deterministic for identical inputs', () => {
+  it('is a no-op when already at the initial state', () => {
     const level = buildLevel(['WWWWW', 'WPBEW', 'WWWWW']);
     const initial = createGame(level);
-    const moved = applyMove(initial, 'R').state;
+    const restarted = restart(initial);
 
-    const first = restart(moved);
-    const second = restart(moved);
+    expect(restarted.playerIndex).toBe(initial.playerIndex);
+    expect(Array.from(restarted.boxes)).toEqual(Array.from(initial.boxes));
+    expect(restarted.history).toHaveLength(0);
+    expect(restarted.stats.moves).toBe(0);
+    validateInvariants(restarted);
+  });
 
-    expectStateEqual(first, second);
+  it('resets after multiple moves', () => {
+    const level = buildLevel(['WWWWW', 'WPBEW', 'WWWWW']);
+    const initial = createGame(level);
+    const after1 = applyMove(initial, 'R').state;
+    const after2 = applyMove(after1, 'L').state;
+    const restarted = restart(after2);
+
+    expect(restarted.playerIndex).toBe(initial.playerIndex);
+    expect(Array.from(restarted.boxes)).toEqual(Array.from(initial.boxes));
+    expect(restarted.history).toHaveLength(0);
+    expect(restarted.stats.moves).toBe(0);
+    validateInvariants(restarted);
   });
 });

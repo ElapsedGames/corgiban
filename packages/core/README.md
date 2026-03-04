@@ -41,8 +41,9 @@ Export from `src/index.ts` only. Keep other modules internal.
 
 Public exports include:
 
+- `coreVersion`
 - Types: `Cell`, `FloorType`, `Occupant`, `LevelRuntime`, `GameState`, `Direction`, `Position`
-- Functions: `createGame`, `applyMove`, `applyMoves`, `undo`, `restart`, `isWin`, `selectCellAt`, `parseLevel`, `serializeLevel`, `normalize`, `hash`, `isWall`
+- Functions: `createGame`, `applyMove`, `applyMoves`, `undo`, `restart`, `isWin`, `selectCellAt`, `parseLevel`, `serializeLevel`, `normalize`, `hash`, `isWall`, `isTarget`
 
 ## Testing
 

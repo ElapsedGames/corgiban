@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { parseLevel } from '@corgiban/core';
 import type { LevelRuntime } from '@corgiban/core';
@@ -79,6 +79,98 @@ describe('ReplayController', () => {
         (action) => action.type === 'solver/setReplayState' && action.payload === 'playing',
       ),
     ).toHaveLength(1);
+  });
+
+  it('loadSolution without autoplay loads moves but does not start playback', () => {
+    const level = buildLevel(['WWWW', 'WPEW', 'WWWW']);
+    const actions: Array<{ type: string; payload?: unknown }> = [];
+    let rafCalls = 0;
+    const dispatch = ((action: unknown) => {
+      actions.push(action as { type: string; payload?: unknown });
+    }) as Dispatch;
+
+    const controller = new ReplayController({
+      level,
+      dispatch,
+      getReplaySpeed: () => 1,
+      raf: () => {
+        rafCalls += 1;
+        return rafCalls;
+      },
+      caf: () => undefined,
+    });
+
+    controller.loadSolution(['R', 'L'], false);
+
+    expect(rafCalls).toBe(0);
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        { type: 'solver/setReplayTotalSteps', payload: 2 },
+        { type: 'solver/setReplayState', payload: 'idle' },
+      ]),
+    );
+    expect(
+      actions.some(
+        (action) => action.type === 'solver/setReplayState' && action.payload === 'playing',
+      ),
+    ).toBe(false);
+  });
+
+  it('loadSolution with autoplay starts playback', () => {
+    const level = buildLevel(['WWWW', 'WPEW', 'WWWW']);
+    const actions: Array<{ type: string; payload?: unknown }> = [];
+    let rafCalls = 0;
+    const dispatch = ((action: unknown) => {
+      actions.push(action as { type: string; payload?: unknown });
+    }) as Dispatch;
+
+    const controller = new ReplayController({
+      level,
+      dispatch,
+      getReplaySpeed: () => 1,
+      raf: () => {
+        rafCalls += 1;
+        return rafCalls;
+      },
+      caf: () => undefined,
+    });
+
+    controller.loadSolution(['R'], true);
+
+    expect(rafCalls).toBe(1);
+    expect(
+      actions.some(
+        (action) => action.type === 'solver/setReplayState' && action.payload === 'playing',
+      ),
+    ).toBe(true);
+  });
+
+  it('uses default raf/caf when not provided', () => {
+    const level = buildLevel(['WWWW', 'WPEW', 'WWWW']);
+    const actions: Array<{ type: string; payload?: unknown }> = [];
+    const rafSpy = vi.fn(() => 1);
+    const cafSpy = vi.fn();
+    const dispatch = ((action: unknown) => {
+      actions.push(action as { type: string; payload?: unknown });
+    }) as Dispatch;
+
+    vi.stubGlobal('requestAnimationFrame', rafSpy);
+    vi.stubGlobal('cancelAnimationFrame', cafSpy);
+
+    const controller = new ReplayController({
+      level,
+      dispatch,
+      getReplaySpeed: () => 1,
+    });
+
+    controller.setMoves(['R']);
+    controller.start();
+    controller.pause();
+
+    expect(rafSpy).toHaveBeenCalled();
+    expect(cafSpy).toHaveBeenCalledWith(1);
+
+    vi.unstubAllGlobals();
   });
 
   it('pauses playback before stepping forward manually', () => {
@@ -341,6 +433,35 @@ describe('ReplayController', () => {
     expect(cancelled).toEqual([1, 2]);
     expect(actions.some((action) => action.type === 'solver/setReplayState')).toBe(true);
     expect(controller.getState().playerIndex).toBe(level.initialPlayerIndex);
+  });
+
+  it('calls onStateChange after successful steps', () => {
+    const level = buildLevel(['WWWW', 'WPEW', 'WWWW']);
+    const actions: Array<{ type: string; payload?: unknown }> = [];
+    const stateChanges: number[] = [];
+    const dispatch = ((action: unknown) => {
+      actions.push(action as { type: string; payload?: unknown });
+    }) as Dispatch;
+
+    const controller = new ReplayController({
+      level,
+      dispatch,
+      getReplaySpeed: () => 1,
+      raf: () => 1,
+      caf: () => undefined,
+      onStateChange: (state) => stateChanges.push(state.playerIndex),
+    });
+
+    controller.setMoves(['R']);
+    const changeCountBefore = stateChanges.length;
+
+    controller.stepForward();
+
+    expect(stateChanges.length).toBe(changeCountBefore + 1);
+    expect(stateChanges[stateChanges.length - 1]).toBe(level.initialPlayerIndex + 1);
+    expect(actions).toEqual(
+      expect.arrayContaining([{ type: 'solver/setReplayIndex', payload: 1 }]),
+    );
   });
 
   it('steps forward and backward manually', () => {

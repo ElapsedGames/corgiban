@@ -7,16 +7,6 @@ import { STATIC_FLOOR, STATIC_TARGET, STATIC_WALL } from '../../model/cell';
 import { createGame } from '../../model/gameState';
 import type { LevelRuntime } from '../../model/level';
 
-function expectStateEqual(
-  left: ReturnType<typeof createGame>,
-  right: ReturnType<typeof createGame>,
-) {
-  expect(left.playerIndex).toBe(right.playerIndex);
-  expect(Array.from(left.boxes)).toEqual(Array.from(right.boxes));
-  expect(left.history).toEqual(right.history);
-  expect(left.stats).toEqual(right.stats);
-}
-
 function buildLevel(rows: string[]): LevelRuntime {
   const height = rows.length;
   const width = rows[0]?.length ?? 0;
@@ -127,14 +117,16 @@ describe('undo', () => {
     expect(() => undo(badState)).toThrow('Invalid history entry');
   });
 
-  it('is deterministic for identical inputs', () => {
-    const level = buildLevel(['WWWWW', 'WPBEW', 'WWWWW']);
+  it('reverts two consecutive moves', () => {
+    const level = buildLevel(['WWWWW', 'WPEEW', 'WWWWW']);
     const initial = createGame(level);
-    const moved = applyMove(initial, 'R').state;
+    const after1 = applyMove(initial, 'R').state;
+    const after2 = applyMove(after1, 'R').state;
+    const backToInitial = undo(undo(after2));
 
-    const first = undo(moved);
-    const second = undo(moved);
-
-    expectStateEqual(first, second);
+    expect(backToInitial.playerIndex).toBe(initial.playerIndex);
+    expect(backToInitial.history).toHaveLength(0);
+    expect(backToInitial.stats.moves).toBe(0);
+    validateInvariants(backToInitial);
   });
 });

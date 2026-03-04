@@ -62,6 +62,13 @@ export class ReplayController {
     this.onStateChange?.(this.currentState);
   }
 
+  loadSolution(moves: Direction[], autoplay = false): void {
+    this.setMoves(moves);
+    if (autoplay) {
+      this.start();
+    }
+  }
+
   start(): void {
     if (this.rafId !== null) {
       return;

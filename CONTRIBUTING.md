@@ -58,9 +58,10 @@ Hooks install automatically on `pnpm install` via `simple-git-hooks` (the `prepa
 The pre-commit hook runs:
 
 - `pnpm format:check`
-- `pnpm lint`
 - Deterministic affected unit tests via `node tools/scripts/run-affected-tests.mjs`
 - Encoding policy check via `node tools/scripts/encoding-check.mjs` (UTF-8 without BOM, ASCII-only text except allow list)
+
+Run `pnpm lint` and `pnpm typecheck` locally before opening a PR. CI enforces both.
 
 Affected test selection strategy (deterministic):
 
@@ -88,6 +89,7 @@ Common types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`, `perf
 
 - Implement the algorithm under `packages/solver/src/algorithms/`
 - Register it in the solver registry (and export from the solver public API)
+- Add it to `IMPLEMENTED_ALGORITHM_IDS` when it is runnable end-to-end
 - Update `chooseAlgorithm` rules if it should be selected automatically
 - Add unit tests for correctness on fixture levels
 - Ensure worker support and protocol selection are updated if the algorithm is worker-driven

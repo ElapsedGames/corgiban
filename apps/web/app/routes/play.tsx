@@ -1,16 +1,27 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { isRouteErrorResponse, useRouteError } from '@remix-run/react';
 import { Provider } from 'react-redux';
 
 import type { AppStore } from '../state';
 import { createAppStore } from '../state';
+import { createSolverPort } from '../ports/solverPort.client';
+import { createNoopSolverPort } from '../ports/solverPort';
 import { PlayPage } from '../play/PlayPage';
 
 export default function PlayRoute() {
   const storeRef = useRef<AppStore>();
   if (!storeRef.current) {
-    storeRef.current = createAppStore();
+    const solverPort =
+      typeof document === 'undefined' ? createNoopSolverPort() : createSolverPort();
+    storeRef.current = createAppStore({ solverPort });
   }
+
+  useEffect(() => {
+    return () => {
+      storeRef.current?.dispose();
+      storeRef.current = undefined;
+    };
+  }, []);
 
   return (
     <Provider store={storeRef.current}>

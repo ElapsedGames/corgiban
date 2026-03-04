@@ -1,35 +1,35 @@
 # Corgiban
 
-Corgiban is a Sokoban-style puzzle game with a solver and benchmark focus. The project targets a clean TypeScript monorepo with a deterministic core engine, worker-based solvers, and strong test coverage.
-Domain packages (`core`, `solver`, `benchmarks`) are framework-agnostic and reusable outside the Remix app shell. `worker` is an infrastructure adapter that runs domain logic off the main thread.
+Corgiban is a Sokoban-style puzzle game workspace focused on deterministic gameplay, worker-based
+solver execution, and benchmark-driven iteration.
 
-## Next milestone
+Domain packages stay framework-agnostic (`core`, `solver`, `benchmarks`). The Remix app in
+`apps/web` orchestrates UI state and adapters, while `packages/worker` keeps heavy compute off the
+main thread.
 
-- Governance baseline, ADRs, and package scaffolding are in place.
-- Phase 1 (levels + core engine) is complete with high unit coverage.
-- Standards/interop decisions are captured; planning/docs reflect a dedicated formats package and import rules.
-- Phase 2 (play UI parity and canvas renderer) is complete with high unit coverage.
-- Next: implement Phase 3 (worker + baseline solver)
+## Project State
+
+- Phase 0 complete: monorepo/tooling scaffold, strict boundaries, and governance docs.
+- Phase 1 complete: levels + deterministic core engine.
+- Phase 2 complete: `/play` UI parity and canvas renderer split (`buildRenderPlan` + `draw`).
+- Phase 3 complete: versioned worker protocol, baseline push-based BFS solver, solver client/runtime, and `/play` solver controls + replay integration.
+- Next milestone: Phase 4 benchmark page and persistence.
+
+Current routes:
+
+- `/play`: playable level flow with keyboard controls, history, undo/restart, solver run/cancel, progress, apply/animate solution, and worker retry flow.
+- `/bench`: placeholder route for benchmark workflow in Phase 4.
+- `/dev/ui-kit`: UI primitive validation route.
 
 ## Goals
 
 - Deterministic, testable game engine
-- Multiple solver algorithms (BFS, A*, IDA*)
-- Web Worker execution with progress and cancellation
+- Multiple solver algorithms (BFS baseline, A* and IDA* planned)
+- Worker execution with progress and cancellation
 - Benchmark UI with local persistence
-- High unit test coverage enforced in CI
-
-## Current Status
-
-- Governance docs, ADRs, and package scaffolding are in place.
-- Architecture, planning, tooling, and process docs are in place.
-- Core packages (`shared`, `levels`, `core`) now include the Phase 1 engine and level data baseline.
-- Phase 3 scaffolding exists (protocol schemas, solver options, worker pool, replay controller); runtime and algorithms are pending.
-- The repository is public for visibility, but it is not accepting PRs yet and issues are disabled for now.
+- High unit coverage with strict CI gates
 
 ## Quickstart
-
-Root commands (available after `pnpm i`):
 
 ```bash
 pnpm i
@@ -41,74 +41,51 @@ pnpm test:coverage
 pnpm build
 ```
 
-## Technology Placements
+## Validation Commands
 
-- Web Workers: solver and benchmark execution (`packages/worker`).
-- Web Components: `packages/embed` uses Shadow DOM, scoped stylesheet injection, and a self-contained React runtime, and it is optional for third-party embedding so `apps/web` does not depend on it or carry it on the core bundle path.
-- WASM: `packages/solver-kernels` is TS-first, then Rust + `wasm-pack` kernels loaded lazily in workers after profiling.
-- Advanced browser APIs: IndexedDB, File System Access API, `performance.mark/measure`, `PerformanceObserver`, `navigator.storage.persist()`, PWA/service worker, OffscreenCanvas.
-- Remix: main app shell from the start in `apps/web` (Vite mode, React/TypeScript/Tailwind).
+```bash
+pnpm format:check
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm test:coverage
+pnpm exec depcruise --config dependency-cruiser.config.mjs packages/ apps/
+node tools/scripts/encoding-check.mjs
+```
 
-## Plan (Phased)
+## Repo Layout
 
-1. Tooling and boundaries
-   - pnpm workspace config
-   - root package.json
-   - TypeScript project references per package
-   - ESLint boundary rules
-2. Core engine
-   - movement rules, undo/redo, win detection
-   - level parsing/encoding
-   - high unit test coverage
-3. React UI parity
-   - layout, input, history, replay
-   - canvas renderer
-4. Worker protocol and baseline solver
-   - versioned protocol
-   - BFS solver
-   - progress and cancellation
-5. Solver expansion
-   - A*, IDA*
-   - heuristics and deadlocks
-6. Benchmark page and persistence
-   - suite runner
-   - results storage and comparison
-7. Optional browser dev environments
-   - Sandpack/WebContainers in `/lab` via dynamic import + feature flag (default OFF)
-8. Solver optimization and advanced search
-   - solver-specific state, hashing, heuristics, and deadlocks
-
-## Repo Layout (Planned)
+Current:
 
 ```
 /apps
-  /web (Remix app)
+  /web
 /packages
   /shared
   /levels
-  /formats
   /core
   /solver
   /worker
   /benchmarks
-  /embed
-  /solver-kernels
 /tools
 /docs
-  Architecture.md
-  project-plan.md
-  dev-tools-spec.md
-  Engineering-Process-Playbook.md
-  /adr
 ```
+
+Planned/optional later phases:
+
+- `packages/formats` for external level format interop
+- `packages/embed` for Web Component embedding
+- `packages/solver-kernels` for optional accelerated kernels
+- `/lab` route for level tooling and optional browser dev adapters
 
 ## Documentation Map
 
 - `LLM_GUIDE.md` (canonical collaboration and quality policy)
-- `docs/Architecture.md` (system architecture, package boundaries, and core decisions)
-- `docs/project-plan.md` (phases, acceptance criteria, and implementation order)
-- `docs/dev-tools-spec.md` (boundary enforcement and tooling implementation details)
-- `docs/Engineering-Process-Playbook.md` (execution process, governance, and conflict resolution)
+- `docs/Architecture.md` (system architecture, boundaries, protocols)
+- `docs/project-plan.md` (phases, tasks, integration proofs)
+- `docs/dev-tools-spec.md` (boundary and tooling implementation details)
+- `docs/Engineering-Process-Playbook.md` (execution/governance process)
+- `docs/adr/*` (architecture decision records)
 - `AGENTS.md` and `CLAUDE.md` (thin wrappers pointing to `LLM_GUIDE.md`)
 
 ## Out of Scope (By Design)

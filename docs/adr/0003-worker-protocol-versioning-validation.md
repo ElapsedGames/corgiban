@@ -11,7 +11,8 @@ workers must be stable, explicit, and safe against schema drift.
 
 ## Decision
 
-- Every worker message includes `protocolVersion` and `runId`.
+- Every run-scoped worker message includes `protocolVersion` and `runId`.
+- Worker lifecycle messages (`PING`/`PONG`) include `protocolVersion` only.
 - Message schemas are validated on both sides using shared protocol definitions.
 - Unknown fields and mismatched versions are rejected with explicit errors.
 - Protocol shape changes require versioned updates, not ad-hoc JSON evolution.

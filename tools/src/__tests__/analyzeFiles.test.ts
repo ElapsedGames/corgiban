@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { analyzeAll, analyzeFile } from '../analyzeFiles';
 
 describe('analyzeFiles', () => {
-  it('returns a placeholder record', () => {
-    const record = analyzeFile('path/to/file.ts', 'root');
-    expect(record.path).toBe('path/to/file.ts');
-    expect(record.sizeStatus).toBe('P');
-    expect(record.hasTimeUsage).toBe(false);
-  });
+  // analyzeFile is a stub: real line counting, size classification, and time-usage
+  // detection are not yet implemented. Add tests here when the implementation lands.
+  it.todo('counts lines in a real file');
+  it.todo('classifies file size as W (warning) when over 300 lines');
+  it.todo('classifies file size as F (fail) when over 550 lines');
+  it.todo('detects Date.now() usage as hasTimeUsage: true');
 
   it('sorts records by path', () => {
     const records = analyzeAll(['b.ts', 'a.ts'], 'root');

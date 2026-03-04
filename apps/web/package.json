@@ -13,6 +13,8 @@
     "@corgiban/core": "workspace:*",
     "@corgiban/levels": "workspace:*",
     "@corgiban/shared": "workspace:*",
+    "@corgiban/solver": "workspace:*",
+    "@corgiban/worker": "workspace:*",
     "@remix-run/node": "^2.0.0",
     "@remix-run/react": "^2.0.0",
     "react": "^18.0.0",

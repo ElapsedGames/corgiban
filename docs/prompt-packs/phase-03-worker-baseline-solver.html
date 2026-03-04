@@ -1,0 +1,1804 @@
+<!doctype html>
+<!--
+  PROMPT PACK TEMPLATE
+  Do NOT fill in this file. Copy it, then save the copy to:
+
+    docs/prompt-packs/phase-NN-slug.html
+
+  Naming rules:
+  - NN   : zero-padded phase number matching docs/project-plan.md (00, 01, 02 ...)
+  - slug : short kebab-case description of the work (e.g. scaffold, core-engine, worker-protocol)
+  - Full example: phase-00-scaffold.html, phase-01-core-engine.html
+
+  Location rule:
+  - Always place in docs/prompt-packs/. Do not create a new folder.
+  - One file per PR.
+
+  IMPORTANT - after copying, update the storageKey in the <script> section near the bottom of
+  the file. Change 'promptPackTabColors' to 'promptPackTabColors_phase-NN-your-slug' (matching
+  your filename). If you skip this step, tab status from one pack will bleed into another when
+  both are open in the same browser.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 03 - Worker + Baseline Solver Prompt Pack</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600&family=Unbounded:wght@600;700&display=swap');
+
+      :root {
+        color-scheme: dark;
+        --bg-body: #070b16;
+        --bg-panel: rgba(15, 23, 42, 0.9);
+        --bg-panel-muted: rgba(30, 41, 59, 0.7);
+        --border-strong: rgba(148, 163, 184, 0.28);
+        --border-soft: rgba(148, 163, 184, 0.16);
+        --text-main: #f8fafc;
+        --text-muted: #9aa4b7;
+        --focus-ring: rgba(248, 250, 252, 0.9);
+        --glow-blue: rgba(56, 189, 248, 0.25);
+        --glow-orange: rgba(249, 115, 22, 0.25);
+        --glow-green: rgba(34, 197, 94, 0.18);
+        --accent-red: #ef4444;
+        --accent-yellow: #facc15;
+        --accent-green: #22c55e;
+        --accent-blue: #38bdf8;
+        --accent-teal: #2dd4bf;
+        --shadow-panel: 0 18px 44px rgba(2, 6, 23, 0.6);
+        --shadow-soft: 0 20px 60px rgba(2, 6, 23, 0.45);
+        --shell-edge: rgba(248, 250, 252, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+        background:
+          radial-gradient(1200px 800px at 8% -10%, var(--glow-blue), transparent 60%),
+          radial-gradient(900px 600px at 92% 0%, var(--glow-orange), transparent 65%),
+          radial-gradient(800px 600px at 50% 120%, var(--glow-green), transparent 70%),
+          var(--bg-body);
+        color: var(--text-main);
+        overflow-x: hidden;
+        position: relative;
+        z-index: 0;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image:
+          radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.08), transparent 35%),
+          radial-gradient(circle at 78% 22%, rgba(255, 255, 255, 0.05), transparent 40%),
+          repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0 2px, transparent 2px 12px);
+        opacity: 0.35;
+        pointer-events: none;
+        z-index: -2;
+      }
+
+      body::after {
+        content: '';
+        position: fixed;
+        top: -20%;
+        left: -10%;
+        right: -10%;
+        height: 70vh;
+        background:
+          radial-gradient(600px 600px at 10% 40%, rgba(56, 189, 248, 0.28), transparent 60%),
+          radial-gradient(480px 480px at 85% 20%, rgba(249, 115, 22, 0.22), transparent 65%);
+        filter: blur(30px);
+        opacity: 0.7;
+        animation: floatGlow 18s ease-in-out infinite alternate;
+        pointer-events: none;
+        z-index: -1;
+      }
+
+      .shell {
+        width: 100%;
+        min-height: 100vh;
+        margin: 0;
+        border-radius: 0;
+        border: 1px solid var(--shell-edge);
+        border-left: none;
+        border-right: none;
+        background: rgba(7, 12, 24, 0.8);
+        box-shadow: var(--shadow-soft);
+        overflow: hidden;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        position: relative;
+      }
+
+      .shell::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        padding: 1px;
+        background: linear-gradient(
+          120deg,
+          rgba(56, 189, 248, 0.4),
+          rgba(249, 115, 22, 0.3),
+          rgba(34, 197, 94, 0.3)
+        );
+        -webkit-mask:
+          linear-gradient(#000, #000) content-box,
+          linear-gradient(#000, #000);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        opacity: 0.6;
+      }
+
+      @keyframes floatGlow {
+        0% {
+          transform: translate3d(0, 0, 0) scale(1);
+        }
+        100% {
+          transform: translate3d(6%, -6%, 0) scale(1.05);
+        }
+      }
+
+      header {
+        padding: 28px 32px 20px;
+        background: linear-gradient(140deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.85));
+        border-bottom: 1px solid var(--border-strong);
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+
+      header::after {
+        content: '';
+        position: absolute;
+        left: 32px;
+        right: 32px;
+        bottom: 8px;
+        height: 3px;
+        border-radius: 999px;
+        background: var(
+          --progress-gradient,
+          linear-gradient(
+            90deg,
+            #ef4444 0%,
+            #ef4444 33.33%,
+            #facc15 33.33%,
+            #facc15 66.66%,
+            #22c55e 66.66%,
+            #22c55e 100%
+          )
+        );
+        box-shadow: 0 0 12px rgba(248, 250, 252, 0.25);
+        opacity: 0.95;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 1.6rem;
+        font-family: 'Unbounded', 'Space Grotesk', sans-serif;
+        letter-spacing: 0.02em;
+        color: #f8fafc;
+        background: linear-gradient(90deg, #f97316, #facc15, #38bdf8);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      header p {
+        margin: 6px 0 0;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        max-width: 680px;
+      }
+
+      .header-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+
+      .header-copy {
+        min-width: 240px;
+        flex: 1 1 320px;
+      }
+
+      .header-aside {
+        flex: 0 1 auto;
+      }
+
+      .status-legend {
+        display: grid;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.6);
+        box-shadow: 0 12px 30px rgba(2, 6, 23, 0.4);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+
+      .legend-title {
+        font-size: 0.7rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: rgba(226, 232, 240, 0.7);
+      }
+
+      .legend-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .legend-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+      }
+
+      .legend-count {
+        min-width: 20px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-align: center;
+        background: rgba(15, 23, 42, 0.5);
+        color: rgba(248, 250, 252, 0.9);
+      }
+
+      .legend-chip.legend-red {
+        background: linear-gradient(140deg, #ef4444, #b91c1c);
+        color: #ffffff;
+        border-color: rgba(248, 113, 113, 0.8);
+      }
+
+      .legend-chip.legend-yellow {
+        background: linear-gradient(140deg, #facc15, #f59e0b);
+        color: #111827;
+        border-color: rgba(253, 224, 71, 0.9);
+      }
+
+      .legend-chip.legend-green {
+        background: linear-gradient(140deg, #22c55e, #16a34a);
+        color: #0f172a;
+        border-color: rgba(74, 222, 128, 0.9);
+      }
+
+      .legend-tip {
+        font-size: 0.8rem;
+        color: rgba(226, 232, 240, 0.7);
+      }
+
+      .action-btn {
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: linear-gradient(120deg, rgba(59, 130, 246, 0.8), rgba(15, 23, 42, 0.9));
+        color: #f8fafc;
+        padding: 6px 12px;
+        border-radius: 10px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+        box-shadow: 0 10px 18px rgba(2, 6, 23, 0.45);
+        align-self: center;
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+
+      .action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 24px rgba(2, 6, 23, 0.5);
+      }
+
+      .action-btn:active {
+        transform: translateY(1px);
+      }
+
+      .action-btn:focus-visible {
+        outline: 2px solid rgba(248, 250, 252, 0.7);
+        outline-offset: 2px;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 6px;
+        padding: 8px 32px;
+        background:
+          linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.7)),
+          repeating-linear-gradient(90deg, rgba(248, 250, 252, 0.04) 0 1px, transparent 1px 80px);
+        border-bottom: 1px solid var(--border-strong);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        position: relative;
+        align-items: center;
+      }
+
+      .tabs::after {
+        content: '';
+        position: absolute;
+        left: 32px;
+        right: 32px;
+        bottom: 6px;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          rgba(56, 189, 248, 0.35),
+          rgba(249, 115, 22, 0.35),
+          rgba(34, 197, 94, 0.3)
+        );
+        opacity: 0.5;
+      }
+
+      .tabs-scroll {
+        display: flex;
+        gap: 6px;
+        flex: 1 1 0;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+        padding-top: 8px;
+        padding-bottom: 16px;
+      }
+
+      .tabs-divider {
+        width: 1px;
+        align-self: stretch;
+        margin: 6px 14px;
+        background: var(--border-strong);
+        flex-shrink: 0;
+      }
+
+      .tabs-scroll::-webkit-scrollbar {
+        height: 6px;
+      }
+
+      .tabs-scroll::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.35);
+        border-radius: 999px;
+      }
+
+      .tab-btn {
+        border: 1px solid var(--border-soft);
+        background: var(--bg-panel-muted);
+        color: inherit;
+        padding: 9px 16px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        position: relative;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease,
+          border-color 0.2s ease;
+        user-select: none;
+      }
+
+      .tab-btn::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          120deg,
+          rgba(255, 255, 255, 0.2),
+          transparent 35%,
+          transparent 65%,
+          rgba(255, 255, 255, 0.2)
+        );
+        opacity: 0.2;
+        background-size: 220% 100%;
+        background-position: 0% 50%;
+        transition: background-position 0.3s ease;
+        pointer-events: none;
+      }
+
+      .tab-btn::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.45), transparent 55%);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+      }
+
+      .tab-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 26px rgba(2, 6, 23, 0.4);
+        border-color: rgba(248, 250, 252, 0.35);
+      }
+
+      .tab-btn:hover::after {
+        opacity: 0.5;
+      }
+
+      .tab-btn:hover::before {
+        background-position: 100% 50%;
+      }
+
+      .tab-btn:active {
+        transform: translateY(1px);
+      }
+
+      .tab-btn:focus-visible {
+        outline: 2px solid rgba(248, 250, 252, 0.7);
+        outline-offset: 2px;
+      }
+
+      .tab-btn.is-active {
+        border-color: var(--focus-ring);
+        box-shadow:
+          0 0 0 1px var(--focus-ring) inset,
+          0 16px 30px rgba(2, 6, 23, 0.45);
+        animation: tabPop 0.35s ease;
+      }
+
+      .tab-btn.is-flash {
+        animation: tabFlash 0.4s ease;
+      }
+
+      @keyframes tabPop {
+        0% {
+          transform: translateY(4px);
+          opacity: 0.7;
+        }
+        100% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes tabFlash {
+        0% {
+          transform: translateY(2px);
+          filter: brightness(0.95);
+        }
+        50% {
+          transform: translateY(-1px);
+          filter: brightness(1.08);
+        }
+        100% {
+          transform: translateY(0);
+          filter: brightness(1);
+        }
+      }
+
+      .tab-color-red {
+        background: linear-gradient(140deg, #ef4444, #b91c1c);
+        color: #ffffff;
+        border-color: #f87171;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 12px 20px rgba(239, 68, 68, 0.3);
+      }
+
+      .tab-color-yellow {
+        background: linear-gradient(140deg, #facc15, #f59e0b);
+        color: #111827;
+        border-color: #fde047;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 12px 20px rgba(251, 191, 36, 0.28);
+      }
+
+      .tab-color-green {
+        background: linear-gradient(140deg, #22c55e, #16a34a);
+        color: #0f172a;
+        border-color: #4ade80;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 12px 20px rgba(34, 197, 94, 0.28);
+      }
+
+      main {
+        padding: 32px 32px 44px;
+        display: grid;
+        gap: 20px;
+      }
+
+      .tab-panel {
+        display: none;
+        background: linear-gradient(160deg, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.9));
+        border: 1px solid var(--border-strong);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: var(--shadow-panel);
+        position: relative;
+        overflow: hidden;
+        --state-accent: #ef4444;
+        --state-glow: rgba(239, 68, 68, 0.3);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+
+      .tab-panel.is-active {
+        display: block;
+        animation: panelIn 0.45s ease both;
+        box-shadow:
+          var(--shadow-panel),
+          0 0 40px var(--state-glow);
+      }
+
+      .tab-panel::before {
+        content: '';
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--state-accent), rgba(248, 250, 252, 0.1));
+        opacity: 0.9;
+      }
+
+      .tab-panel::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 12% 20%, rgba(248, 250, 252, 0.08), transparent 35%),
+          radial-gradient(circle at 85% 15%, rgba(56, 189, 248, 0.08), transparent 45%);
+        opacity: 0.6;
+        pointer-events: none;
+      }
+
+      .tab-panel > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      @keyframes panelIn {
+        0% {
+          transform: translateY(12px);
+          opacity: 0;
+        }
+        100% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .panel-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+      }
+
+      .tab-panel h2 {
+        margin: 0;
+        font-size: 1.2rem;
+        font-family: 'Unbounded', 'Space Grotesk', sans-serif;
+        letter-spacing: 0.01em;
+      }
+
+      .status-pill {
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+        box-shadow: 0 8px 16px rgba(2, 6, 23, 0.35);
+      }
+
+      .status-pill.is-pulse {
+        animation: pillPop 0.35s ease;
+      }
+
+      @keyframes pillPop {
+        0% {
+          transform: scale(0.94);
+          opacity: 0.75;
+        }
+        50% {
+          transform: scale(1.06);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
+      .state-red .panel-title h2 {
+        color: #f87171;
+      }
+
+      .state-red .status-pill {
+        background: linear-gradient(140deg, #ef4444, #b91c1c);
+        color: #ffffff;
+        border-color: #f87171;
+      }
+
+      .state-red {
+        --state-accent: #ef4444;
+        --state-glow: rgba(239, 68, 68, 0.32);
+        --prompt-status-position: 16.66%;
+        --prompt-status-color: #fca5a5;
+      }
+
+      .state-yellow .panel-title h2 {
+        color: #facc15;
+      }
+
+      .state-yellow .status-pill {
+        background: linear-gradient(140deg, #facc15, #f59e0b);
+        color: #111827;
+        border-color: #fde047;
+      }
+
+      .state-yellow {
+        --state-accent: #facc15;
+        --state-glow: rgba(250, 204, 21, 0.35);
+        --prompt-status-position: 50%;
+        --prompt-status-color: #fde047;
+      }
+
+      .state-green .panel-title h2 {
+        color: #4ade80;
+      }
+
+      .state-green .status-pill {
+        background: linear-gradient(140deg, #22c55e, #16a34a);
+        color: #0f172a;
+        border-color: #4ade80;
+      }
+
+      .state-green {
+        --state-accent: #22c55e;
+        --state-glow: rgba(34, 197, 94, 0.32);
+        --prompt-status-position: 83.33%;
+        --prompt-status-color: #86efac;
+      }
+
+      .tab-panel p {
+        margin: 0 0 16px;
+        color: var(--text-muted);
+        font-size: 0.98rem;
+      }
+
+      .prompt-block {
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(11, 18, 32, 0.95), rgba(2, 6, 23, 0.9));
+        color: #e2e8f0;
+        overflow: hidden;
+        box-shadow: 0 18px 34px rgba(2, 6, 23, 0.5);
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+
+      .prompt-block:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 22px 40px rgba(2, 6, 23, 0.6);
+      }
+
+      .commands-block {
+        border: 1px solid rgba(34, 197, 94, 0.2);
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(2, 8, 18, 0.98), rgba(2, 6, 23, 0.9));
+        overflow: hidden;
+        box-shadow: 0 18px 34px rgba(2, 6, 23, 0.5);
+        margin-top: 16px;
+      }
+
+      .commands-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.85));
+        border-bottom: 1px solid rgba(34, 197, 94, 0.2);
+        min-height: 44px;
+      }
+
+      .commands-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent-green);
+      }
+
+      .commands-block pre {
+        min-height: unset;
+      }
+
+      .commands-block code {
+        min-height: unset;
+      }
+
+      .prompt-block header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px 16px;
+        background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.85));
+        border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+        position: relative;
+        min-height: 44px;
+      }
+
+      .prompt-block header::before {
+        content: '';
+        display: inline-block;
+        width: 36px;
+        height: 10px;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle, #f87171 45%, transparent 46%) 0 50% / 10px 10px no-repeat,
+          radial-gradient(circle, #facc15 45%, transparent 46%) 13px 50% / 10px 10px no-repeat,
+          radial-gradient(circle, #4ade80 45%, transparent 46%) 26px 50% / 10px 10px no-repeat;
+        opacity: 0.8;
+        position: relative;
+        z-index: 1;
+      }
+
+      .prompt-block header::after {
+        content: '';
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 6px;
+        height: 3px;
+        border-radius: 999px;
+        background: linear-gradient(
+          90deg,
+          #ef4444 0%,
+          #ef4444 33.33%,
+          #facc15 33.33%,
+          #facc15 66.66%,
+          #22c55e 66.66%,
+          #22c55e 100%
+        );
+        opacity: 0.85;
+        z-index: 0;
+      }
+
+      .prompt-block header > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .prompt-status {
+        position: absolute !important;
+        left: var(--prompt-status-position, 16.66%);
+        top: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        color: var(--prompt-status-color, #fca5a5);
+        text-shadow: 0 6px 14px rgba(2, 6, 23, 0.5);
+        pointer-events: none;
+        white-space: nowrap;
+        transition:
+          left 0.25s ease,
+          color 0.25s ease;
+        z-index: 2;
+      }
+
+      .prompt-status.is-shift {
+        animation: promptShift 0.3s ease;
+      }
+
+      @keyframes promptShift {
+        0% {
+          transform: translate(-50%, -50%) scale(0.96);
+          opacity: 0.7;
+        }
+        100% {
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 1;
+        }
+      }
+
+      .copy-btn {
+        border: 1px solid rgba(56, 189, 248, 0.7);
+        background: linear-gradient(120deg, #38bdf8, #0ea5e9);
+        color: #ffffff;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+        box-shadow: 0 10px 20px rgba(14, 165, 233, 0.35);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .copy-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 26px rgba(14, 165, 233, 0.4);
+      }
+
+      .copy-btn:active {
+        transform: translateY(1px);
+      }
+
+      .copy-btn:focus-visible {
+        outline: 2px solid rgba(248, 250, 252, 0.7);
+        outline-offset: 2px;
+      }
+
+      .copy-btn::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          120deg,
+          transparent 20%,
+          rgba(255, 255, 255, 0.35) 50%,
+          transparent 80%
+        );
+        transform: translateX(-120%);
+        transition: transform 0.4s ease;
+        pointer-events: none;
+      }
+
+      .copy-btn:hover::after {
+        transform: translateX(120%);
+      }
+
+      .copy-btn:disabled {
+        opacity: 0.7;
+        cursor: default;
+      }
+
+      pre {
+        margin: 0;
+        padding: 14px 12px;
+        min-height: 120px;
+        white-space: pre-wrap;
+        font-family: 'JetBrains Mono', 'Consolas', 'SFMono-Regular', Menlo, monospace;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        background:
+          linear-gradient(180deg, rgba(2, 6, 23, 0.85), rgba(2, 6, 23, 0.65)),
+          repeating-linear-gradient(
+            0deg,
+            rgba(148, 163, 184, 0.06) 0,
+            rgba(148, 163, 184, 0.06) 1px,
+            transparent 1px,
+            transparent 26px
+          );
+        border-radius: 0 0 14px 14px;
+      }
+
+      code {
+        display: block;
+        min-height: 92px;
+      }
+
+      .tab-panel.is-active .panel-title {
+        animation: fadeUp 0.35s ease both;
+      }
+
+      .tab-panel.is-active p {
+        animation: fadeUp 0.45s ease 0.05s both;
+      }
+
+      .tab-panel.is-active .prompt-block {
+        animation: fadeUp 0.5s ease 0.1s both;
+      }
+
+      @keyframes fadeUp {
+        0% {
+          transform: translateY(10px);
+          opacity: 0;
+        }
+        100% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      @media (max-width: 720px) {
+        header {
+          padding: 20px 18px 16px;
+        }
+
+        header h1 {
+          font-size: 1.15rem;
+        }
+
+        .tabs {
+          padding: 12px 14px;
+        }
+
+        main {
+          padding: 20px 16px 26px;
+        }
+
+        .tab-panel {
+          padding: 14px;
+        }
+
+        .status-legend {
+          width: 100%;
+        }
+
+        .header-aside {
+          width: 100%;
+          justify-content: flex-start;
+          align-items: flex-start;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div class="header-row">
+          <div class="header-copy">
+            <h1>Phase 03 Prompt Pack - Worker + Baseline Solver</h1>
+            <p>
+              Phase 03 scope: worker protocol + runtime, baseline BFS solver, selection rules, and
+              solver UI integration.
+            </p>
+          </div>
+          <div class="header-aside">
+            <div class="status-legend" aria-label="Status legend">
+              <div class="legend-title">Status legend</div>
+              <div class="legend-items">
+                <span class="legend-chip legend-red"
+                  >Not Started <span class="legend-count" data-count="red">0</span></span
+                >
+                <span class="legend-chip legend-yellow"
+                  >In Progress <span class="legend-count" data-count="yellow">0</span></span
+                >
+                <span class="legend-chip legend-green"
+                  >Complete <span class="legend-count" data-count="green">0</span></span
+                >
+              </div>
+              <div class="legend-tip">Double-click a tab to cycle status.</div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="tabs">
+        <div class="tabs-scroll" role="tablist" aria-label="Prompt phases">
+          <button
+            class="tab-btn tab-color-red is-active"
+            type="button"
+            data-tab="phase-one"
+            role="tab"
+            aria-selected="true"
+          >
+            1. Planning
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-two"
+            role="tab"
+            aria-selected="false"
+          >
+            2. Solver Core + Selection
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-three"
+            role="tab"
+            aria-selected="false"
+          >
+            3. Worker Runtime + Solver UI
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-four"
+            role="tab"
+            aria-selected="false"
+          >
+            4. Integration Proofs
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-five"
+            role="tab"
+            aria-selected="false"
+          >
+            Documentation
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-six"
+            role="tab"
+            aria-selected="false"
+          >
+            Verification
+          </button>
+        </div>
+        <div class="tabs-divider" aria-hidden="true"></div>
+        <button class="action-btn" type="button" data-copy-completed>Copy Completed Prompts</button>
+      </div>
+
+      <main>
+        <section class="tab-panel is-active" data-tab="phase-one" role="tabpanel">
+          <div class="panel-title">
+            <h2>1) Planning</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Define phase scope, copy Tasks and Integration Proofs verbatim, build a coverage map,
+            and set acceptance criteria. No implementation code in this phase.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-one">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-one">Read LLM_GUIDE.md, docs/Architecture.md, docs/project-plan.md (Phase 3), docs/adr/*, packages/solver/README.md, packages/worker/README.md, and apps/web/README.md before proceeding.
+Do not write any implementation code in this phase.
+
+Context:
+- Phase 3 - Worker + baseline solver.
+- Decision dependencies: ADR-0003 (worker protocol) and ADR-0004 (push-based solver model).
+- ADR-0009 (solver internal architecture) is mandatory for solver state representation.
+
+Required planning output:
+A) Scope lock (verbatim copy)
+1) Re-list the Phase 3 tasks from docs/project-plan.md verbatim in your plan output.
+
+B) Integration proofs (verbatim copy)
+2) Copy the Phase 3 Integration Proofs verbatim from docs/project-plan.md (if any). If none are listed, state "None listed for Phase 3."
+
+C) Pre-existing work inventory (from Phase 3 scaffolding)
+3) List the Phase 3 scaffolding already in the repo with file paths (protocol schemas + tests, solver options normalization + tests, expandSolution + tests, worker pool, replay controller scaffolding, settingsSlice.solverReplaySpeed).
+
+D) File plan (scope explicit)
+4) List every file that will be created or modified for Phase 3.
+   Group by Implementation tab (Implementation A, Implementation B).
+   For each file: (new|modified) + one-line purpose.
+   Ensure ADR-0009 solver-internal architecture files are included (CompiledLevel, SolverState, Zobrist, bitset, visited).
+
+E) Acceptance criteria (measurable)
+5) Write acceptance criteria as a numbered checklist that is objectively verifiable.
+   - Include ADR-0009 requirements (CompiledLevel, SolverState canonical form, deterministic seeded Zobrist, hash-keyed visited with fingerprint verification, no string keys in hot search paths).
+   - Include protocol validation rules (protocolVersion/runId, schema validation at both ends).
+   - Include BFS solver behavior, cancel token, progress throttling, and canonical U, D, L, R order.
+   - Include analyzeLevel + chooseAlgorithm coverage for every branch and edge case.
+   - Include solver options validation bounds (timeBudgetMs/nodeBudget > 0, heuristicId/weight restrictions, heuristicWeight in 1..10).
+   - Include enableSpectatorStream and bestPathSoFar behavior.
+   - Include worker runtime/client error handling and workerHealth transitions.
+   - Include solver panel UX: recommendation, run/cancel, progress, apply/animate solution, retry crash.
+   - Include SOLVE_RESULT.metrics including elapsedMs.
+
+F) Prompt-pack coverage map
+6) Provide a coverage map assigning every Phase 3 task to exactly one implementation tab in this pack.
+   If a task spans multiple tabs, flag it as a risk before implementation.
+
+G) Open questions / risks
+7) List ambiguities that must be resolved before implementation starts.
+
+Output the plan only. Do not edit files in this phase.
+</code></pre>
+<pre>OUTPUT:<code id="prompt-phase-one-output">A) Scope Lock (Verbatim)
+1. Implement protocol schemas + runtime validation
+2. Implement solver BFS push-based with cancel token + throttled progress hooks
+3. Implement analyzeLevel + chooseAlgorithm in packages/solver/api/selection.ts with unit tests for every rule branch and edge case
+4. Implement module worker runtime and client wrapper; add worker.onerror / worker.onmessageerror handling and workerHealth tracking
+5. Add solverSlice (recommendation + workerHealth fields) + UI panel: show recommendation, run/cancel, progress, apply/animate solution, retry crashed worker
+
+B) Integration Proofs (Verbatim)
+- None listed for Phase 3 in docs/project-plan.md.
+
+C) Pre-existing Work Inventory (Phase 3 scaffolding already in repo)
+- packages/worker/src/protocol/protocol.ts, packages/worker/src/protocol/schema.ts, packages/worker/src/protocol/__tests__/schema.test.ts
+- packages/solver/src/api/solverOptions.ts, packages/solver/src/api/solverConstants.ts, packages/solver/src/api/solverTypes.ts, packages/solver/src/api/__tests__/solverOptions.test.ts
+- packages/solver/src/solution/expandSolution.ts, packages/solver/src/solution/__tests__/expandSolution.test.ts
+- packages/worker/src/client/workerPool.client.ts, packages/worker/src/client/__tests__/workerPool.test.ts
+- apps/web/app/replay/replayController.client.ts, apps/web/app/replay/__tests__/replayController.test.ts
+- apps/web/app/state/solverSlice.ts (replay metadata scaffolding)
+- apps/web/app/state/settingsSlice.ts (solverReplaySpeed)
+
+D) File Plan (Scope Explicit)
+
+Implementation A - Solver Core + Selection (ADR-0009 aligned)
+Create:
+- (new) packages/solver/src/state/compiledLevel.ts - compile LevelRuntime into CompiledLevel (cell compaction, neighbor table, wall/goal bitsets, dead squares, goal-distance tables).
+- (new) packages/solver/src/state/solverState.ts - canonical SolverState (sorted Uint16Array boxes, occupancy bitset, canonical player id, Zobrist hash + fingerprint).
+- (new) packages/solver/src/state/__tests__/compiledLevel.test.ts - CompiledLevel unit tests.
+- (new) packages/solver/src/state/__tests__/solverState.test.ts - SolverState canonicalization tests.
+- (new) packages/solver/src/infra/bitset.ts - bitset helpers for static/occupancy maps.
+- (new) packages/solver/src/infra/zobrist.ts - deterministic seeded PRNG + 64-bit Zobrist table generation.
+- (new) packages/solver/src/infra/visited.ts - visited/transposition table keyed by Zobrist with fingerprint verification.
+- (new) packages/solver/src/infra/__tests__/bitset.test.ts - bitset helper tests.
+- (new) packages/solver/src/infra/__tests__/zobrist.test.ts - deterministic Zobrist tests.
+- (new) packages/solver/src/infra/__tests__/visited.test.ts - visited collision/fingerprint tests.
+- (new) packages/solver/src/api/selection.ts - analyzeLevel + chooseAlgorithm implementation.
+- (new) packages/solver/src/api/__tests__/selection.test.ts - coverage for rule branches and edge cases.
+- (new) packages/solver/src/api/algorithm.ts - algorithm interface + solver hook types.
+- (new) packages/solver/src/api/registry.ts - AlgorithmId registry mapping.
+- (new) packages/solver/src/api/solve.ts - solve entrypoint dispatching to registry.
+- (new) packages/solver/src/algorithms/bfsPush.ts - push-based BFS solver using CompiledLevel/SolverState.
+- (new) packages/solver/src/algorithms/__tests__/bfsPush.test.ts - BFS correctness, cancellation, progress tests.
+- (new) packages/solver/src/deadlocks/corners.ts - corner deadlock pruning helper.
+- (new) packages/solver/src/deadlocks/__tests__/corners.test.ts - corner deadlock unit tests.
+- (new) packages/solver/src/infra/cancelToken.ts - cooperative cancellation token.
+- (new) packages/solver/src/infra/reachability.ts - player reachability between pushes (U, D, L, R order).
+- (new) packages/solver/src/infra/progress.ts - progress throttling helper.
+Modify:
+- (modified) packages/solver/src/api/solverTypes.ts - add LevelFeatures type + selection exports.
+- (modified) packages/solver/src/index.ts - export solve, selection, and solver state helpers.
+
+Implementation B - Worker Runtime + Solver UI
+Create:
+- (new) packages/worker/src/protocol/validation.ts - runtime schema validation helpers.
+- (new) packages/worker/src/protocol/__tests__/validation.test.ts - invalid protocol/version coverage.
+- (new) packages/worker/src/runtime/throttle.ts - deterministic progress throttling.
+- (new) packages/worker/src/runtime/solverWorker.ts - module worker entrypoint for solver runs.
+- (new) packages/worker/src/client/solverClient.client.ts - main-thread solver client wrapper.
+- (new) packages/worker/src/client/__tests__/solverClient.test.ts - worker client error/health tests.
+- (new) apps/web/app/ports/solverPort.ts - solver port interface for thunks.
+- (new) apps/web/app/ports/solverPort.client.ts - worker-backed solver port (client-only).
+- (new) apps/web/app/state/solverThunks.ts - start/cancel/retry solver thunks.
+- (new) apps/web/app/play/SolverPanel.tsx - solver panel UI.
+- (new) apps/web/app/play/SolverControls.tsx - run/cancel/apply/replay controls.
+- (new) apps/web/app/play/SolverProgress.tsx - progress display.
+Modify:
+- (modified) packages/worker/src/protocol/schema.ts - expose validation helpers for runtime use.
+- (modified) packages/worker/src/index.ts - export protocol validation and solver client types.
+- (modified) apps/web/app/state/solverSlice.ts - add recommendation, progress, status, workerHealth, result.
+- (modified) apps/web/app/state/__tests__/solverSlice.test.ts - cover new solverSlice reducers.
+- (modified) apps/web/app/state/store.ts - inject solverPort into thunk extraArgument.
+- (modified) apps/web/app/state/index.ts - export new solver types/thunks.
+- (modified) apps/web/app/routes/play.tsx - construct solver port on the client and pass into store.
+- (modified) apps/web/app/play/PlayPage.tsx - render SolverPanel and wire replay controls.
+- (modified) apps/web/app/replay/replayController.client.ts - expose apply/animate hooks for solver solutions.
+
+E) Acceptance Criteria (Measurable)
+1. CompiledLevel matches ADR-0009: cell compaction, neighbor table, wall/goal bitsets, dead-square set, and goal-distance tables are built deterministically and unit-tested.
+2. SolverState matches ADR-0009: boxes stored as sorted Uint16Array, occupancy bitset tracked, canonical player id is the minimum reachable cellId, and a 64-bit Zobrist hash + fingerprint are maintained. Zobrist tables are generated deterministically via seeded PRNG (no Math.random), visited/transposition tables are keyed by Zobrist with fingerprint verification, and no string keys are used in solver hot paths.
+3. BFS solver is push-based, uses CompiledLevel/SolverState, expands reachability and pushes in canonical U, D, L, R order, honors cancel tokens and time budgets, and reports throttled progress; tests cover solve, cancel, and progress behavior.
+4. analyzeLevel and chooseAlgorithm live in packages/solver/api/selection.ts, are exported, and have unit tests covering every rule branch and edge case (0 boxes, minimal grid, max boxes).
+5. Solver entrypoint returns SolveResult with metrics including elapsedMs, expanded, generated, maxDepth, maxFrontier, pushCount, moveCount, and expands push sequences into a deterministic UDLR move string for playback.
+6. normalizeSolverOptions enforces timeBudgetMs > 0, nodeBudget > 0, heuristicId/heuristicWeight restrictions for bfsPush, and heuristicWeight in [1, 10]; tests cover these bounds.
+7. Worker runtime validates inbound/outbound protocolVersion/runId, SOLVE_START always carries a concrete algorithmId (never "auto"), SOLVE_PROGRESS includes bestPathSoFar only when enableSpectatorStream is true, and invalid messages are rejected with tests.
+8. Worker client handles onerror/onmessageerror by setting workerHealth to 'crashed'; retry resets workerHealth to 'idle' and recreates the worker.
+9. apps/web solverSlice stores recommendation/progress/status/workerHealth/result; SolverPanel shows recommendation, run/cancel controls, progress display, apply/animate solution actions, and a Retry button when workerHealth === 'crashed'.
+
+F) Prompt-Pack Coverage Map
+- Implementation A: Tasks 2, 3
+- Implementation B: Tasks 1, 4, 5
+- Integration proofs: none
+
+G) Open Questions / Risks -- RESOLVED after codebase analysis
+
+Q: How do we enforce time budgets and progress throttling without Date/Date.now in packages/solver?
+A: Use worker-side time sources (performance.now) and pass elapsedMs into solver hooks; solver uses iteration counters for throttle intervals and never calls Date/Date.now directly.
+
+Q: Where should solve orchestration live in apps/web?
+A: Create solverPort + solverThunks; startSolve thunk runs analyzeLevel/chooseAlgorithm, stores recommendation, and dispatches worker calls. PlayPage renders SolverPanel and uses ReplayController for animation.
+
+H) Implementation Notes (from codebase analysis)
+
+- packages/solver currently exports only options + expandSolution; add solve/selection exports via packages/solver/src/index.ts.
+- Protocol schemas already exist; add runtime validation helpers for safeParse + typed errors used by worker/client.
+- Worker creation must stay in *.client.ts modules; solverClient.client.ts should own new Worker(new URL('./solverWorker.ts', import.meta.url), { type: 'module' }).
+- ReplayController already dispatches solver slice actions; extend solverSlice state carefully to keep actions serializable.
+</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-two" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>2) Solver Core + Selection</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Implement solver selection and baseline BFS algorithm work. Keep this tab independent
+            and file-scoped.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-two">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-two">Read LLM_GUIDE.md, docs/Architecture.md, docs/project-plan.md (Phase 3 tasks 2-3), docs/adr/0009-solver-optimized-state-representation-hashing.md, packages/solver/README.md, and packages/core/README.md before making changes.
+Reference the coverage map and acceptance criteria defined in Phase 1.
+
+Context:
+- Implement ADR-0009 solver state representation plus push-based BFS solver, cancel token, progress throttling, and selection logic.
+- Keep solver deterministic and free of DOM/Web APIs.
+
+Coverage assignments for this tab:
+- Tasks:
+  2. Implement solver BFS push-based with cancel token + throttled progress hooks
+  3. Implement analyzeLevel + chooseAlgorithm in packages/solver/api/selection.ts with unit tests for every rule branch and edge case
+- Integration proofs: none
+
+File scope (required):
+Create:
+- packages/solver/src/state/compiledLevel.ts
+- packages/solver/src/state/solverState.ts
+- packages/solver/src/state/__tests__/compiledLevel.test.ts
+- packages/solver/src/state/__tests__/solverState.test.ts
+- packages/solver/src/infra/bitset.ts
+- packages/solver/src/infra/zobrist.ts
+- packages/solver/src/infra/visited.ts
+- packages/solver/src/infra/__tests__/bitset.test.ts
+- packages/solver/src/infra/__tests__/zobrist.test.ts
+- packages/solver/src/infra/__tests__/visited.test.ts
+- packages/solver/src/api/selection.ts
+- packages/solver/src/api/__tests__/selection.test.ts
+- packages/solver/src/api/algorithm.ts
+- packages/solver/src/api/registry.ts
+- packages/solver/src/api/solve.ts
+- packages/solver/src/algorithms/bfsPush.ts
+- packages/solver/src/algorithms/__tests__/bfsPush.test.ts
+- packages/solver/src/deadlocks/corners.ts
+- packages/solver/src/deadlocks/__tests__/corners.test.ts
+- packages/solver/src/infra/cancelToken.ts
+- packages/solver/src/infra/reachability.ts
+- packages/solver/src/infra/progress.ts
+Modify:
+- packages/solver/src/api/solverTypes.ts
+- packages/solver/src/index.ts
+
+Steps:
+1. Solver state representation (ADR-0009):
+   - Build CompiledLevel (cell compaction, neighbor table, wall/goal bitsets, dead squares, goal-distance tables).
+   - Implement SolverState canonical form (sorted Uint16Array boxes, occupancy bitset, canonical player id, Zobrist hash + fingerprint).
+   - Use deterministic seeded PRNG for Zobrist tables (no Math.random).
+   - Implement visited/transposition keyed by Zobrist with fingerprint verification and no string keys in hot paths.
+2. BFS solver:
+   - Implement push-based BFS using CompiledLevel/SolverState with deterministic U, D, L, R neighbor order for reachability and push expansion.
+   - Report progress via throttled hooks and honor cancel token/time budget.
+3. Selection + tests:
+   - Implement analyzeLevel/chooseAlgorithm rule table and export them.
+   - Add unit tests for selection branches, BFS solves, cancellation, progress throttling, and ADR-0009 invariants.
+
+Constraints (boundary rule, verbatim):
+- `packages/solver` imports only `core` and `shared`.
+
+Scope guard:
+- Only modify files listed in this tab. Flag deviation before acting.
+
+Additional constraints:
+- Main thread must stay responsive; heavy compute runs in workers.
+- Core and solver packages must remain deterministic and free of DOM/Web APIs.
+
+Local verification for this tab:
+- pnpm test -- --project packages/solver/vitest.config.ts
+- Expected: solver unit tests pass.
+- pnpm lint
+- Expected: lint passes with no errors.
+
+You are not done until all of the following pass with no errors:
+  pnpm typecheck
+  pnpm lint
+  pnpm test:coverage
+</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-three" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>3) Worker Runtime + Solver UI</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Implement worker runtime/client wiring and solver UI integration. Keep this tab independent and
+            file-scoped.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-three">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-three">Read LLM_GUIDE.md, docs/Architecture.md, docs/project-plan.md (Phase 3 tasks 1, 4, 5), docs/adr/0003-worker-protocol-versioning-validation.md, docs/adr/0011-solver-protocol-solution-contract.md, packages/worker/README.md, apps/web/README.md, and packages/solver/README.md before making changes.
+Reference the coverage map and acceptance criteria defined in Phase 1.
+
+Context:
+- Finish protocol runtime validation, worker runtime + client wrapper, and wire solver UI with worker health and replay.
+- Worker construction stays in *.client.ts modules; UI remains responsive.
+- SOLVE_START must always carry a concrete algorithmId (no "auto").
+
+Coverage assignments for this tab:
+- Tasks:
+  1. Implement protocol schemas + runtime validation
+  4. Implement module worker runtime and client wrapper; add worker.onerror / worker.onmessageerror handling and workerHealth tracking
+  5. Add solverSlice (recommendation + workerHealth fields) + UI panel: show recommendation, run/cancel, progress, apply/animate solution, retry crashed worker
+- Integration proofs: none
+
+File scope (required):
+Create:
+- packages/worker/src/protocol/validation.ts
+- packages/worker/src/protocol/__tests__/validation.test.ts
+- packages/worker/src/runtime/throttle.ts
+- packages/worker/src/runtime/solverWorker.ts
+- packages/worker/src/client/solverClient.client.ts
+- packages/worker/src/client/__tests__/solverClient.test.ts
+- apps/web/app/ports/solverPort.ts
+- apps/web/app/ports/solverPort.client.ts
+- apps/web/app/state/solverThunks.ts
+- apps/web/app/play/SolverPanel.tsx
+- apps/web/app/play/SolverControls.tsx
+- apps/web/app/play/SolverProgress.tsx
+Modify:
+- packages/worker/src/protocol/schema.ts
+- packages/worker/src/index.ts
+- apps/web/app/state/solverSlice.ts
+- apps/web/app/state/__tests__/solverSlice.test.ts
+- apps/web/app/state/store.ts
+- apps/web/app/state/index.ts
+- apps/web/app/routes/play.tsx
+- apps/web/app/play/PlayPage.tsx
+- apps/web/app/replay/replayController.client.ts
+
+Steps:
+1. Worker protocol + runtime:
+   - Add runtime validation helpers and tests for inbound/outbound schema rejection.
+   - Implement solverWorker module to handle SOLVE_START/SOLVE_CANCEL/PING and emit SOLVE_PROGRESS/SOLVE_RESULT/SOLVE_ERROR with throttling.
+   - Emit bestPathSoFar only when enableSpectatorStream is true.
+2. Worker client + health:
+   - Build solverClient wrapper that validates messages, maps responses, and handles onerror/onmessageerror -> workerHealth 'crashed'.
+   - Add retry/reset behavior that recreates the worker and clears stuck runs.
+3. UI + state:
+   - Extend solverSlice with recommendation, progress, status, workerHealth, and last result.
+   - Add solver thunks to start/cancel/retry runs, resolve algorithmId via analyzeLevel/chooseAlgorithm before SOLVE_START, and feed replay controller for apply/animate.
+   - Build SolverPanel UI in PlayPage with run/cancel, progress display, apply/animate, and Retry on crash.
+
+Constraints (boundary rules, verbatim):
+- `packages/worker` imports only `solver`, `core`, `shared`, and `benchmarks`.
+- `apps/web` imports packages through their public entrypoints only.
+
+Scope guard:
+- Only modify files listed in this tab. Flag deviation before acting.
+
+Additional constraints:
+- Main thread must stay responsive; heavy compute runs in workers.
+- Core and solver packages must remain deterministic and free of DOM/Web APIs.
+- SOLVE_START must always carry a concrete algorithmId (no "auto").
+
+Local verification for this tab:
+- pnpm test -- --project packages/worker/vitest.config.ts
+- Expected: worker unit tests pass.
+- pnpm test -- --project apps/web/vitest.config.ts
+- Expected: web unit tests pass.
+- pnpm lint
+- Expected: lint passes with no errors.
+
+You are not done until all of the following pass with no errors:
+  pnpm typecheck
+  pnpm lint
+  pnpm test:coverage
+</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-four" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>4) Integration Proofs</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Validate integration proofs explicitly with commands and pass/fail criteria, then
+            document outcomes in-repo.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-four">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-four">Read LLM_GUIDE.md, docs/Architecture.md, and docs/project-plan.md before running proof validation.
+Phase 3 lists no Integration Proofs. This tab is a no-op placeholder.
+
+Coverage assignments for this tab:
+- Integration proofs: none
+
+File scope (required):
+Create:
+- none
+Modify:
+- none
+
+Mark this tab complete after confirming docs/project-plan.md lists no Phase 3 integration proofs.
+If proofs are added later, update the Planning OUTPUT section and fill this tab accordingly.
+
+You are not done until all of the following pass with no errors:
+  pnpm typecheck
+  pnpm lint
+  pnpm test:coverage
+</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-five" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>Documentation</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Review and update all project documentation affected by this PR. Run after all
+            implementation tabs are complete, before Verification.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-five">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-five">Read LLM_GUIDE.md, docs/Architecture.md, and docs/adr/* before proceeding.
+Do not write any new implementation code in this phase.
+
+Read the Planning tab output for this PR before reviewing documentation.
+Use Glob to list docs/prompt-packs/*.html, identify the pack for this PR (it will be the most
+recently modified file or match the phase you are working on), then Read that file and locate the
+OUTPUT section inside the Planning (phase-one) panel. This contains the scope lock, coverage map,
+and acceptance criteria that define what changed in this PR.
+
+Review every documentation file that may be affected by all uncommitted, unstaged, and untracked changes in the repo:
+- docs/Architecture.md - update if any architectural boundaries, module structure, or data flow changed.
+- docs/adr/ - create a new ADR if any architectural decision was made (new pattern, trade-off chosen, approach locked in).
+- packages/*/README.md - update each package README to reflect new exports, public API, or usage examples added in this PR.
+- docs/project-plan.md - mark completed tasks/phases as done if applicable.
+- LLM_GUIDE.md - update if new conventions, patterns, or constraints were established.
+- CONTRIBUTING.md - update if developer workflow, setup steps, or tooling changed.
+
+For each file:
+1. Read it in full.
+2. Identify any section that is stale, missing, or contradicts what was built.
+3. Update or create as needed.
+
+Do not mark this tab complete until every affected doc has been reviewed and either updated or explicitly confirmed as current.</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-six" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>Verification</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Generic end-of-PR check. Run after all implementation tabs and Integration Proofs are
+            complete and commands pass.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-six">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-six">Read LLM_GUIDE.md and docs/Architecture.md.
+Review all changes made in this PR against the acceptance criteria from Phase 1 (Planning).
+
+Confirm each of the following:
+1. Every acceptance criterion from Phase 1 is met.
+2. No files outside the agreed scope were modified.
+3. All package boundary rules from LLM_GUIDE.md are satisfied.
+4. No dead code, debug artifacts, or commented-out blocks remain in package source files. No console.* calls remain in packages/*/src/ (tools/, scripts, and server entry points are exempt).
+5. Test coverage meets project standards.
+6. pnpm typecheck, pnpm lint, and pnpm test:coverage all pass with no errors.
+
+If any item is not confirmed, list exactly what is missing and what changes are needed.
+Do not mark this phase complete until every item above is confirmed.</code></pre>
+          </div>
+          <div class="commands-block">
+            <div class="commands-header">
+              <span class="commands-label">Verification Commands</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-verify-commands">
+                Copy commands
+              </button>
+            </div>
+            <pre><code id="prompt-verify-commands">pnpm typecheck
+pnpm lint
+pnpm test:coverage</code></pre>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      (function () {
+        const buttons = Array.from(document.querySelectorAll('.tab-btn'));
+        const panels = Array.from(document.querySelectorAll('.tab-panel'));
+        const copyButtons = Array.from(document.querySelectorAll('.copy-btn'));
+        const headerEl = document.querySelector('header');
+        const copyCompletedBtn = document.querySelector('[data-copy-completed]');
+        const countEls = {
+          red: document.querySelector('[data-count="red"]'),
+          yellow: document.querySelector('[data-count="yellow"]'),
+          green: document.querySelector('[data-count="green"]'),
+        };
+        const colorOrder = ['red', 'yellow', 'green'];
+        const colorHex = {
+          red: '#ef4444',
+          yellow: '#facc15',
+          green: '#22c55e',
+        };
+        const colorClasses = colorOrder.map((color) => `tab-color-${color}`);
+        const panelStateClasses = colorOrder.map((color) => `state-${color}`);
+        const statusLabels = {
+          red: 'Not Started',
+          yellow: 'In Progress',
+          green: 'Complete',
+        };
+        const promptStatusLabels = {
+          red: 'Prompt Not Started',
+          yellow: 'Prompt in Progress',
+          green: 'Prompt Complete',
+        };
+        // IMPORTANT: change this key to match your pack filename when copying the template
+        // (e.g. 'promptPackTabColors_phase-01-your-slug') to avoid status collisions.
+        const storageKey = 'promptPackTabColors_phase-03-worker-baseline-solver';
+
+        function setActive(name) {
+          buttons.forEach((btn) => {
+            const isActive = btn.dataset.tab === name;
+            btn.classList.toggle('is-active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+          });
+          panels.forEach((panel) => {
+            const isActive = panel.dataset.tab === name;
+            panel.classList.toggle('is-active', isActive);
+            panel.hidden = !isActive;
+          });
+        }
+
+        function loadColorMap() {
+          try {
+            const raw = window.localStorage.getItem(storageKey);
+            return raw ? JSON.parse(raw) : {};
+          } catch (err) {
+            return {};
+          }
+        }
+
+        function saveColorMap(map) {
+          try {
+            window.localStorage.setItem(storageKey, JSON.stringify(map));
+          } catch (err) {
+            // ignore
+          }
+        }
+
+        function applyTabColor(btn, color) {
+          colorClasses.forEach((className) => btn.classList.remove(className));
+          btn.classList.add(`tab-color-${color}`);
+          btn.dataset.color = color;
+        }
+
+        function getPanel(tabKey) {
+          return panels.find((item) => item.dataset.tab === tabKey);
+        }
+
+        function applyPanelState(tabKey, color, animate) {
+          const panel = getPanel(tabKey);
+          if (!panel) {
+            return;
+          }
+          panelStateClasses.forEach((className) => panel.classList.remove(className));
+          panel.classList.add(`state-${color}`);
+          const statusPill = panel.querySelector('[data-status-pill]');
+          if (statusPill) {
+            statusPill.textContent = statusLabels[color] || '';
+            if (animate) {
+              statusPill.classList.remove('is-pulse');
+              void statusPill.offsetWidth;
+              statusPill.classList.add('is-pulse');
+            }
+          }
+          const promptStatuses = panel.querySelectorAll('[data-prompt-status]');
+          promptStatuses.forEach((statusEl) => {
+            statusEl.textContent = promptStatusLabels[color] || '';
+            if (animate) {
+              statusEl.classList.remove('is-shift');
+              void statusEl.offsetWidth;
+              statusEl.classList.add('is-shift');
+            }
+          });
+        }
+
+        function updateProgress() {
+          const counts = { red: 0, yellow: 0, green: 0 };
+          const total = buttons.length;
+          const segment = total ? 100 / total : 100;
+          const stops = [];
+
+          buttons.forEach((btn, index) => {
+            const color = btn.dataset.color || 'red';
+            if (counts[color] !== undefined) {
+              counts[color] += 1;
+            }
+            const start = (segment * index).toFixed(2);
+            const end = (segment * (index + 1)).toFixed(2);
+            const hex = colorHex[color] || colorHex.red;
+            stops.push(`${hex} ${start}%`, `${hex} ${end}%`);
+          });
+
+          if (headerEl) {
+            const gradient = stops.length ? `linear-gradient(90deg, ${stops.join(', ')})` : '';
+            headerEl.style.setProperty('--progress-gradient', gradient);
+          }
+          if (countEls.red) {
+            countEls.red.textContent = `${counts.red}`;
+          }
+          if (countEls.yellow) {
+            countEls.yellow.textContent = `${counts.yellow}`;
+          }
+          if (countEls.green) {
+            countEls.green.textContent = `${counts.green}`;
+          }
+        }
+
+        function cycleTabColor(btn) {
+          const current = btn.dataset.color || 'red';
+          const index = colorOrder.indexOf(current);
+          const next = colorOrder[(index + 1) % colorOrder.length];
+          applyTabColor(btn, next);
+          return next;
+        }
+
+        function initTabColors() {
+          const stored = loadColorMap();
+          buttons.forEach((btn) => {
+            const tabKey = btn.dataset.tab;
+            const storedColor = tabKey ? stored[tabKey] : null;
+            const color = colorOrder.includes(storedColor) ? storedColor : 'red';
+            applyTabColor(btn, color);
+            if (tabKey) {
+              applyPanelState(tabKey, color);
+            }
+          });
+          updateProgress();
+        }
+
+        buttons.forEach((btn) => {
+          btn.addEventListener('click', () => setActive(btn.dataset.tab));
+          btn.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            const tabKey = btn.dataset.tab;
+            const nextColor = cycleTabColor(btn);
+            if (tabKey) {
+              applyPanelState(tabKey, nextColor, true);
+            }
+            if (!tabKey) {
+              return;
+            }
+            btn.classList.remove('is-flash');
+            void btn.offsetWidth;
+            btn.classList.add('is-flash');
+            const stored = loadColorMap();
+            stored[tabKey] = nextColor;
+            saveColorMap(stored);
+            updateProgress();
+          });
+        });
+
+        async function copyText(text) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            return true;
+          }
+          const input = document.createElement('textarea');
+          input.value = text;
+          input.setAttribute('readonly', '');
+          input.style.position = 'fixed';
+          input.style.left = '-9999px';
+          document.body.appendChild(input);
+          input.select();
+          try {
+            document.execCommand('copy');
+          } catch (err) {
+            // ignore
+          }
+          document.body.removeChild(input);
+          return true;
+        }
+
+        copyButtons.forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const targetId = btn.getAttribute('data-copy-target');
+            const target = targetId ? document.getElementById(targetId) : null;
+            const text = target ? target.textContent : '';
+            const original = btn.textContent;
+            btn.disabled = true;
+            await copyText(text);
+            btn.textContent = 'Copied';
+            setTimeout(() => {
+              btn.textContent = original;
+              btn.disabled = false;
+            }, 1200);
+          });
+        });
+
+        if (copyCompletedBtn) {
+          copyCompletedBtn.addEventListener('click', async () => {
+            const sections = [];
+            buttons.forEach((btn) => {
+              const color = btn.dataset.color || 'red';
+              if (color !== 'green') {
+                return;
+              }
+              const tabKey = btn.dataset.tab;
+              const panel = tabKey ? getPanel(tabKey) : null;
+              if (!panel) {
+                return;
+              }
+              const title = panel.querySelector('h2');
+              const prompt = panel.querySelector('pre code');
+              const titleText = title ? title.textContent.trim() : '';
+              const promptText = prompt ? prompt.textContent.trim() : '';
+              if (titleText || promptText) {
+                sections.push([titleText, promptText].filter(Boolean).join('\n'));
+              }
+            });
+
+            const output = sections.join('\n\n');
+            const original = copyCompletedBtn.textContent;
+            copyCompletedBtn.disabled = true;
+            if (!output) {
+              copyCompletedBtn.textContent = 'No completed prompts';
+              setTimeout(() => {
+                copyCompletedBtn.textContent = original;
+                copyCompletedBtn.disabled = false;
+              }, 1400);
+              return;
+            }
+            await copyText(output);
+            copyCompletedBtn.textContent = 'Copied completed prompts';
+            setTimeout(() => {
+              copyCompletedBtn.textContent = original;
+              copyCompletedBtn.disabled = false;
+            }, 1400);
+          });
+        }
+
+        if (buttons.length) {
+          initTabColors();
+          setActive(buttons[0].dataset.tab);
+        }
+      })();
+    </script>
+  </body>
+</html>

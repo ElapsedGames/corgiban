@@ -20,15 +20,7 @@ describe('normalizeSolverOptions', () => {
     ).toThrow('heuristicId/heuristicWeight');
   });
 
-  it('rejects heuristicId for bfsPush', () => {
-    expect(() =>
-      normalizeSolverOptions('bfsPush', {
-        heuristicId: 'assignment',
-      }),
-    ).toThrow('heuristicId/heuristicWeight');
-  });
-
-  it('rejects heuristicWeight for bfsPush', () => {
+  it('rejects heuristicWeight alone for bfsPush', () => {
     expect(() =>
       normalizeSolverOptions('bfsPush', {
         heuristicWeight: 2,
@@ -66,9 +58,8 @@ describe('normalizeSolverOptions', () => {
     expect(() => normalizeSolverOptions('astarPush', { nodeBudget: -1 })).toThrow('nodeBudget');
   });
 
-  it('keeps spectator stream flag when set', () => {
-    const result = normalizeSolverOptions('astarPush', { enableSpectatorStream: true });
-
-    expect(result.enableSpectatorStream).toBe(true);
+  it('accepts heuristicWeight at the exact valid boundaries', () => {
+    expect(() => normalizeSolverOptions('astarPush', { heuristicWeight: 1 })).not.toThrow();
+    expect(() => normalizeSolverOptions('astarPush', { heuristicWeight: 10 })).not.toThrow();
   });
 });

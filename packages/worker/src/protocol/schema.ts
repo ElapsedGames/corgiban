@@ -6,7 +6,9 @@ import {
 } from '@corgiban/solver';
 import { z } from 'zod';
 
-const protocolVersionSchema = z.literal(1);
+import { PROTOCOL_VERSION } from './protocol';
+
+const protocolVersionSchema = z.literal(PROTOCOL_VERSION);
 
 const runIdSchema = z.string().min(1);
 
@@ -33,7 +35,54 @@ const levelRuntimeSchema = z
     initialPlayerIndex: z.number().int(),
     initialBoxes: z.instanceof(Uint32Array),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const cellCount = value.width * value.height;
+    if (!Number.isSafeInteger(cellCount) || cellCount <= 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['width'],
+        message: 'width and height must produce a safe positive cell count.',
+      });
+      return;
+    }
+
+    if (value.staticGrid.length !== cellCount) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['staticGrid'],
+        message: `staticGrid length must equal width * height (${cellCount}).`,
+      });
+    }
+
+    if (value.initialPlayerIndex < 0 || value.initialPlayerIndex >= cellCount) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['initialPlayerIndex'],
+        message: `initialPlayerIndex must be within [0, ${cellCount - 1}].`,
+      });
+    }
+
+    const seenBoxes = new Set<number>();
+    for (let index = 0; index < value.initialBoxes.length; index += 1) {
+      const boxIndex = value.initialBoxes[index];
+      if (boxIndex < 0 || boxIndex >= cellCount) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['initialBoxes', index],
+          message: `initial box index must be within [0, ${cellCount - 1}].`,
+        });
+      }
+      if (seenBoxes.has(boxIndex)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['initialBoxes', index],
+          message: 'initialBoxes must not contain duplicates.',
+        });
+      }
+      seenBoxes.add(boxIndex);
+    }
+  });
 
 const solveStartSchema = z
   .object({
@@ -43,14 +92,6 @@ const solveStartSchema = z
     levelRuntime: levelRuntimeSchema,
     algorithmId: algorithmIdSchema,
     options: solverOptionsSchema.optional(),
-  })
-  .strict();
-
-const solveCancelSchema = z
-  .object({
-    type: z.literal('SOLVE_CANCEL'),
-    runId: runIdSchema,
-    protocolVersion: protocolVersionSchema,
   })
   .strict();
 
@@ -81,16 +122,31 @@ const solverMetricsSchema = z
   })
   .strict();
 
-const solveResultSchema = z
+const solveResultBaseSchema = z
   .object({
     type: z.literal('SOLVE_RESULT'),
     runId: runIdSchema,
     protocolVersion: protocolVersionSchema,
-    status: z.enum(['solved', 'unsolved', 'timeout', 'cancelled', 'error']),
-    solutionMoves: z.string().optional(),
     metrics: solverMetricsSchema,
   })
   .strict();
+
+const solveResultNonErrorSchema = solveResultBaseSchema
+  .extend({
+    status: z.enum(['solved', 'unsolved', 'timeout', 'cancelled']),
+    solutionMoves: z.string().optional(),
+  })
+  .strict();
+
+const solveResultErrorSchema = solveResultBaseSchema
+  .extend({
+    status: z.literal('error'),
+    errorMessage: z.string(),
+    errorDetails: z.string().optional(),
+  })
+  .strict();
+
+const solveResultSchema = z.union([solveResultNonErrorSchema, solveResultErrorSchema]);
 
 const solveErrorSchema = z
   .object({
@@ -116,7 +172,7 @@ export const pongSchema = z
   })
   .strict();
 
-export const workerInboundSchema = z.union([solveStartSchema, solveCancelSchema, pingSchema]);
+export const workerInboundSchema = z.union([solveStartSchema, pingSchema]);
 
 export const workerOutboundSchema = z.union([
   solveProgressSchema,
@@ -125,9 +181,16 @@ export const workerOutboundSchema = z.union([
   pongSchema,
 ]);
 
+export function parseWorkerInboundMessage(payload: unknown) {
+  return workerInboundSchema.safeParse(payload);
+}
+
+export function parseWorkerOutboundMessage(payload: unknown) {
+  return workerOutboundSchema.safeParse(payload);
+}
+
 export const solverSchemas = {
   solveStartSchema,
-  solveCancelSchema,
   solveProgressSchema,
   solveResultSchema,
   solveErrorSchema,

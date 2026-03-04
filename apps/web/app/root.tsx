@@ -6,6 +6,7 @@ import tokensHref from './styles/tokens.css?url';
 export const links: LinksFunction = () => [
   { rel: 'stylesheet', href: tokensHref },
   { rel: 'stylesheet', href: appStylesHref },
+  { rel: 'icon', href: '/favicon.ico', type: 'image/x-icon' },
 ];
 
 export const meta: MetaFunction = () => [

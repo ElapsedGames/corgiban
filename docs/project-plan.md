@@ -110,9 +110,12 @@ normalize.ts
 src/
 api/
 solverTypes.ts
+solverOptions.ts
+solverConstants.ts
 algorithm.ts
 registry.ts
 selection.ts
+solve.ts
 algorithms/
 bfsPush.ts
 astarPush.ts
@@ -133,6 +136,7 @@ src/
 protocol/
 protocol.ts
 schema.ts
+validation.ts
 runtime/
 solverWorker.ts
 throttle.ts
@@ -378,11 +382,14 @@ Algorithm selection (packages/solver/api/selection.ts):
   - boxCount 4-6 -> astarPush (manhattan heuristic)
   - boxCount >= 7 -> astarPush (assignment heuristic)
   - (IDA\* slots into the table later without changing the interface)
+- The selector must only return runnable ids. If a preferred id is not implemented yet, it must
+  fall back to `DEFAULT_ALGORITHM_ID` (Phase 3 baseline: `bfsPush`).
 - Both functions are part of the packages/solver public API (exported from src/index.ts).
 - Called on the main thread inside the startSolve thunk before SOLVE_START is dispatched. The protocol never carries an unresolved or 'auto' algorithmId.
 - solverSlice stores recommendation: { algorithmId, features } when a level loads.
-- Solver panel displays the recommendation (e.g. "Recommended: A\* - 7 boxes") and allows user override.
-- selectedAlgorithmId is recorded in SOLVE_RESULT metrics and in all stored benchmark results.
+- Solver panel displays the recommendation (for example, "Recommended: bfsPush (7 boxes)") and
+  allows user override.
+- selectedAlgorithmId is recorded in app-side run metadata and in all stored benchmark results.
 - Unit tests required for chooseAlgorithm covering every rule branch, and for analyzeLevel covering edge cases (0 boxes, max boxes, minimal grid).
 
 # ==================================================================== 5) WORKER REQUIREMENTS (VERSIONED PROTOCOL + VALIDATION)
@@ -392,33 +399,45 @@ Use module workers.
 - In Remix, workers are client-only: create them only from `.client.ts` modules.
 - No dynamic-import escape hatch is allowed for worker construction from server-reachable modules.
 - Worker construction pattern:
-  `new Worker(new URL("./solverWorker.ts", import.meta.url), { type: "module" })`
+  - package-internal default:
+    `new Worker(new URL("../runtime/solverWorker.ts", import.meta.url), { type: "module" })`
+  - app adapter url import (Remix/Vite):
+    `import solverWorkerUrl from "./solverWorker.client.ts?worker&url";`
+    `new Worker(solverWorkerUrl, { type: "module", name: "corgiban-solver" })`
 
-All worker messages MUST include:
+All run-scoped worker messages MUST include:
 
-- protocolVersion: 1
+- protocolVersion: 2
 - runId: string
+
+Worker lifecycle messages (PING/PONG) include protocolVersion only.
 
 Worker protocol (minimum set):
 
-Main -> Worker:
+Main -> Worker (implemented in protocol v2 baseline):
 
 - SOLVE_START { runId, protocolVersion, levelRuntime, algorithmId, options }
   Note: algorithmId is always a concrete resolved ID (e.g. 'bfsPush', 'astarPush'). Resolution from level features via analyzeLevel/chooseAlgorithm happens on the main thread before dispatch. The protocol never carries 'auto' or any unresolved value.
-- SOLVE_CANCEL { runId, protocolVersion }
-- BENCH_START { runId, protocolVersion, suite, options }
 - PING { protocolVersion }
 
-Worker -> Main:
+Main -> Worker (planned protocol extension):
+
+- SOLVE_CANCEL { runId, protocolVersion }
+- BENCH_START { runId, protocolVersion, suite, options }
+
+Worker -> Main (implemented in protocol v2 baseline):
 
 - SOLVE_PROGRESS { runId, protocolVersion, expanded, frontier, depth, elapsedMs, bestHeuristic?, bestPathSoFar? }
   - bestPathSoFar (when present) is a fully expanded UDLR walk+push string.
-- SOLVE_RESULT { runId, protocolVersion, status, solutionMoves?, metrics }
+- SOLVE_RESULT { runId, protocolVersion, status, solutionMoves?, metrics, errorMessage?, errorDetails? }
   - metrics: elapsedMs, expanded, generated, maxDepth, maxFrontier, pushCount, moveCount
 - SOLVE_ERROR { runId, protocolVersion, message, details? }
+- PONG { protocolVersion }
+
+Worker -> Main (planned protocol extension):
+
 - BENCH_PROGRESS { ... }
 - BENCH_RESULT { ... }
-- PONG { protocolVersion }
 
 Validation:
 
@@ -428,10 +447,9 @@ Validation:
 
 Protocol validation posture:
 
-- Define VALIDATE_PROTOCOL:
-  - full in dev
-  - control-plane in prod
-- Require tests for both modes.
+- Phase 3 baseline validates full inbound/outbound protocol messages in all builds.
+- If a reduced production validation mode is introduced later, gate it behind explicit config and
+  require tests for both validation modes.
 
 Progress throttling:
 
@@ -443,10 +461,12 @@ Cancellation:
 
 Concurrency model:
 
-- Multiple concurrent SOLVE_START messages with distinct runIds are supported.
+- Phase 3 `/play` orchestration is single-active-run per `SolverClient` instance.
+- For concurrency, use `WorkerPool` (distinct runIds, one active run per worker, queued overflow).
 - The worker pool assigns one active run per worker and queues additional runs.
 - The worker pool supports cancelling queued runs by runId before they dispatch.
-- In-flight cancellation uses SOLVE_CANCEL; pool cancel only affects queued runs.
+- In-flight cancellation in Phase 3 uses solver-client worker reset (terminate + recreate);
+  queue cancellation remains runId-based.
 - Worker pool dispose drains queued runs and rejects their promises.
 
 SharedArrayBuffer/Atomics:
@@ -492,7 +512,9 @@ Initial Play page must mirror the existing UI shape:
 - Canvas container (board rendering + next level)
 - Bottom controls (sequence input + send/apply)
   Additionally add:
-- Solver panel: shows algorithm recommendation from analyzeLevel/chooseAlgorithm (e.g. "Recommended: A\* - 7 boxes"), allows override, run/cancel, progress, apply/animate solution, and Retry button when worker is crashed.
+- Solver panel: shows algorithm recommendation from analyzeLevel/chooseAlgorithm (for example,
+  "Recommended: bfsPush (7 boxes)"), allows override, run/cancel, progress, apply/animate
+  solution, and Retry button when worker is crashed.
 
 Canvas rendering:
 
@@ -517,7 +539,9 @@ Replay pipeline:
 State slices (RTK):
 
 - gameSlice: current level id, move history (direction + pushed), stats (moves/pushes); GameState is derived outside Redux
-- solverSlice: active runs, progress, last solution, status, recommendation ({ algorithmId, features } from analyzeLevel), workerHealth ('idle' | 'healthy' | 'crashed'), replayState, replayIndex, replayTotalSteps
+- solverSlice: activeRunId, selectedAlgorithmId, latest progress snapshot, last result, status,
+  recommendation ({ algorithmId, features } from analyzeLevel), workerHealth ('idle' | 'healthy'
+  | 'crashed'), replayState, replayIndex, replayTotalSteps
 - benchSlice: suites, active run status, results, filters
 - settingsSlice: tileAnimationDuration, solverReplaySpeed, theme, debug flags
 
@@ -541,7 +565,7 @@ Worker failure recovery:
 Side-effects:
 
 - Use thunks for starting/cancelling solver runs and benchmark runs.
-- Use a SolverPort/BenchmarkPort abstraction injected into store creation so UI doesn't call Worker directly.
+- Store wiring currently injects `SolverPort`; add `BenchmarkPort` when bench workflows are implemented so UI never calls workers directly.
 - startSolve thunk calls analyzeLevel + chooseAlgorithm, stores recommendation in solverSlice, then dispatches SOLVE_START with the resolved algorithmId.
 - Async failures in thunks/ports are converted to typed slice errors (no uncaught promise paths in UI components).
 
@@ -615,10 +639,10 @@ CI gate (required on every PR):
 Pre-commit hooks:
 
 - pnpm format:check
-- pnpm lint
 - unit tests for affected packages
 - affected-test strategy must be explicit and deterministic (for example, changed workspace filter using pnpm --filter)
 - encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
+- lint/typecheck still run as required local verification and CI gates
 
 CONTRIBUTING.md (required at repo root):
 
@@ -666,7 +690,7 @@ Decision dependencies: ADR-0001 (Remix-first app shell) and ADR-0002 (monorepo b
 1. Create pnpm workspace + root configs (tsconfig base, eslint with eslint-config-prettier, prettier) and scaffold `apps/web` as Remix in Vite mode
 2. Create package folders with public entrypoints (src/index.ts), TS project refs, package.json exports, and optional types fields only when declaration emit is enabled
 3. Add lint/typecheck/test scripts and make them pass
-4. Add pre-commit hooks (pnpm lint + affected package tests)
+4. Add pre-commit hooks (format:check + deterministic affected tests + encoding check)
 5. Add CONTRIBUTING.md: run-tests, add-algorithm, add-metric, formatting rules
 6. Add root LLM_GUIDE.md canonical + AGENTS.md / CLAUDE.md wrappers
 
@@ -699,22 +723,18 @@ Status: Complete (Phase 2 scope delivered in this PR)
 7. Add /dev/ui-kit route rendering all design system primitives
 
 Phase 3 - Worker + baseline solver
-Decision dependencies: ADR-0003 (worker protocol) and ADR-0004 (push-based solver model).
+Decision dependencies: ADR-0003 (worker protocol), ADR-0004 (push-based solver model), and ADR-0013 (Phase 3 cancellation model).
 
-Status: Partial (protocol schemas + validation tests, solver options normalization,
-expandSolution utility, worker pool, and replay controller scaffolding implemented early;
-worker runtime and solver algorithms still pending).
-Note: Phase 3 scaffolding landed before Phase 2 by request; integration is deferred until
-Phase 2 UI wiring and Phase 3 runtime work are complete.
+Status: Complete (Phase 3 scope delivered).
 
 1. Implement protocol schemas + runtime validation
 2. Implement solver BFS push-based with cancel token + throttled progress hooks
 3. Implement analyzeLevel + chooseAlgorithm in packages/solver/api/selection.ts with unit tests for every rule branch and edge case
-4. Implement module worker runtime and client wrapper; add worker.onerror / worker.onmessageerror handling and workerHealth tracking
+4. Implement module worker runtime and client wrapper; add worker.onerror / worker.onmessageerror handling, workerHealth tracking, and hard-reset cancellation semantics
 5. Add solverSlice (recommendation + workerHealth fields) + UI panel: show recommendation, run/cancel, progress, apply/animate solution, retry crashed worker
 
 Phase 4 - Benchmark page
-Decision dependency: ADR-0007 (IndexedDB model, migration policy, retention).
+Decision dependencies: ADR-0007 (IndexedDB model, migration policy, retention), ADR-0013 (Phase 3 cancellation baseline), and ADR-0003 (protocol validation strategy).
 
 1. Benchmark models + runner in packages/benchmarks; define DB_VERSION and IndexedDB schema; add migration tests covering version upgrades
 2. Worker pool for benchmark runs: max(1, min(4, (navigator.hardwareConcurrency || 4) - 1))
@@ -722,7 +742,10 @@ Decision dependency: ADR-0007 (IndexedDB model, migration policy, retention).
 4. Call navigator.storage.persist() on adapter init when feature-detected; record outcome in bench diagnostics and log only in dev/debug
 5. Add performance.mark/measure instrumentation around solve dispatch and worker response; wire PerformanceObserver to debug perf panel in benchSlice
 6. File System Access API export/import for benchmark reports and level packs (anchor-download fallback)
-7. TODO: add protocol schema union discriminator tests (workerInboundSchema/workerOutboundSchema reject unknown message types)
+7. Extend protocol schema union discriminator tests when adding BENCH\_\* messages (SOLVE + unknown-type coverage already exists)
+8. Revisit solver client cancellation semantics for pooled execution: enforce one active run per SolverClient instance or implement run-scoped in-flight cancellation; update or supersede ADR-0013.
+9. Profile protocol validation overhead under benchmark load; if SOLVE_PROGRESS validation is a bottleneck, keep strict validation for structural messages and use a lighter or gated path for high-frequency progress messages.
+10. Add solver budget controls to Settings UI (time/node defaults), persist via settingsSlice, and apply them to `/play` solve orchestration defaults.
 
 Phase 5 - Quality and offline
 
@@ -730,11 +753,11 @@ Phase 5 - Quality and offline
 2. Add boundary lint rules and ensure no violations
 3. Add minimal Playwright smoke test (play a level, run a bench, verify IndexedDB persistence)
 4. Add PWA: service worker/Workbox integration compatible with Remix hosting; verify app loads without network
+5. Add solver-client ping timeout hardening: `ping(timeoutMs)` default timeout, reject hung pings deterministically, set worker health to crashed on timeout, and cover with unit tests.
 
 Deferred notes:
 
 - ReplayController dispatches slice actions directly; consider injecting callbacks or ports when solverSlice expands.
-- expandSolution uses per-push array lookup; consider O(1) box index map if hot.
 - encoding-check.mjs skips null-byte files; consider hard-failing instead of skipping.
 - Replay controller tests rely on action type strings; re-audit when solverSlice expands.
 - /play Redux Provider is scoped to the route until cross-route state sharing is needed.
@@ -761,6 +784,7 @@ Decision dependencies: ADR-0006 (embed Shadow DOM and styling delivery strategy)
    - Worker pool runs concurrent solver runs; pool size capped at max(1, min(4, hardwareConcurrency - 1)).
    - Race result screen shows winner by elapsedMs and plays back each solution.
    - Depends on worker pool, bestPathSoFar in SOLVE_PROGRESS, and SolverPersonality type.
+7. Profile and reduce solve-progress overhead by consolidating throttling strategy across solver and worker: choose one primary throttle layer, avoid per-expansion progress churn, and verify effective progress cadence under load.
 
 Phase 7 - Optional browser-dev adapters
 
@@ -773,7 +797,7 @@ Phase 8 - Solver optimization and advanced search (planned)
 Decision dependency: ADR-0009 (solver-optimized state representation and hashing).
 
 1. Decide solver optimality target (push-optimal vs move-optimal vs any-solution) and document in an ADR if it changes from push-optimal; keep the push-based action model.
-2. Introduce solver-only CompiledLevel precomputations: neighbor table, walls/goals bitsets, dead squares, and goal-distance tables; keep data immutable and shareable across algorithms.
+2. Introduce solver-only CompiledLevel precomputations: neighbor table, walls/goals bitsets, dead squares, and goal-distance tables; keep data immutable and shareable across algorithms. Make goal-distance computation lazy or conditional by algorithm/heuristic so BFS baseline does not pay avoidable setup cost.
 3. Introduce SolverState minimal representation: sorted boxes list plus occupancy bitset (or boolean array), canonical player index within the reachable region, and 64-bit Zobrist key (bigint or two uint32) for visited/transposition use.
 4. Replace string visited keys with numeric Zobrist keys; define an optional collision check strategy and add determinism tests.
 5. Add advanced heuristics: assignment (Hungarian) using precomputed distances, optional pattern database lookups; keep admissibility for optimal solvers.
@@ -781,6 +805,9 @@ Decision dependency: ADR-0009 (solver-optimized state representation and hashing
 7. Add macro push generation (tunnels/rooms) to reduce effective depth; ensure solver output still expands to UDLR moves.
 8. Optional: reverse or bidirectional search support using the same SolverState encoding.
 9. Optional: portfolio/parallel solver runs in workers with shared caches and coordinated cancellation.
+10. Remove BFS state creation double-allocation/sort by adding an `alreadySorted` fast-path to `createSolverState` (or by inlining state construction in algorithms that already maintain sorted boxes).
+11. Reduce BFS timing overhead by sampling `nowMs()` at a coarse expansion interval (for example every 256 or 1024 nodes) while preserving budget and progress correctness.
+12. Optimize `expandSolution` box updates by replacing per-push linear `indexOf` lookup with an indexed structure (reverse index map or equivalent), with regression coverage for long solutions.
 
 # ==================================================================== 11) ACCEPTANCE CRITERIA (REQUIRED)
 
@@ -789,7 +816,7 @@ Decision dependency: ADR-0009 (solver-optimized state representation and hashing
 - `pnpm test:coverage` passes with enforced thresholds (>=95% overall)
 - `pnpm dev` runs:
   - /play supports keyboard moves, restart, undo, move history
-  - /play solver panel shows algorithm recommendation (e.g. "Recommended: A\* - 7 boxes") and allows override
+  - /play solver panel shows algorithm recommendation (for example, "Recommended: bfsPush (7 boxes)") and allows override
   - /play solver panel can start/cancel a solve; progress updates; result can be applied/animated
   - /play solver panel shows Retry button when worker is crashed; clicking it recreates the worker
   - /bench route loads and can run a small benchmark suite; results persist in IndexedDB across page reloads

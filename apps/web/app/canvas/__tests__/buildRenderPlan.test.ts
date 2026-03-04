@@ -39,4 +39,16 @@ describe('buildRenderPlan', () => {
     expect(plan.cells[12]).toMatchObject({ player: true, target: true });
     expect(plan.cells[7]).toMatchObject({ player: false });
   });
+
+  it('uses default render options when none are provided', () => {
+    const runtime = parseLevel(level);
+    const state = createGame(runtime);
+
+    const plan = buildRenderPlan(state);
+
+    expect(plan.cellSize).toBe(32);
+    expect(plan.dpr).toBe(1);
+    expect(plan.pixelWidth).toBe(160);
+    expect(plan.pixelHeight).toBe(128);
+  });
 });

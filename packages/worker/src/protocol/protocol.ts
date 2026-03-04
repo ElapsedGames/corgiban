@@ -1,7 +1,7 @@
 import type { LevelRuntime } from '@corgiban/core';
 import type { AlgorithmId, SolveStatus, SolverMetrics, SolverOptions } from '@corgiban/solver';
 
-export type ProtocolVersion = 1;
+export type ProtocolVersion = 2;
 
 export type SolveStartMessage = {
   type: 'SOLVE_START';
@@ -10,12 +10,6 @@ export type SolveStartMessage = {
   levelRuntime: LevelRuntime;
   algorithmId: AlgorithmId;
   options?: SolverOptions;
-};
-
-export type SolveCancelMessage = {
-  type: 'SOLVE_CANCEL';
-  runId: string;
-  protocolVersion: ProtocolVersion;
 };
 
 export type SolveProgressMessage = {
@@ -31,14 +25,25 @@ export type SolveProgressMessage = {
   bestPathSoFar?: string;
 };
 
-export type SolveResultMessage = {
+type SolveResultBaseMessage = {
   type: 'SOLVE_RESULT';
   runId: string;
   protocolVersion: ProtocolVersion;
-  status: SolveStatus;
-  solutionMoves?: string;
   metrics: SolverMetrics;
 };
+
+type SolveResultErrorMessage = SolveResultBaseMessage & {
+  status: 'error';
+  errorMessage: string;
+  errorDetails?: string;
+};
+
+type SolveResultNonErrorMessage = SolveResultBaseMessage & {
+  status: Exclude<SolveStatus, 'error'>;
+  solutionMoves?: string;
+};
+
+export type SolveResultMessage = SolveResultErrorMessage | SolveResultNonErrorMessage;
 
 export type SolveErrorMessage = {
   type: 'SOLVE_ERROR';
@@ -59,7 +64,7 @@ export type PongMessage = {
 };
 
 // TODO(Phase 4): add BENCH_START to WorkerInboundMessage.
-export type WorkerInboundMessage = SolveStartMessage | SolveCancelMessage | PingMessage;
+export type WorkerInboundMessage = SolveStartMessage | PingMessage;
 
 export type WorkerOutboundMessage =
   | SolveProgressMessage
@@ -68,4 +73,4 @@ export type WorkerOutboundMessage =
   | PongMessage;
 // TODO(Phase 4): add BENCH_PROGRESS and BENCH_RESULT to WorkerOutboundMessage.
 
-export const PROTOCOL_VERSION: ProtocolVersion = 1;
+export const PROTOCOL_VERSION: ProtocolVersion = 2;

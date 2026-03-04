@@ -107,7 +107,8 @@ Solver process:
 
 Worker process:
 
-1. All worker messages include `protocolVersion` and `runId`.
+1. All run-scoped worker messages include `protocolVersion` and `runId`;
+   lifecycle `PING`/`PONG` include `protocolVersion` only.
 2. Validate messages on both sides using shared schemas.
 3. Throttle progress messages.
 4. Support cancellation and budget enforcement.
@@ -115,8 +116,12 @@ Worker process:
 6. SOLVE_RESULT metrics include pushCount and moveCount.
 7. Disallow `SharedArrayBuffer` and `Atomics`.
 8. Create workers only from client modules (`*.client.ts`); no dynamic-import escape hatches for worker construction.
-9. Use module worker constructor pattern:
-   - `new Worker(new URL("./solverWorker.ts", import.meta.url), { type: "module" })`
+9. Use supported module worker constructor patterns:
+   - package-internal default:
+     `new Worker(new URL("../runtime/solverWorker.ts", import.meta.url), { type: "module" })`
+   - app adapter url import (Remix/Vite):
+     `import solverWorkerUrl from "./solverWorker.client.ts?worker&url";`
+     `new Worker(solverWorkerUrl, { type: "module", name: "corgiban-solver" })`
 10. Worker pool runs one active solve per worker; additional runs queue.
 11. Track health:
 
@@ -195,9 +200,9 @@ Encoding policy enforcement runs in CI and pre-commit; pre-commit is a convenien
 Pre-commit process:
 
 1. run format:check
-2. run lint
-3. run affected tests with deterministic selection strategy
-4. run encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
+2. run affected tests with deterministic selection strategy
+3. run encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
+4. run lint and typecheck as local verification before PR (CI enforces both)
 
 Completion checklist per feature:
 
