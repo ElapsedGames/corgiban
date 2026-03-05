@@ -218,6 +218,34 @@ enforce strict run-record validation on import.
 
 See ADR-0016 (`docs/adr/0016-benchmark-report-contract-versioning.md`).
 
+### 3.15 Offline shell strategy: **Workbox navigation caching + env-gated dev registration**
+
+**Decision:** Use `vite-plugin-pwa` with Workbox runtime caching for document navigations, register
+the service worker in production by default, and allow explicit dev enablement via
+`VITE_ENABLE_PWA_DEV=1` for local manual validation.
+
+**Why**
+
+- Keeps `/play` and other route shells resilient after first successful load.
+- Preserves normal local dev behavior unless offline registration is intentionally enabled.
+- Centralizes manifest/service worker generation in the app build toolchain.
+
+See ADR-0017 (`docs/adr/0017-pwa-offline-workbox-strategy.md`).
+
+### 3.16 Solver liveness checks: **idle-only ping with deterministic timeout recovery**
+
+**Decision:** Keep worker liveness checks protocol-compatible (`PING`/`PONG`) while hardening
+solver-client behavior: `ping(timeoutMs?)` is idle-only, defaults to a bounded timeout, and marks
+worker health as `crashed` on timeout/error with immediate worker termination.
+
+**Why**
+
+- Avoids hanging liveness checks that leave worker health ambiguous.
+- Prevents ping/solve message interleaving from masking active-run state.
+- Keeps crash/retry behavior deterministic under worker channel instability.
+
+See ADR-0018 (`docs/adr/0018-solver-client-ping-liveness-timeout.md`).
+
 ## 4. Monorepo layout
 
 ```
@@ -587,6 +615,10 @@ Use schema validation (example: Zod) at both ends:
   extension once the worker runtime supports interruptible in-flight runs.
 - In Phase 3, `createSolverClient` is single-active-run oriented for `/play`; use `WorkerPool`
   for concurrent solve orchestration.
+- Solver client liveness checks (`ping(timeoutMs?)`) are idle-only. Missing/invalid timeout input
+  falls back to `DEFAULT_PING_TIMEOUT_MS` (`5_000`), and timeout/error transitions worker health
+  to `crashed` with worker termination; late `PONG` does not auto-recover health. Solver dispatch
+  rejects while a ping is in flight so ping/solve traffic cannot interleave.
 - App-level `/play` solve orchestration applies settings-backed default budgets unless caller
   overrides (`timeBudgetMs` and `nodeBudget`, initialized to `30_000` and `2_000_000` with
   defensive fallback to solver constants when invalid values are encountered).
@@ -605,6 +637,7 @@ Use schema validation (example: Zod) at both ends:
 See ADR-0013 (`docs/adr/0013-solver-cancellation-worker-reset.md`).
 See ADR-0014 (`docs/adr/0014-benchmark-worker-cancellation-semantics.md`).
 See ADR-0015 (`docs/adr/0015-worker-progress-light-validation-mode.md`).
+See ADR-0018 (`docs/adr/0018-solver-client-ping-liveness-timeout.md`).
 
 ---
 
@@ -673,11 +706,15 @@ All algorithms implement the same interface:
 
 - Benchmarks run in a worker pool (configurable concurrency).
 - Main thread schedules and aggregates results.
-- Results persisted to IndexedDB (via a thin repository adapter).
+- Results persist through the IndexedDB repository when durable storage is available; repository
+  failures degrade to in-memory retention for the active session (`memory-fallback` diagnostics).
 - `BENCHMARK_DB_VERSION` and related schema constants are owned by `packages/benchmarks`.
 - IndexedDB migration logic (`onupgradeneeded`) and migration tests live in the `apps/web` persistence adapter.
 - Benchmark persistence initialization feature-detects `navigator.storage.persist()` and stores
   diagnostics (`granted | denied | unsupported`) without treating denied/unsupported as hard errors.
+- Persistence diagnostics also track repository durability health
+  (`durable | memory-fallback | unavailable`) and surfaced repository errors independently from
+  `navigator.storage.persist()` outcomes.
 - Bench orchestration records `performance.mark/measure` around solve dispatch/worker response and
   surfaces observed measure entries through a debug perf panel.
 
@@ -729,9 +766,8 @@ A dedicated route:
 
 - Current diagnostics include:
   - storage persistence permission outcome (`granted | denied | unsupported`)
+  - repository durability health (`durable | memory-fallback | unavailable`)
   - latest persistence error/notice surfaced to the user
-- Explicit repository durability health state (`durable | memory-fallback | unavailable`, or
-  equivalent) is tracked as a Phase 5 follow-up.
 
 ---
 
@@ -873,7 +909,9 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 
 **E2E smoke**
 
-- load app, play a few moves, run solver, confirm UI remains responsive
+- route smoke checks for `/`, `/play`, `/bench`, and `/dev/ui-kit`
+- `/bench` benchmark run persistence across reload plus clear-results behavior
+- `/play` offline shell availability check after first load with required service worker readiness
 
 ### 13.2 Coverage targets
 
@@ -899,7 +937,7 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 - unit tests with coverage gates
 - encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
 - build (Remix)
-- Playwright smoke (optional, nightly or on main)
+- Playwright smoke (`pnpm test:smoke`, production preview path)
 
 ### 14.2 Quality gates
 
@@ -966,6 +1004,8 @@ Current accepted ADRs:
 - ADR-0014: Benchmark worker cancellation semantics
 - ADR-0015: Worker progress light-validation mode
 - ADR-0016: Benchmark report contract and versioning policy
+- ADR-0017: PWA offline shell strategy (Workbox + dev registration toggle)
+- ADR-0018: Solver client ping liveness and timeout semantics
 
 ---
 

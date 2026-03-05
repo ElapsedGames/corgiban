@@ -5,6 +5,7 @@ export {
   benchPerfEntriesCleared,
   benchPerfEntriesObserved,
   benchPersistOutcomeRecorded,
+  benchRepositoryHealthRecorded,
   benchResultRecorded,
   benchResultsCleared,
   benchResultsLoaded,
@@ -31,6 +32,7 @@ export {
   cancelBenchRun,
   clearBenchResults,
   importBenchmarkReport,
+  importLevelPackSelection,
   initializeBench,
   runBenchSuite,
 } from './benchThunks';

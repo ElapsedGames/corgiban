@@ -14,7 +14,8 @@ main thread with versioned, runtime-validated protocol messages.
 - Phase 2 complete: `/play` UI parity and canvas renderer split (`buildRenderPlan` + `draw`).
 - Phase 3 complete: versioned worker protocol, baseline push-based BFS solver, solver client/runtime, and `/play` solver controls + replay integration.
 - Phase 4 complete: benchmark domain package, benchmark worker/runtime/client flows, worker pool orchestration, `/bench` UI, and IndexedDB-backed persistence with import/export and diagnostics.
-- Next milestone: Phase 5 quality and offline hardening.
+- Phase 5 complete: coverage/boundary quality gates verified, solver ping timeout hardening, Playwright smoke coverage, and Workbox-based offline shell support.
+- Next milestone: Phase 6 (adapters, tooling, and performance) covering `/lab`, `packages/formats`, `packages/embed`, OffscreenCanvas fallback integration, and solver-kernel/WASM profiling work.
 
 Current routes:
 

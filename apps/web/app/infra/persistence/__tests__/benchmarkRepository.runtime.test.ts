@@ -348,6 +348,24 @@ describe('benchmarkRepository runtime', () => {
     await expect(repositoryTxAbort.clearRuns()).rejects.toThrow('transaction aborted');
   });
 
+  it('retries IndexedDB open after a failed open attempt without requiring dispose', async () => {
+    const persistedResult = createResult({ id: 'retry-open' });
+    const harness = createRepositoryHarness([persistedResult]);
+    harness.setFailOpen(true);
+
+    const repository = createBenchmarkRepository({
+      indexedDBFactory: harness.indexedDBFactory,
+      logger: harness.logger,
+    });
+
+    await expect(repository.loadRuns()).rejects.toThrow('open failed');
+    expect(harness.getOpenCalls()).toBe(1);
+
+    harness.setFailOpen(false);
+    await expect(repository.loadRuns()).resolves.toEqual([persistedResult]);
+    expect(harness.getOpenCalls()).toBe(2);
+  });
+
   it('closes cached database handles on dispose and reopens lazily', async () => {
     const harness = createRepositoryHarness([createResult({ id: 'cached' })]);
     const repository = createBenchmarkRepository({

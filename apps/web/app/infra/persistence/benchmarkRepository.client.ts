@@ -126,10 +126,16 @@ export function createBenchmarkRepository(
     }
 
     if (!openPromise) {
-      openPromise = openBenchmarkDatabase(indexedDBFactory).then((openedDatabase) => {
-        database = openedDatabase;
-        return openedDatabase;
-      });
+      openPromise = openBenchmarkDatabase(indexedDBFactory)
+        .then((openedDatabase) => {
+          database = openedDatabase;
+          return openedDatabase;
+        })
+        .catch((error) => {
+          // Allow subsequent operations to retry IndexedDB open after transient failures.
+          openPromise = null;
+          throw error;
+        });
     }
 
     return openPromise;

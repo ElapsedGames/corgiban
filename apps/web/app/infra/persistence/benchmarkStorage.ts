@@ -4,9 +4,10 @@ import type {
   PersistOutcome,
   PersistencePort,
   PersistencePortInitResult,
+  RepositoryHealth,
 } from '../../ports/persistencePort';
 
-export type { PersistOutcome } from '../../ports/persistencePort';
+export type { PersistOutcome, RepositoryHealth } from '../../ports/persistencePort';
 
 export type BenchmarkStorageInitResult = PersistencePortInitResult;
 export type BenchmarkStorage = PersistencePort;
@@ -84,7 +85,10 @@ export function createNoopBenchmarkStorage(): BenchmarkStorage {
   const memoryResults: BenchmarkRunRecord[] = [];
 
   return {
-    init: async (): Promise<BenchmarkStorageInitResult> => ({ persistOutcome: 'unsupported' }),
+    init: async (): Promise<BenchmarkStorageInitResult> => ({
+      persistOutcome: 'unsupported',
+      repositoryHealth: 'unavailable',
+    }),
     loadResults: async () => sortByCompletion(memoryResults),
     saveResult: async (result) => {
       upsertMemoryResult(memoryResults, result);
@@ -100,6 +104,8 @@ export function createNoopBenchmarkStorage(): BenchmarkStorage {
     clearResults: async () => {
       memoryResults.length = 0;
     },
+    getRepositoryHealth: (): RepositoryHealth => 'unavailable',
+    getLastRepositoryError: () => null,
     dispose: () => undefined,
   };
 }

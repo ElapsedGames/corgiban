@@ -16,6 +16,8 @@ import {
 } from '../../ports/benchmarkPort';
 import { createNoopSolverPort } from '../../ports/solverPort';
 import {
+  benchResultRecorded,
+  benchResultsReplaced,
   benchRunCancelRequested,
   benchRunStarted,
   setSuiteAlgorithmIds,
@@ -28,6 +30,7 @@ import {
   cancelBenchRun,
   clearBenchResults,
   importBenchmarkReport,
+  importLevelPackSelection,
   initializeBench,
   runBenchSuite,
 } from '../benchThunks';
@@ -77,11 +80,16 @@ function createBenchmarkPortMock(): BenchmarkPort {
 
 function createBenchmarkStorageMock(): BenchmarkStorage {
   return {
-    init: vi.fn(async () => ({ persistOutcome: 'granted' as const })),
+    init: vi.fn(async () => ({
+      persistOutcome: 'granted' as const,
+      repositoryHealth: 'durable' as const,
+    })),
     loadResults: vi.fn(async () => []),
     saveResult: vi.fn(async () => undefined),
     replaceResults: vi.fn(async () => undefined),
     clearResults: vi.fn(async () => undefined),
+    getRepositoryHealth: vi.fn(() => 'durable'),
+    getLastRepositoryError: vi.fn(() => null),
     dispose: vi.fn(),
   };
 }
@@ -218,9 +226,39 @@ describe('benchThunks', () => {
     await store.dispatch(initializeBench());
 
     expect(store.getState().bench.diagnostics.persistOutcome).toBe('granted');
+    expect(store.getState().bench.diagnostics.repositoryHealth).toBe('durable');
     expect(store.getState().bench.results).toEqual([persistedResult]);
     expect(benchmarkStorage.init).toHaveBeenCalledTimes(1);
     expect(benchmarkStorage.loadResults).toHaveBeenCalledTimes(1);
+
+    store.dispose();
+  });
+
+  it('surfaces repository health degradation when persistence load fails despite granted persist outcome', async () => {
+    const benchmarkPort = createBenchmarkPortMock();
+    const benchmarkStorage = createBenchmarkStorageMock();
+    vi.mocked(benchmarkStorage.init).mockResolvedValue({
+      persistOutcome: 'granted',
+      repositoryHealth: 'durable',
+    } as const);
+    vi.mocked(benchmarkStorage.getRepositoryHealth).mockReturnValue('memory-fallback');
+    vi.mocked(benchmarkStorage.getLastRepositoryError).mockReturnValue(
+      'Failed to load benchmark runs from repository.',
+    );
+
+    const store = createAppStore({
+      solverPort: createNoopSolverPort(),
+      benchmarkPort,
+      benchmarkStorage,
+    });
+
+    await store.dispatch(initializeBench());
+
+    expect(store.getState().bench.diagnostics.persistOutcome).toBe('granted');
+    expect(store.getState().bench.diagnostics.repositoryHealth).toBe('memory-fallback');
+    expect(store.getState().bench.diagnostics.lastError).toBe(
+      'Failed to load benchmark runs from repository.',
+    );
 
     store.dispose();
   });
@@ -565,6 +603,144 @@ describe('benchThunks', () => {
     store.dispose();
   });
 
+  it('reconciles fallback state when clear throws after mutating storage memory', async () => {
+    const benchmarkPort = createBenchmarkPortMock();
+    const benchmarkStorage = createBenchmarkStorageMock();
+    vi.mocked(benchmarkStorage.clearResults).mockRejectedValue(new Error('clear failed'));
+    vi.mocked(benchmarkStorage.loadResults).mockResolvedValue([]);
+    vi.mocked(benchmarkStorage.getRepositoryHealth).mockReturnValue('memory-fallback');
+    vi.mocked(benchmarkStorage.getLastRepositoryError).mockReturnValue(
+      'Failed to clear benchmark results in repository.',
+    );
+
+    const store = createAppStore({
+      solverPort: createNoopSolverPort(),
+      benchmarkPort,
+      benchmarkStorage,
+    });
+
+    store.dispatch(benchResultsReplaced([createResult({ id: 'stale-result' })]));
+
+    await store.dispatch(clearBenchResults());
+
+    expect(store.getState().bench.results).toEqual([]);
+    expect(store.getState().bench.diagnostics.repositoryHealth).toBe('memory-fallback');
+    expect(store.getState().bench.diagnostics.lastError).toBe('clear failed');
+    expect(benchmarkStorage.loadResults).toHaveBeenCalledTimes(1);
+    store.dispose();
+  });
+
+  it('does not clear persisted or in-memory results while status is running or cancelling', async () => {
+    const benchmarkPort = createBenchmarkPortMock();
+    const benchmarkStorage = createBenchmarkStorageMock();
+    const store = createAppStore({
+      solverPort: createNoopSolverPort(),
+      benchmarkPort,
+      benchmarkStorage,
+    });
+
+    const activeResult = createResult({ id: 'active-result' });
+    store.dispatch(benchResultRecorded(activeResult));
+    store.dispatch(benchRunStarted({ suiteRunId: 'bench-active', totalRuns: 2 }));
+
+    await store.dispatch(clearBenchResults());
+    expect(benchmarkStorage.clearResults).not.toHaveBeenCalled();
+    expect(store.getState().bench.results).toEqual([activeResult]);
+
+    store.dispatch(benchRunCancelRequested({ suiteRunId: 'bench-active' }));
+    await store.dispatch(clearBenchResults());
+    expect(benchmarkStorage.clearResults).not.toHaveBeenCalled();
+    expect(store.getState().bench.results).toEqual([activeResult]);
+
+    store.dispose();
+  });
+
+  it('does not import benchmark reports while status is running or cancelling', async () => {
+    const benchmarkPort = createBenchmarkPortMock();
+    const benchmarkStorage = createBenchmarkStorageMock();
+    const store = createAppStore({
+      solverPort: createNoopSolverPort(),
+      benchmarkPort,
+      benchmarkStorage,
+    });
+
+    const activeResult = createResult({ id: 'active-report-result' });
+    const importedResult = createResult({ id: 'imported-report-result' });
+    const reportPayload = JSON.stringify({
+      type: BENCHMARK_REPORT_TYPE,
+      version: BENCHMARK_REPORT_VERSION,
+      exportModel: BENCHMARK_REPORT_EXPORT_MODEL,
+      results: [importedResult],
+    });
+
+    store.dispatch(benchResultsReplaced([activeResult]));
+    store.dispatch(benchRunStarted({ suiteRunId: 'bench-import-active', totalRuns: 2 }));
+
+    await store.dispatch(importBenchmarkReport(reportPayload));
+    expect(benchmarkStorage.replaceResults).not.toHaveBeenCalled();
+    expect(store.getState().bench.results).toEqual([activeResult]);
+
+    store.dispatch(benchRunCancelRequested({ suiteRunId: 'bench-import-active' }));
+    await store.dispatch(importBenchmarkReport(reportPayload));
+    expect(benchmarkStorage.replaceResults).not.toHaveBeenCalled();
+    expect(store.getState().bench.results).toEqual([activeResult]);
+
+    store.dispose();
+  });
+
+  it('imports level-pack selections through workflow and blocks while suite is active', async () => {
+    const benchmarkPort = createBenchmarkPortMock();
+    const benchmarkStorage = createBenchmarkStorageMock();
+    const store = createAppStore({
+      solverPort: createNoopSolverPort(),
+      benchmarkPort,
+      benchmarkStorage,
+    });
+
+    const firstLevelId = builtinLevels[0]?.id ?? 'classic-001';
+    const secondLevelId = builtinLevels[1]?.id ?? firstLevelId;
+    const expectedLevelIds =
+      firstLevelId === secondLevelId ? [firstLevelId] : [firstLevelId, secondLevelId];
+
+    await store.dispatch(
+      importLevelPackSelection(
+        JSON.stringify({
+          levelIds: [firstLevelId, 'custom-level-id', secondLevelId, firstLevelId],
+        }),
+      ),
+    );
+
+    expect(store.getState().bench.suite.levelIds).toEqual(expectedLevelIds);
+    expect(store.getState().bench.diagnostics.lastError).toBeNull();
+    expect(store.getState().bench.diagnostics.lastNotice).toContain('unrecognized ID was skipped');
+
+    const activeSuiteLevelIds = [...store.getState().bench.suite.levelIds];
+    const replacementLevelId = builtinLevels[2]?.id ?? secondLevelId;
+
+    store.dispatch(benchRunStarted({ suiteRunId: 'bench-level-pack-active', totalRuns: 2 }));
+    await store.dispatch(
+      importLevelPackSelection(
+        JSON.stringify({
+          levelIds: [replacementLevelId],
+        }),
+      ),
+    );
+
+    expect(store.getState().bench.suite.levelIds).toEqual(activeSuiteLevelIds);
+
+    store.dispatch(benchRunCancelRequested({ suiteRunId: 'bench-level-pack-active' }));
+    await store.dispatch(
+      importLevelPackSelection(
+        JSON.stringify({
+          levelIds: [firstLevelId],
+        }),
+      ),
+    );
+    expect(store.getState().bench.suite.levelIds).toEqual(activeSuiteLevelIds);
+
+    store.dispose();
+  });
+
   it('records import errors for invalid benchmark report payloads', async () => {
     const benchmarkPort = createBenchmarkPortMock();
     const benchmarkStorage = createBenchmarkStorageMock();
@@ -666,6 +842,46 @@ describe('benchThunks', () => {
     await store.dispatch(importBenchmarkReport(oversizedJson));
     expect(store.getState().bench.diagnostics.lastError).toContain('Benchmark report is too large');
 
+    store.dispose();
+  });
+
+  it('reconciles fallback state when import replace throws after mutating storage memory', async () => {
+    const benchmarkPort = createBenchmarkPortMock();
+    const benchmarkStorage = createBenchmarkStorageMock();
+    const previousResult = createResult({ id: 'previous-result' });
+    const importedResult = createResult({ id: 'imported-result' });
+    const fallbackRetainedResult = createResult({ id: 'fallback-retained' });
+    vi.mocked(benchmarkStorage.replaceResults).mockRejectedValue(new Error('replace failed'));
+    vi.mocked(benchmarkStorage.loadResults).mockResolvedValue([fallbackRetainedResult]);
+    vi.mocked(benchmarkStorage.getRepositoryHealth).mockReturnValue('memory-fallback');
+    vi.mocked(benchmarkStorage.getLastRepositoryError).mockReturnValue(
+      'Failed to replace benchmark results in repository.',
+    );
+
+    const store = createAppStore({
+      solverPort: createNoopSolverPort(),
+      benchmarkPort,
+      benchmarkStorage,
+    });
+
+    store.dispatch(benchResultsReplaced([previousResult]));
+
+    await store.dispatch(
+      importBenchmarkReport(
+        JSON.stringify({
+          type: BENCHMARK_REPORT_TYPE,
+          version: BENCHMARK_REPORT_VERSION,
+          exportModel: BENCHMARK_REPORT_EXPORT_MODEL,
+          results: [importedResult],
+        }),
+      ),
+    );
+
+    expect(benchmarkStorage.replaceResults).toHaveBeenCalledWith([importedResult]);
+    expect(benchmarkStorage.loadResults).toHaveBeenCalledTimes(1);
+    expect(store.getState().bench.results).toEqual([fallbackRetainedResult]);
+    expect(store.getState().bench.diagnostics.repositoryHealth).toBe('memory-fallback');
+    expect(store.getState().bench.diagnostics.lastError).toBe('replace failed');
     store.dispose();
   });
 

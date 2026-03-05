@@ -65,6 +65,8 @@ export function BenchPage({
   onImportLevelPack,
   onClearResults,
 }: BenchPageProps) {
+  const isSuiteActive = status === 'running' || status === 'cancelling';
+
   return (
     <main className="page-shell">
       <header>
@@ -96,8 +98,8 @@ export function BenchPage({
           <BenchmarkExportImportControls
             disableExportReport={results.length === 0}
             disableExportLevelPack={suite.levelIds.length === 0}
-            disableImports={status === 'running' || status === 'cancelling'}
-            disableClear={results.length === 0}
+            disableImports={isSuiteActive}
+            disableClear={isSuiteActive || results.length === 0}
             onExportReport={onExportReport}
             onImportReport={onImportReport}
             onExportLevelPack={onExportLevelPack}

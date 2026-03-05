@@ -7,6 +7,7 @@ import {
   upsertMemoryResult,
   type BenchmarkStorage,
   type PersistOutcome,
+  type RepositoryHealth,
 } from './benchmarkStorage';
 import { createBenchmarkRepository, type BenchmarkRepository } from './benchmarkRepository.client';
 
@@ -15,6 +16,7 @@ export type {
   BenchmarkStorage,
   BenchmarkStorageInitResult,
   PersistOutcome,
+  RepositoryHealth,
 } from './benchmarkStorage';
 
 type StoragePersistApi = {
@@ -66,6 +68,18 @@ function shouldLogDiagnostics(isDev: boolean, debug: boolean): boolean {
   return isDev && debug;
 }
 
+function toRepositoryErrorMessage(error: unknown, fallbackMessage: string): string {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
+  }
+
+  if (typeof error === 'string' && error.length > 0) {
+    return error;
+  }
+
+  return fallbackMessage;
+}
+
 async function syncResultsFromRepository(params: {
   repository: BenchmarkRepository;
   retentionLimit: number;
@@ -101,6 +115,13 @@ export function createBenchmarkStorage(
       : options.repository;
 
   let memoryResults: BenchmarkRunRecord[] = [];
+  let repositoryHealth: RepositoryHealth = repository ? 'durable' : 'unavailable';
+  let repositoryError: string | null = null;
+
+  const setRepositoryStatus = (nextHealth: RepositoryHealth, error: string | null = null) => {
+    repositoryHealth = nextHealth;
+    repositoryError = error;
+  };
 
   return {
     async init(initOptions) {
@@ -117,16 +138,24 @@ export function createBenchmarkStorage(
             retentionLimit,
             logger,
           });
+          setRepositoryStatus('durable');
         } catch (error) {
+          setRepositoryStatus(
+            'memory-fallback',
+            toRepositoryErrorMessage(error, 'Failed to initialize benchmark repository.'),
+          );
           logger.warn('[bench] Failed to initialize benchmark repository.', error);
         }
+      } else {
+        setRepositoryStatus('unavailable');
       }
 
-      return { persistOutcome };
+      return { persistOutcome, repositoryHealth };
     },
 
     async loadResults() {
       if (!repository) {
+        setRepositoryStatus('unavailable');
         return sortByCompletion(memoryResults);
       }
 
@@ -136,7 +165,12 @@ export function createBenchmarkStorage(
           retentionLimit,
           logger,
         });
+        setRepositoryStatus('durable');
       } catch (error) {
+        setRepositoryStatus(
+          'memory-fallback',
+          toRepositoryErrorMessage(error, 'Failed to load benchmark runs from repository.'),
+        );
         logger.warn('[bench] Failed to load benchmark runs from repository.', error);
       }
 
@@ -149,6 +183,7 @@ export function createBenchmarkStorage(
       memoryResults = retention.retainedResults;
 
       if (!repository) {
+        setRepositoryStatus('unavailable');
         return;
       }
 
@@ -158,7 +193,12 @@ export function createBenchmarkStorage(
         if (retention.droppedIds.length > 0) {
           await repository.deleteRuns(retention.droppedIds);
         }
+        setRepositoryStatus('durable');
       } catch (error) {
+        setRepositoryStatus(
+          'memory-fallback',
+          toRepositoryErrorMessage(error, 'Failed to persist benchmark result.'),
+        );
         logger.warn('[bench] Failed to persist benchmark result.', error);
         throw error;
       }
@@ -169,12 +209,18 @@ export function createBenchmarkStorage(
       memoryResults = retention.retainedResults;
 
       if (!repository) {
+        setRepositoryStatus('unavailable');
         return;
       }
 
       try {
         await repository.replaceRuns(memoryResults);
+        setRepositoryStatus('durable');
       } catch (error) {
+        setRepositoryStatus(
+          'memory-fallback',
+          toRepositoryErrorMessage(error, 'Failed to replace benchmark results in repository.'),
+        );
         logger.warn('[bench] Failed to replace benchmark results in repository.', error);
         throw error;
       }
@@ -184,15 +230,29 @@ export function createBenchmarkStorage(
       memoryResults = [];
 
       if (!repository) {
+        setRepositoryStatus('unavailable');
         return;
       }
 
       try {
         await repository.clearRuns();
+        setRepositoryStatus('durable');
       } catch (error) {
+        setRepositoryStatus(
+          'memory-fallback',
+          toRepositoryErrorMessage(error, 'Failed to clear benchmark results in repository.'),
+        );
         logger.warn('[bench] Failed to clear benchmark results in repository.', error);
         throw error;
       }
+    },
+
+    getRepositoryHealth() {
+      return repositoryHealth;
+    },
+
+    getLastRepositoryError() {
+      return repositoryError;
     },
 
     dispose() {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createSolverClient } from '../solverClient.client';
+import { createSolverClient, DEFAULT_PING_TIMEOUT_MS } from '../solverClient.client';
 import * as protocolValidation from '../../protocol/validation';
 
 class MockWorker {
@@ -255,6 +255,7 @@ describe('createSolverClient', () => {
 
     await expect(solvePromise).rejects.toThrow('solver boom');
     expect(client.getWorkerHealth()).toBe('crashed');
+    expect(harness.workers[0]?.terminated).toBe(true);
   });
 
   it('marks worker as crashed on onmessageerror', async () => {
@@ -267,6 +268,7 @@ describe('createSolverClient', () => {
 
     await expect(pingPromise).rejects.toThrow('message');
     expect(client.getWorkerHealth()).toBe('crashed');
+    expect(harness.workers[0]?.terminated).toBe(true);
   });
 
   it('converts worker error reasons into errors for string and unknown values', async () => {
@@ -512,6 +514,136 @@ describe('createSolverClient', () => {
     });
 
     await expect(firstPing).resolves.toBeUndefined();
+  });
+
+  it('rejects ping while a solve run is active without crashing the worker', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+
+    const run = client.solve({
+      runId: 'run-active-ping',
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'bfsPush',
+    });
+
+    await expect(client.ping()).rejects.toThrow('ping is idle-only');
+    expect(client.getWorkerHealth()).toBe('idle');
+    expect(harness.workers[0]?.postedMessages).toHaveLength(1);
+
+    harness.workers[0]?.emitMessage({
+      type: 'SOLVE_RESULT',
+      runId: 'run-active-ping',
+      protocolVersion: 2,
+      status: 'unsolved',
+      metrics: {
+        elapsedMs: 1,
+        expanded: 1,
+        generated: 1,
+        maxDepth: 0,
+        maxFrontier: 0,
+        pushCount: 0,
+        moveCount: 0,
+      },
+    });
+
+    await expect(run).resolves.toMatchObject({ runId: 'run-active-ping' });
+    expect(client.getWorkerHealth()).toBe('healthy');
+  });
+
+  it('rejects solve while ping is in flight and allows solve after PONG', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+
+    const pingPromise = client.ping(250);
+    await expect(
+      client.solve({
+        runId: 'run-during-ping',
+        levelRuntime: sampleLevelRuntime,
+        algorithmId: 'bfsPush',
+      }),
+    ).rejects.toThrow('solve cannot start while ping is in flight');
+
+    expect(harness.workers[0]?.postedMessages).toHaveLength(1);
+    expect(harness.workers[0]?.postedMessages[0]).toMatchObject({
+      type: 'PING',
+      protocolVersion: 2,
+    });
+
+    harness.workers[0]?.emitMessage({
+      type: 'PONG',
+      protocolVersion: 2,
+    });
+    await expect(pingPromise).resolves.toBeUndefined();
+
+    const runAfterPong = client.solve({
+      runId: 'run-after-ping',
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'bfsPush',
+    });
+
+    harness.workers[0]?.emitMessage({
+      type: 'SOLVE_RESULT',
+      runId: 'run-after-ping',
+      protocolVersion: 2,
+      status: 'unsolved',
+      metrics: {
+        elapsedMs: 1,
+        expanded: 1,
+        generated: 1,
+        maxDepth: 0,
+        maxFrontier: 0,
+        pushCount: 0,
+        moveCount: 0,
+      },
+    });
+
+    await expect(runAfterPong).resolves.toMatchObject({ runId: 'run-after-ping' });
+  });
+
+  it('rejects ping when timeout elapses and keeps worker health crashed after late PONG', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createWorkerHarness();
+      const client = createSolverClient({ createWorker: harness.createWorker });
+
+      const pingPromise = client.ping(25);
+      const pingExpectation = expect(pingPromise).rejects.toThrow('timed out after 25ms');
+      await vi.advanceTimersByTimeAsync(25);
+
+      await pingExpectation;
+      expect(client.getWorkerHealth()).toBe('crashed');
+      expect(harness.workers[0]?.terminated).toBe(true);
+
+      harness.workers[0]?.emitMessage({
+        type: 'PONG',
+        protocolVersion: 2,
+      });
+      expect(client.getWorkerHealth()).toBe('crashed');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('uses the default ping timeout when timeoutMs is missing or invalid', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createWorkerHarness();
+      const client = createSolverClient({ createWorker: harness.createWorker });
+
+      const pingPromise = client.ping(0);
+      const pingExpectation = expect(pingPromise).rejects.toThrow(
+        `timed out after ${DEFAULT_PING_TIMEOUT_MS}ms`,
+      );
+      await vi.advanceTimersByTimeAsync(DEFAULT_PING_TIMEOUT_MS - 1);
+      await Promise.resolve();
+      expect(client.getWorkerHealth()).toBe('idle');
+
+      await vi.advanceTimersByTimeAsync(1);
+      await pingExpectation;
+      expect(client.getWorkerHealth()).toBe('crashed');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('ignores PONG when no ping is pending', async () => {

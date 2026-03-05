@@ -1,9 +1,11 @@
 import type { BenchmarkRunRecord } from '@corgiban/benchmarks';
 
 export type PersistOutcome = 'granted' | 'denied' | 'unsupported';
+export type RepositoryHealth = 'durable' | 'memory-fallback' | 'unavailable';
 
 export type PersistencePortInitResult = {
   persistOutcome: PersistOutcome;
+  repositoryHealth: RepositoryHealth;
 };
 
 export type PersistencePort = {
@@ -12,5 +14,7 @@ export type PersistencePort = {
   saveResult: (result: BenchmarkRunRecord) => Promise<void>;
   replaceResults: (results: BenchmarkRunRecord[]) => Promise<void>;
   clearResults: () => Promise<void>;
+  getRepositoryHealth: () => RepositoryHealth;
+  getLastRepositoryError: () => string | null;
   dispose: () => void;
 };

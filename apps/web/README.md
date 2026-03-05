@@ -11,7 +11,7 @@ Remix application containing the product UI, routes, and orchestration.
 - Worker clients (via ports/adapters) for solver + benchmarks
 - Persistence adapters (IndexedDB, File System Access export/import)
 
-## Current status (Phase 4 benchmark + settings integration)
+## Current status (Phase 5 quality + offline integration)
 
 - Routes: `/play` (interactive), `/bench` (benchmark workflows), and `/dev/ui-kit` (design system); `/lab` is still planned.
 - State: RTK store includes `game`, `solver`, `bench`, and `settings` slices.
@@ -25,8 +25,12 @@ Remix application containing the product UI, routes, and orchestration.
   - Bench workflow uses injected ports (`BenchmarkPort`, `PersistencePort`) via thunks; UI components do not call persistence adapters directly.
   - Worker-level benchmark progress streaming is spectator-only and adapter-gated; `/bench` keeps spectator stream disabled unless a per-run worker-progress consumer is explicitly attached.
   - Persistence initialization feature-detects `navigator.storage.persist()` and records diagnostics (`granted | denied | unsupported`), with console logging only in dev+debug mode.
+  - Diagnostics also surface repository durability health (`durable | memory-fallback | unavailable`) independently from `storage.persist()` outcomes.
   - Performance instrumentation (`performance.mark/measure`) is observed via `PerformanceObserver` and rendered in a debug perf panel.
   - File System Access API export/import is feature-detected with fallback to anchor download and file input.
+- Offline/PWA:
+  - Workbox-backed service worker registration is enabled in production builds.
+  - Dev-only PWA worker registration can be enabled with `VITE_ENABLE_PWA_DEV=1` for local smoke validation.
 - Replay: controller is wired to solver playback controls.
 - Store lifecycle: route-scoped stores inject ports and dispose worker/persistence resources on unmount.
 - Solver recommendation/availability contract: `chooseAlgorithm` only recommends implemented ids; when enabling new algorithms, keep solver `IMPLEMENTED_ALGORITHM_IDS` and `/play` option enablement in sync.

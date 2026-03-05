@@ -54,6 +54,10 @@ export function BenchDiagnosticsPanel({
           <dt className="text-[color:var(--color-muted)]">Storage persist</dt>
           <dd>{diagnostics.persistOutcome ?? 'pending'}</dd>
         </div>
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-[color:var(--color-muted)]">Repository health</dt>
+          <dd>{diagnostics.repositoryHealth ?? 'pending'}</dd>
+        </div>
       </dl>
 
       {diagnostics.lastError ? (

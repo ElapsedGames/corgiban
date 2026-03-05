@@ -73,7 +73,12 @@ describe('BenchDiagnosticsPanel', () => {
       <BenchDiagnosticsPanel
         status={status}
         progress={{ totalRuns: 5, completedRuns: 2, latestResultId: 'result-2' }}
-        diagnostics={{ persistOutcome: 'granted', lastError: null, lastNotice: null }}
+        diagnostics={{
+          persistOutcome: 'granted',
+          repositoryHealth: 'durable',
+          lastError: null,
+          lastNotice: null,
+        }}
       />,
     );
 
@@ -81,6 +86,7 @@ describe('BenchDiagnosticsPanel', () => {
     expect(html).toContain('2/5');
     expect(html).toContain('result-2');
     expect(html).toContain('granted');
+    expect(html).toContain('durable');
   });
 
   it('renders fallback values and error message', () => {
@@ -88,7 +94,12 @@ describe('BenchDiagnosticsPanel', () => {
       <BenchDiagnosticsPanel
         status="idle"
         progress={{ totalRuns: 0, completedRuns: 0, latestResultId: null }}
-        diagnostics={{ persistOutcome: null, lastError: 'Something failed.', lastNotice: null }}
+        diagnostics={{
+          persistOutcome: null,
+          repositoryHealth: null,
+          lastError: 'Something failed.',
+          lastNotice: null,
+        }}
       />,
     );
 
@@ -104,6 +115,7 @@ describe('BenchDiagnosticsPanel', () => {
         progress={{ totalRuns: 0, completedRuns: 0, latestResultId: null }}
         diagnostics={{
           persistOutcome: 'granted',
+          repositoryHealth: 'durable',
           lastError: null,
           lastNotice: 'Imported 2 levels. 1 unrecognized ID was skipped.',
         }}

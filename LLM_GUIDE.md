@@ -289,6 +289,9 @@ Validate both directions:
 - Optional `/play` validation-path toggle:
   `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` enables solver-client outbound
   `light-progress` validation for `SOLVE_PROGRESS`; default remains strict validation.
+- Optional PWA dev toggle:
+  `VITE_ENABLE_PWA_DEV=1` enables service worker registration in dev builds for offline smoke
+  validation; production builds register by default.
 - Keep Redux state/actions JSON-serializable; keep typed-array runtime caches outside Redux.
 
 ---
@@ -326,6 +329,8 @@ Most bug fixes must include:
 
 - Run full unit suite (not a partial subset)
 - Run typecheck and lint
+- Run `pnpm test:smoke` when touching route shell, PWA/offline behavior, or `/bench` persistence
+  workflows.
 - Pre-commit hooks (simple-git-hooks) run `pnpm format:check`,
   `node tools/scripts/run-affected-tests.mjs`, and `node tools/scripts/encoding-check.mjs`
   on staged files (lint/typecheck remain required via local verification + CI).
@@ -449,6 +454,8 @@ the archive includes the current worktree.
 - schemas updated on both sides
 - protocol versioning respected
 - client and worker tests added or updated
+- solver-client liveness remains deterministic (`ping(timeoutMs?)` idle-only, bounded timeout,
+  explicit `crashed` transition on timeout/error)
 - for validation-path changes, run `node tools/scripts/profile-worker-validation.mjs` and
   refresh `docs/_generated/analysis/phase-04-protocol-validation-profile.md`
 
@@ -462,7 +469,8 @@ the archive includes the current worktree.
 - time/node budgets enforced
 - browser capability checks are explicit (`navigator.storage.persist`, File System Access APIs)
 - unsupported browser APIs use documented fallback paths, not hard errors
-- diagnostics capture storage persistence outcome and persistence errors; repository durability health split is a Phase 5 follow-up
+- diagnostics capture storage persistence outcome, repository durability health
+  (`durable | memory-fallback | unavailable`), and surfaced persistence errors/notices
 - perf instrumentation uses `performance.mark/measure` with observer-driven diagnostics in debug flows
 
 ---

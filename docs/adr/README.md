@@ -60,3 +60,5 @@ If an ADR is superseded, link bidirectionally:
 - `0014-benchmark-worker-cancellation-semantics.md`
 - `0015-worker-progress-light-validation-mode.md`
 - `0016-benchmark-report-contract-versioning.md`
+- `0017-pwa-offline-workbox-strategy.md`
+- `0018-solver-client-ping-liveness-timeout.md`

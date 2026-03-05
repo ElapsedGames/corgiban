@@ -24,6 +24,7 @@ Why is this change needed?
 - [{✅ or ❌}] `pnpm lint`
 - [{✅ or ❌}] `pnpm test`
 - [{example:95.88%}] `pnpm test:coverage`
+- [{✅ or ❌}] `pnpm test:smoke`
 - [{✅ or ❌}] Boundary checks pass
 - [{✅ or ❌}] Encoding policy checks pass (UTF-8 without BOM, ASCII-default text)
 

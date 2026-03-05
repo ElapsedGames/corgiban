@@ -8,6 +8,7 @@ import {
   benchPerfEntriesCleared,
   benchPerfEntriesObserved,
   benchResultRecorded,
+  benchRepositoryHealthRecorded,
   benchResultsCleared,
   benchResultsLoaded,
   benchRunCancelled,
@@ -69,6 +70,7 @@ describe('benchSlice', () => {
     expect(state.suite.nodeBudget).toBeGreaterThan(0);
     expect(state.results).toEqual([]);
     expect(state.diagnostics.persistOutcome).toBeNull();
+    expect(state.diagnostics.repositoryHealth).toBeNull();
     expect(state.diagnostics.lastNotice).toBeNull();
   });
 
@@ -194,10 +196,40 @@ describe('benchSlice', () => {
     expect(state.diagnostics.lastError).toBeNull();
   });
 
+  it('ignores benchResultsCleared while a suite is active', () => {
+    let state = benchSlice.reducer(undefined, { type: 'unknown' });
+
+    state = benchSlice.reducer(state, benchRunStarted({ suiteRunId: 'bench-1', totalRuns: 2 }));
+    state = benchSlice.reducer(
+      state,
+      benchRunProgressUpdated({
+        suiteRunId: 'bench-1',
+        totalRuns: 2,
+        completedRuns: 1,
+        latestResultId: 'result-1',
+      }),
+    );
+    state = benchSlice.reducer(state, benchResultRecorded(createResult()));
+    state = benchSlice.reducer(state, benchResultsCleared());
+
+    expect(state.results).toHaveLength(1);
+    expect(state.progress.totalRuns).toBe(2);
+    expect(state.progress.completedRuns).toBe(1);
+
+    state = benchSlice.reducer(state, benchRunCancelRequested({ suiteRunId: 'bench-1' }));
+    state = benchSlice.reducer(state, benchResultsCleared());
+
+    expect(state.status).toBe('cancelling');
+    expect(state.results).toHaveLength(1);
+    expect(state.progress.totalRuns).toBe(2);
+    expect(state.progress.completedRuns).toBe(1);
+  });
+
   it('stores persistence diagnostics, loaded results, and perf entries', () => {
     let state = benchSlice.reducer(undefined, { type: 'unknown' });
 
     state = benchSlice.reducer(state, benchPersistOutcomeRecorded('granted'));
+    state = benchSlice.reducer(state, benchRepositoryHealthRecorded('durable'));
     state = benchSlice.reducer(state, benchNoticeRecorded('Imported 1 level.'));
     state = benchSlice.reducer(state, benchErrorRecorded('Write failed.'));
     state = benchSlice.reducer(
@@ -209,6 +241,7 @@ describe('benchSlice', () => {
     );
 
     expect(state.diagnostics.persistOutcome).toBe('granted');
+    expect(state.diagnostics.repositoryHealth).toBe('durable');
     expect(state.diagnostics.lastNotice).toBeNull();
     expect(state.results.map((result) => result.id)).toEqual(['result-1', 'result-2']);
 

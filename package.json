@@ -14,6 +14,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run --workspace vitest.workspace.ts",
     "test:coverage": "vitest run --coverage --coverage.all false --workspace vitest.workspace.ts",
+    "test:smoke": "pnpm build && playwright test",
     "zip:source": "node tools/scripts/make-source-zip.mjs",
     "prepare": "simple-git-hooks",
     "graph:deps": "pnpm exec depcruise --config dependency-cruiser.config.mjs packages/ apps/ --output-type dot | dot -T svg > docs/_generated/dep-graph.svg",
@@ -23,6 +24,7 @@
     "pre-commit": "pnpm format:check && node tools/scripts/run-affected-tests.mjs && node tools/scripts/encoding-check.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/node": "^20.11.0",
     "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^1.4.0",

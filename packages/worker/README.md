@@ -10,7 +10,7 @@ Worker runtime, protocol, validation, and main-thread clients.
 - Main-thread worker clients and worker-pool orchestration
 - `workerHealth` state tracking for solver clients: `'idle' | 'healthy' | 'crashed'`
 
-## Current status (Phase 4 benchmark + solver runtime)
+## Current status (Phase 5 hardening)
 
 - Implemented:
   - protocol message types and Zod schemas for `SOLVE_*` and `BENCH_*`
@@ -19,8 +19,13 @@ Worker runtime, protocol, validation, and main-thread clients.
   - benchmark worker runtime and benchmark client wrapper
   - worker pool queueing/cancel/dispose behavior
   - one-active-run solver-client guard and hard-reset cancel semantics for `/play`
+  - solver ping timeout hardening: `ping(timeoutMs?)` defaults to `DEFAULT_PING_TIMEOUT_MS`,
+    is idle-only, and transitions worker health to `crashed` with immediate worker termination on
+    timeout/error
 - `/play` cancellation baseline remains ADR-0013 (`cancel(runId)` resets the solver worker client)
 - benchmark suite cancellation semantics follow ADR-0014 (queue cancel + suite dispose)
+- solver-client ping liveness/timeout semantics follow ADR-0018 (idle-only ping, bounded timeout,
+  crashed-on-timeout/error recovery)
 
 ## Protocol v2 baseline (current implementation)
 
@@ -70,6 +75,10 @@ Deferred to a later protocol extension:
   strict-schema validated
 - `createSolverClient({ outboundValidationMode: 'light-progress' })` enables light validation for
   `SOLVE_PROGRESS` only; all other outbound messages remain strict-schema validated
+- `createSolverClient().ping(timeoutMs?)` is an idle-only liveness check and rejects while a
+  `SOLVE_START` run is active
+- `createSolverClient().solve(...)` rejects while a `PING` is in flight to avoid ping/solve
+  interleaving ambiguity
 - Benchmark-worker `BENCH_PROGRESS` is emitted only when `enableSpectatorStream` is true for the
   run request; app adapters should enable spectator stream only when they actively consume
   per-run worker progress
@@ -90,6 +99,7 @@ Runtime exports:
 - `assertInboundMessage`, `assertOutboundMessage`
 - `ProtocolValidationError`
 - `createSolverClient(...)`
+- `DEFAULT_PING_TIMEOUT_MS`
 - `createBenchmarkClient(...)`
 - `WorkerPool`
 - `resolveBenchmarkWorkerPoolSize(...)`
@@ -108,10 +118,18 @@ Additional package subpath exports:
 ## Usage example
 
 ```ts
-import { createBenchmarkClient, createSolverClient } from '@corgiban/worker';
+import {
+  DEFAULT_PING_TIMEOUT_MS,
+  createBenchmarkClient,
+  createSolverClient,
+} from '@corgiban/worker';
 
 const solverClient = createSolverClient();
 const benchmarkClient = createBenchmarkClient();
+
+await solverClient.ping(); // idle-only, uses DEFAULT_PING_TIMEOUT_MS
+await solverClient.ping(DEFAULT_PING_TIMEOUT_MS); // explicit default timeout
+await solverClient.ping(2_000); // idle-only, custom timeout in ms
 
 await solverClient.solve({
   runId: 'solve-1',

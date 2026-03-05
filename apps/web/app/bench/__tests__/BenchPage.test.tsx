@@ -90,6 +90,7 @@ const baseProps = {
   results: [createResult()],
   diagnostics: {
     persistOutcome: 'granted' as const,
+    repositoryHealth: 'durable' as const,
     lastError: null,
     lastNotice: null,
   },
@@ -260,6 +261,7 @@ describe('BenchPage', () => {
     const controls = findByType(element, BenchmarkExportImportControls);
     expect(controls).toBeDefined();
     expect(controls?.props.disableImports).toBe(true);
+    expect(controls?.props.disableClear).toBe(true);
   });
 
   it('disables imports when status is cancelling', () => {
@@ -271,6 +273,7 @@ describe('BenchPage', () => {
     const controls = findByType(element, BenchmarkExportImportControls);
     expect(controls).toBeDefined();
     expect(controls?.props.disableImports).toBe(true);
+    expect(controls?.props.disableClear).toBe(true);
   });
 
   it('disables export report when no results but enables export level pack when levels selected', () => {

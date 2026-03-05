@@ -37,11 +37,13 @@ type PendingRun = {
 };
 
 type PendingPing = {
+  timeoutHandle: ReturnType<typeof setTimeout>;
   resolve: () => void;
   reject: (error: Error) => void;
 };
 
 export type SolverClientSolveRequest = Omit<SolveStartMessage, 'type' | 'protocolVersion'>;
+export const DEFAULT_PING_TIMEOUT_MS = 5_000;
 
 export type SolverClient = {
   solve: (
@@ -49,7 +51,7 @@ export type SolverClient = {
     callbacks?: { onProgress?: (message: SolveProgressMessage) => void },
   ) => Promise<SolveResultMessage>;
   cancel: (runId: string) => void;
-  ping: () => Promise<void>;
+  ping: (timeoutMs?: number) => Promise<void>;
   retry: () => void;
   dispose: () => void;
   getWorkerHealth: () => SolverWorkerHealth;
@@ -91,6 +93,13 @@ export function createSolverClient(options?: CreateSolverClientOptions): SolverC
     return error;
   };
 
+  const normalizePingTimeoutMs = (timeoutMs: number | undefined): number => {
+    if (!Number.isFinite(timeoutMs) || !timeoutMs || timeoutMs <= 0) {
+      return DEFAULT_PING_TIMEOUT_MS;
+    }
+    return Math.max(1, Math.floor(timeoutMs));
+  };
+
   const setWorkerHealth = (next: SolverWorkerHealth) => {
     if (workerHealth === next) {
       return;
@@ -109,16 +118,27 @@ export function createSolverClient(options?: CreateSolverClientOptions): SolverC
   };
 
   const rejectPendingPing = (error: Error) => {
-    if (!pendingPing) {
+    const pending = pendingPing;
+    if (!pending) {
       return;
     }
-    pendingPing.reject(error);
     pendingPing = null;
+    clearTimeout(pending.timeoutHandle);
+    pending.reject(error);
+  };
+
+  const detachWorker = () => {
+    if (!worker) {
+      return;
+    }
+    worker.terminate();
+    worker = null;
   };
 
   const handleWorkerCrash = (reason: unknown, fallbackMessage: string) => {
     const error = toError(reason, fallbackMessage);
     setWorkerHealth('crashed');
+    detachWorker();
     rejectAllPendingRuns(error);
     rejectPendingPing(error);
   };
@@ -126,6 +146,9 @@ export function createSolverClient(options?: CreateSolverClientOptions): SolverC
   const attachWorkerHandlers = (targetWorker: WorkerLike) => {
     targetWorker.onmessage = (event) => {
       if (worker !== targetWorker) {
+        return;
+      }
+      if (workerHealth === 'crashed') {
         return;
       }
       const parsed = validateOutboundMessage(event.data, outboundValidationOptions);
@@ -163,8 +186,13 @@ export function createSolverClient(options?: CreateSolverClientOptions): SolverC
           return;
         }
         case 'PONG': {
-          pendingPing?.resolve();
+          const pending = pendingPing;
+          if (!pending) {
+            return;
+          }
           pendingPing = null;
+          clearTimeout(pending.timeoutHandle);
+          pending.resolve();
           return;
         }
         default: {
@@ -208,9 +236,7 @@ export function createSolverClient(options?: CreateSolverClientOptions): SolverC
 
   const recreateWorker = (message = 'Solver worker was reset.') => {
     clearPendingBeforeReset(message);
-    if (worker) {
-      worker.terminate();
-    }
+    detachWorker();
     worker = createWorker();
     attachWorkerHandlers(worker);
     setWorkerHealth('idle');
@@ -245,6 +271,11 @@ export function createSolverClient(options?: CreateSolverClientOptions): SolverC
           ),
         );
       }
+      if (pendingPing) {
+        return Promise.reject(
+          new Error('Solver worker solve cannot start while ping is in flight.'),
+        );
+      }
 
       return new Promise<SolveResultMessage>((resolve, reject) => {
         pendingRuns.set(request.runId, {
@@ -273,12 +304,18 @@ export function createSolverClient(options?: CreateSolverClientOptions): SolverC
       }
       recreateWorker('Solver worker was reset after cancellation.');
     },
-    ping() {
+    ping(timeoutMs?: number) {
       if (workerHealth === 'crashed') {
         return Promise.reject(new Error('Solver worker is crashed. Retry worker before pinging.'));
       }
       if (pendingPing) {
         return Promise.reject(new Error('Solver worker ping already in flight.'));
+      }
+      if (pendingRuns.size > 0) {
+        const activeRunId = pendingRuns.keys().next().value as string;
+        return Promise.reject(
+          new Error(`Solver worker ping is idle-only. Active runId: ${activeRunId}.`),
+        );
       }
 
       const pingMessage = {
@@ -292,7 +329,15 @@ export function createSolverClient(options?: CreateSolverClientOptions): SolverC
       }
 
       return new Promise<void>((resolve, reject) => {
-        pendingPing = { resolve, reject };
+        const resolvedTimeoutMs = normalizePingTimeoutMs(timeoutMs);
+        const timeoutHandle = setTimeout(() => {
+          handleWorkerCrash(
+            new Error(`Solver worker ping timed out after ${resolvedTimeoutMs}ms.`),
+            'Solver worker ping timed out.',
+          );
+        }, resolvedTimeoutMs);
+
+        pendingPing = { timeoutHandle, resolve, reject };
         try {
           ensureWorker().postMessage(pingMessage);
         } catch (error) {
@@ -308,10 +353,7 @@ export function createSolverClient(options?: CreateSolverClientOptions): SolverC
     },
     dispose() {
       clearPendingBeforeReset('Solver client disposed.');
-      if (worker) {
-        worker.terminate();
-        worker = null;
-      }
+      detachWorker();
       setWorkerHealth('idle');
     },
     getWorkerHealth() {

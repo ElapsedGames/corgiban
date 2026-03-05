@@ -34,10 +34,19 @@ pnpm format          # Prettier (auto-format)
 pnpm format:check    # Prettier (check formatting)
 pnpm test            # Vitest workspace (unit tests)
 pnpm test:coverage   # Vitest with enforced coverage thresholds
+pnpm test:smoke      # Playwright smoke tests (routes, /play, /bench persistence, offline shell)
 pnpm dev             # start Remix dev server
 pnpm build           # build Remix app
 node tools/scripts/profile-worker-validation.mjs  # optional: protocol validation profiling report
 ```
+
+Playwright note: install browsers once with `pnpm exec playwright install chromium` before running
+`pnpm test:smoke` locally.
+`pnpm test:smoke` builds the Remix app and runs Playwright against a production preview server
+without reusing an existing local server process.
+If port `43173` is already in use, set `PLAYWRIGHT_PORT` (for example
+`PLAYWRIGHT_PORT=4273 pnpm test:smoke` on POSIX shells or
+`$env:PLAYWRIGHT_PORT='4273'; pnpm test:smoke` in PowerShell).
 
 Dev server note: use `pnpm dev -- --clearScreen=false` (single argument). Passing `--clearScreen false` can be treated as a positional projectDir and result in "Remix Vite plugin not found in Vite config".
 
@@ -46,6 +55,7 @@ Validation profiling note: `node tools/scripts/profile-worker-validation.mjs` wr
 
 Optional runtime toggle: set `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` when running `/play` to
 exercise solver-client `light-progress` outbound validation for `SOLVE_PROGRESS` (default is strict).
+For manual PWA/offline checks outside Playwright, run dev with `VITE_ENABLE_PWA_DEV=1`.
 
 ## Creating a clean source zip
 
@@ -76,7 +86,8 @@ Affected test selection strategy (deterministic):
 - Runs `pnpm test` if any staged file is under `apps/`, `packages/`, or `tools/`, or is a root config file with a code extension
 - Skips tests when only docs or markdown files are staged
 
-CI gates every PR on: format:check, typecheck, lint, tests+coverage, boundary checks, and encoding policy checks.
+CI gates every PR on: format:check, typecheck, lint, tests+coverage, build + Playwright smoke,
+boundary checks, and encoding policy checks.
 
 ## Commit messages
 

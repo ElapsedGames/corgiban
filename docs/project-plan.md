@@ -625,6 +625,7 @@ Add/ensure these root scripts (pnpm):
 - pnpm typecheck (tsc -b)
 - pnpm test (unit)
 - pnpm test:coverage (enforced thresholds)
+- pnpm test:smoke (Playwright route/persistence/offline smoke)
 - pnpm dev
 - pnpm build
 
@@ -645,6 +646,7 @@ CI gate (required on every PR):
 - pnpm typecheck
 - pnpm lint
 - pnpm test:coverage (enforced thresholds)
+- pnpm test:smoke (production preview path)
 - boundary checks (eslint-plugin-boundaries + no-restricted-imports/no-restricted-syntax pass)
 - encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
 
@@ -761,12 +763,17 @@ Status: Complete (Phase 4 scope delivered in this PR, including a scoped optiona
 10. Add solver budget controls to Settings UI (time/node defaults), persist via settingsSlice, and apply them to `/play` solve orchestration defaults.
 
 Phase 5 - Quality and offline
-Decision dependencies: ADR-0016 (benchmark export artifact + import contract policy).
+Decision dependencies: ADR-0016 (benchmark export artifact + import contract policy),
+ADR-0017 (PWA offline shell strategy), and ADR-0018 (solver-client ping liveness semantics).
+
+Status: Complete (Phase 5 scope delivered in this PR, including Playwright smoke coverage, Workbox
+offline shell support, solver ping timeout hardening, and repository-health diagnostics in `/bench`)
 
 1. Add/raise coverage gates to >=95%
 2. Add boundary lint rules and ensure no violations
-3. Add minimal Playwright smoke test (play a level, run a bench, verify IndexedDB persistence) [deferred from Phase 4]
-4. Add PWA: service worker/Workbox integration compatible with Remix hosting; verify app loads without network [deferred from Phase 4]
+3. Add Playwright smoke suite (route smoke, `/play` interactions, `/bench` persistence/clear, and
+   production-path offline readiness checks)
+4. Add PWA: service worker/Workbox integration compatible with Remix hosting; verify app loads without network
 5. Add solver-client ping timeout hardening: `ping(timeoutMs)` default timeout, reject hung pings deterministically, set worker health to crashed on timeout, and cover with unit tests.
 6. Bench diagnostics operability follow-up (deferred from Phase 4): surface persistence health separately from `navigator.storage.persist()` outcome. Acceptance: diagnostics must distinguish at least `durable | memory-fallback | unavailable` (or equivalent `repositoryHealth`) and reflect repository init/load failures even when persist outcome is `granted`.
 
@@ -777,7 +784,6 @@ Deferred notes:
 - Replay controller tests rely on action type strings; re-audit when solverSlice expands.
 - /play Redux Provider is scoped to the route until cross-route state sharing is needed; keep this unscheduled until a concrete cross-route workflow requires shared store ownership.
 - Protocol-level `SOLVE_CANCEL` and `BENCH_CANCEL` remain out of protocol v2 and are unscheduled; revisit only in a future protocol-version ADR after current queue/dispose cancellation semantics are insufficient.
-- Persistence degradation visibility is tracked for Phase 5 (Task 6) with explicit acceptance criteria so memory-fallback mode is user-visible in diagnostics.
 - RenderPlan build is O(cells x boxes); no measured perf issue with current Sokoban sizes or the draw-on-change pipeline. Revisit only if profiling shows regressions.
 - Two sources of truth (GameState ref + Redux history) are intentional in Phase 2; revisit if replay or solver integration needs shared state outside /play.
 - Canvas distortion on small screens needs a responsive cellSize design; schedule a dedicated PR.
@@ -806,6 +812,9 @@ Decision dependencies: ADR-0006 (embed Shadow DOM and styling delivery strategy)
 9. Benchmark comparison UX follow-up: add multi-suite comparison workflows (baseline selection, diff tables/charts, and exportable comparison snapshots).
 10. Benchmark/report import hardening (deferred from Phase 4): enforce a versioned benchmark report parser with strict record validation (required solver `options`, validated enum-like fields, explicit unsupported-version errors) and define compatibility behavior for future schema versions.
 11. Level pack import contract hardening + warm-up UX follow-up (deferred from Phase 4): require versioned level-pack payloads (`type` + `version`) and add `/bench` warm-up controls (`warmupRepetitions`) with clear separation of warm-up vs measured runs in UI copy and exported metadata.
+12. Benchmark persistence durability semantics follow-up (deferred from Phase 5): define and implement repository-recovery behavior after `memory-fallback` (for example sticky degraded mode, write-back replay queue, or explicit reset policy), then make the selected durability semantics explicit in `/bench` diagnostics copy and docs.
+13. Offline verification fidelity follow-up (deferred from Phase 5): extend validation beyond iframe-based same-origin checks to include a documented strategy for top-level offline reload/navigation proof (automated when feasible, otherwise explicit manual proof steps captured in-repo).
+14. Smoke orchestration consistency follow-up (deferred from Phase 5): align CI and local smoke execution to a single source of truth (either CI calls `pnpm test:smoke` or the script delegates to CI-owned build/test split) and document the contract in contributing docs.
 
 Phase 7 - Optional browser-dev adapters
 
@@ -835,6 +844,7 @@ Decision dependency: ADR-0009 (solver-optimized state representation and hashing
 - `pnpm typecheck` passes (tsc project references)
 - `pnpm lint` passes
 - `pnpm test:coverage` passes with enforced thresholds (>=95% overall)
+- `pnpm test:smoke` passes with required service-worker readiness checks on the production path
 - `pnpm dev` runs:
   - /play supports keyboard moves, restart, undo, move history
   - /play solver panel shows algorithm recommendation (for example, "Recommended: bfsPush (7 boxes)") and allows override
@@ -843,6 +853,7 @@ Decision dependency: ADR-0009 (solver-optimized state representation and hashing
   - /bench route loads and can run a small benchmark suite; results persist in IndexedDB across page reloads
   - /bench export produces a valid JSON file; import round-trips correctly
   - navigator.storage.persist() is requested on adapter init when supported; outcome is stored in bench diagnostics (console logging only in dev/debug)
+  - bench diagnostics distinguish repository health (`durable | memory-fallback | unavailable`) independently from `navigator.storage.persist()` outcome
   - performance.mark/measure entries are visible in the browser DevTools Performance panel during a solve or bench run
   - /dev/ui-kit route renders all design system primitives
 - `pnpm build` produces a PWA: app shell loads without a network connection after first visit (Workbox service worker active)

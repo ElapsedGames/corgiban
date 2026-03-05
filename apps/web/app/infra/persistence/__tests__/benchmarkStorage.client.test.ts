@@ -89,7 +89,12 @@ describe('benchmarkStorage.client', () => {
       },
     });
 
-    await expect(storage.init()).resolves.toEqual({ persistOutcome: 'unsupported' });
+    await expect(storage.init()).resolves.toEqual({
+      persistOutcome: 'unsupported',
+      repositoryHealth: 'unavailable',
+    });
+    expect(storage.getRepositoryHealth()).toBe('unavailable');
+    expect(storage.getLastRepositoryError()).toBeNull();
 
     storage.dispose();
   });
@@ -111,7 +116,10 @@ describe('benchmarkStorage.client', () => {
       logger,
     });
 
-    await expect(storage.init({ debug: true })).resolves.toEqual({ persistOutcome: 'granted' });
+    await expect(storage.init({ debug: true })).resolves.toEqual({
+      persistOutcome: 'granted',
+      repositoryHealth: 'unavailable',
+    });
     expect(logger.info).toHaveBeenCalledTimes(1);
 
     await storage.init({ debug: false });
@@ -135,7 +143,10 @@ describe('benchmarkStorage.client', () => {
       },
     });
 
-    await expect(deniedStorage.init()).resolves.toEqual({ persistOutcome: 'denied' });
+    await expect(deniedStorage.init()).resolves.toEqual({
+      persistOutcome: 'denied',
+      repositoryHealth: 'unavailable',
+    });
 
     const thrownStorage = createBenchmarkStorage({
       repository: null,
@@ -153,7 +164,10 @@ describe('benchmarkStorage.client', () => {
       },
     });
 
-    await expect(thrownStorage.init()).resolves.toEqual({ persistOutcome: 'denied' });
+    await expect(thrownStorage.init()).resolves.toEqual({
+      persistOutcome: 'denied',
+      repositoryHealth: 'unavailable',
+    });
 
     deniedStorage.dispose();
     thrownStorage.dispose();
@@ -183,6 +197,8 @@ describe('benchmarkStorage.client', () => {
 
     expect(await storage.loadResults()).toEqual([resultB, resultC]);
     expect(repository.deleteRuns).toHaveBeenCalledWith(['result-a']);
+    expect(storage.getRepositoryHealth()).toBe('durable');
+    expect(storage.getLastRepositoryError()).toBeNull();
 
     await storage.clearResults();
     expect(await storage.loadResults()).toEqual([]);
@@ -234,7 +250,10 @@ describe('benchmarkStorage.client', () => {
       logger,
     });
 
-    await expect(storage.init({ debug: true })).resolves.toEqual({ persistOutcome: 'granted' });
+    await expect(storage.init({ debug: true })).resolves.toEqual({
+      persistOutcome: 'granted',
+      repositoryHealth: 'unavailable',
+    });
     expect(logger.info).not.toHaveBeenCalled();
     storage.dispose();
   });
@@ -262,7 +281,12 @@ describe('benchmarkStorage.client', () => {
       logger,
     });
 
-    await expect(storage.init()).resolves.toEqual({ persistOutcome: 'unsupported' });
+    await expect(storage.init()).resolves.toEqual({
+      persistOutcome: 'unsupported',
+      repositoryHealth: 'memory-fallback',
+    });
+    expect(storage.getRepositoryHealth()).toBe('memory-fallback');
+    expect(storage.getLastRepositoryError()).toBe('load failed');
     expect(logger.warn).toHaveBeenCalledWith(
       '[bench] Failed to initialize benchmark repository.',
       expect.any(Error),
@@ -314,6 +338,8 @@ describe('benchmarkStorage.client', () => {
 
     await expect(storage.clearResults()).rejects.toThrow('clear failed');
     expect(await storage.loadResults()).toEqual([]);
+    expect(storage.getRepositoryHealth()).toBe('memory-fallback');
+    expect(storage.getLastRepositoryError()).toBe('load failed');
 
     expect(logger.warn).toHaveBeenCalledWith(
       '[bench] Failed to persist benchmark result.',
@@ -429,7 +455,10 @@ describe('benchmarkStorage.client', () => {
   it('can initialize with default options and continue without repository-backed writes', async () => {
     const storage = createBenchmarkStorage();
 
-    await expect(storage.init()).resolves.toHaveProperty('persistOutcome');
+    await expect(storage.init()).resolves.toMatchObject({
+      persistOutcome: 'unsupported',
+      repositoryHealth: expect.any(String),
+    });
     await expect(
       storage.saveResult(createResult({ id: 'default-write', finishedAtMs: 41, startedAtMs: 40 })),
     ).resolves.toBeUndefined();
@@ -440,7 +469,10 @@ describe('benchmarkStorage.client', () => {
 
   it('createNoopBenchmarkStorage supports in-memory lifecycle operations', async () => {
     const storage = createNoopBenchmarkStorage();
-    await expect(storage.init()).resolves.toEqual({ persistOutcome: 'unsupported' });
+    await expect(storage.init()).resolves.toEqual({
+      persistOutcome: 'unsupported',
+      repositoryHealth: 'unavailable',
+    });
 
     const resultA = createResult({ id: 'a', startedAtMs: 1, finishedAtMs: 20 });
     const resultB = createResult({ id: 'b', startedAtMs: 2, finishedAtMs: 10 });

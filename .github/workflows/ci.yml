@@ -39,5 +39,14 @@ jobs:
       - name: Test coverage
         run: pnpm test:coverage
 
+      - name: Build
+        run: pnpm build
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Smoke tests
+        run: pnpm exec playwright test
+
       - name: Encoding check
         run: node tools/scripts/encoding-check.mjs

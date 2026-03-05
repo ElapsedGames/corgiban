@@ -7,7 +7,7 @@ import {
   DEFAULT_SOLVER_TIME_BUDGET_MS,
 } from '@corgiban/solver';
 
-import type { PersistOutcome } from '../ports/persistencePort';
+import type { PersistOutcome, RepositoryHealth } from '../ports/persistencePort';
 import type { BenchmarkRunRecord, BenchmarkSuiteConfig } from '../ports/benchmarkPort';
 
 export type BenchRunStatus =
@@ -33,6 +33,7 @@ export type BenchPerfEntry = {
 
 export type BenchDiagnosticsState = {
   persistOutcome: PersistOutcome | null;
+  repositoryHealth: RepositoryHealth | null;
   lastError: string | null;
   lastNotice: string | null;
 };
@@ -92,6 +93,10 @@ function buildResultLookup(results: BenchmarkRunRecord[]): Record<string, true> 
   return lookup;
 }
 
+function isActiveBenchStatus(status: BenchRunStatus): boolean {
+  return status === 'running' || status === 'cancelling';
+}
+
 const defaultLevelIds = builtinLevels.slice(0, 3).map((level) => level.id);
 
 const initialState: BenchSliceState = {
@@ -113,6 +118,7 @@ const initialState: BenchSliceState = {
   resultIdLookup: {},
   diagnostics: {
     persistOutcome: null,
+    repositoryHealth: null,
     lastError: null,
     lastNotice: null,
   },
@@ -236,6 +242,10 @@ export const benchSlice = createSlice({
       state.resultIdLookup = buildResultLookup(state.results);
     },
     benchResultsCleared(state) {
+      if (isActiveBenchStatus(state.status)) {
+        return;
+      }
+
       state.results = [];
       state.resultIdLookup = {};
       state.progress.latestResultId = null;
@@ -244,6 +254,9 @@ export const benchSlice = createSlice({
     },
     benchPersistOutcomeRecorded(state, action: { payload: PersistOutcome }) {
       state.diagnostics.persistOutcome = action.payload;
+    },
+    benchRepositoryHealthRecorded(state, action: { payload: RepositoryHealth }) {
+      state.diagnostics.repositoryHealth = action.payload;
     },
     benchErrorRecorded(state, action: { payload: string | null }) {
       state.diagnostics.lastError = action.payload;
@@ -269,6 +282,7 @@ export const {
   benchPerfEntriesCleared,
   benchPerfEntriesObserved,
   benchPersistOutcomeRecorded,
+  benchRepositoryHealthRecorded,
   benchResultRecorded,
   benchResultsCleared,
   benchResultsLoaded,

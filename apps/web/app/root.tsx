@@ -6,12 +6,14 @@ import tokensHref from './styles/tokens.css?url';
 export const links: LinksFunction = () => [
   { rel: 'stylesheet', href: tokensHref },
   { rel: 'stylesheet', href: appStylesHref },
+  { rel: 'manifest', href: '/manifest.webmanifest' },
   { rel: 'icon', href: '/favicon.ico', type: 'image/x-icon' },
 ];
 
 export const meta: MetaFunction = () => [
   { title: 'Corgiban' },
   { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+  { name: 'theme-color', content: '#0d1218' },
 ];
 
 export default function App() {

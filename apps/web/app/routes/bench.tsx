@@ -12,7 +12,6 @@ import { ALGORITHM_IDS, isImplementedAlgorithmId } from '@corgiban/solver';
 
 import { BenchPage } from '../bench/BenchPage';
 import { exportTextFile, importTextFile } from '../bench/fileAccess.client';
-import { formatLevelPackImportNotice, resolveLevelPackImport } from '../bench/levelPackImport';
 import {
   clearBenchPerformanceEntries,
   observeBenchPerformance,
@@ -30,18 +29,16 @@ import {
   clearBenchResults,
   createAppStore,
   importBenchmarkReport,
+  importLevelPackSelection,
   initializeBench,
   runBenchSuite,
   cancelBenchRun,
-  setSuiteLevelIds,
   setSuiteNodeBudget,
   setSuiteRepetitions,
   setSuiteTimeBudgetMs,
   toggleSuiteAlgorithmId,
   toggleSuiteLevelId,
 } from '../state';
-
-const knownLevelIds = new Set(builtinLevels.map((level) => level.id));
 
 function BenchRoutePage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -127,16 +124,7 @@ function BenchRoutePage() {
   const handleImportLevelPack = useCallback(() => {
     void importTextFile({ acceptMimeTypes: ['application/json'] })
       .then((result) => {
-        const summary = resolveLevelPackImport(result.content, knownLevelIds);
-        const { validLevelIds } = summary;
-
-        if (validLevelIds.length === 0) {
-          throw new Error('No known built-in level ids were found in the imported level pack.');
-        }
-
-        dispatch(setSuiteLevelIds(validLevelIds));
-        dispatch(benchErrorRecorded(null));
-        dispatch(benchNoticeRecorded(formatLevelPackImportNotice(summary)));
+        return dispatch(importLevelPackSelection(result.content));
       })
       .catch((error) => {
         dispatch(benchNoticeRecorded(null));

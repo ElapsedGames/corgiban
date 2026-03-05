@@ -34,7 +34,7 @@ export {
 export { WorkerPool } from './client/workerPool.client';
 export { resolveBenchmarkWorkerPoolSize } from './client/workerPool.client';
 export type { WorkerTask } from './client/workerPool.client';
-export { createSolverClient } from './client/solverClient.client';
+export { createSolverClient, DEFAULT_PING_TIMEOUT_MS } from './client/solverClient.client';
 export type {
   CreateSolverClientOptions,
   SolverClient,
