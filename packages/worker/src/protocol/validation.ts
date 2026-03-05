@@ -1,9 +1,16 @@
 import type { ZodError } from 'zod';
 
-import type { WorkerInboundMessage, WorkerOutboundMessage } from './protocol';
+import { PROTOCOL_VERSION } from './protocol';
+import type { SolveProgressMessage, WorkerInboundMessage, WorkerOutboundMessage } from './protocol';
 import { parseWorkerInboundMessage, parseWorkerOutboundMessage } from './schema';
 
 type ValidationDirection = 'inbound' | 'outbound';
+
+export type OutboundValidationMode = 'strict' | 'light-progress';
+
+export type ValidateOutboundMessageOptions = {
+  mode?: OutboundValidationMode;
+};
 
 export type ProtocolValidationIssue = {
   path: string;
@@ -50,6 +57,60 @@ function buildValidationError(
   return new ProtocolValidationError(direction, buildIssues(error), payload);
 }
 
+function isObjectLike(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isInteger(value) && isNonNegativeNumber(value);
+}
+
+function isSolveProgressLightMessage(payload: unknown): payload is SolveProgressMessage {
+  if (!isObjectLike(payload)) {
+    return false;
+  }
+
+  if (payload.type !== 'SOLVE_PROGRESS') {
+    return false;
+  }
+
+  if (payload.protocolVersion !== PROTOCOL_VERSION) {
+    return false;
+  }
+
+  if (typeof payload.runId !== 'string' || payload.runId.length === 0) {
+    return false;
+  }
+
+  if (!isNonNegativeInteger(payload.expanded)) {
+    return false;
+  }
+  if (!isNonNegativeInteger(payload.generated)) {
+    return false;
+  }
+  if (!isNonNegativeInteger(payload.depth)) {
+    return false;
+  }
+  if (!isNonNegativeInteger(payload.frontier)) {
+    return false;
+  }
+  if (!isNonNegativeNumber(payload.elapsedMs)) {
+    return false;
+  }
+  if (payload.bestHeuristic !== undefined && typeof payload.bestHeuristic !== 'number') {
+    return false;
+  }
+  if (payload.bestPathSoFar !== undefined && typeof payload.bestPathSoFar !== 'string') {
+    return false;
+  }
+
+  return true;
+}
+
 export function validateInboundMessage(
   payload: unknown,
 ): ProtocolValidationResult<WorkerInboundMessage> {
@@ -66,7 +127,15 @@ export function validateInboundMessage(
 
 export function validateOutboundMessage(
   payload: unknown,
+  options?: ValidateOutboundMessageOptions,
 ): ProtocolValidationResult<WorkerOutboundMessage> {
+  if (options?.mode === 'light-progress' && isSolveProgressLightMessage(payload)) {
+    return {
+      ok: true,
+      message: payload,
+    };
+  }
+
   const parsed = parseWorkerOutboundMessage(payload);
   if (parsed.success) {
     return { ok: true, message: parsed.data };

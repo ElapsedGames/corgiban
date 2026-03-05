@@ -29,7 +29,8 @@ No other workspace packages. No DOM, no Web APIs, no React.
 
 - Deterministic and side-effect free
 - Typed arrays returned by core (for example `GameState.boxes` and `LevelRuntime.initialBoxes`) are treated as immutable snapshots. Consumers must not mutate them; structural sharing is relied on for non-push moves.
-- `Date` and `Date.now` are banned - wall-clock time is sourced through `packages/shared/src/time.ts` if needed
+- `Date` and `Date.now` are banned - if clock input is needed, pass it explicitly at boundaries
+  (for example via a `nowMs` callback in calling layers)
 - `parseLevel` must enforce size constraints defined in `packages/shared/src/constraints.ts` (`MAX_GRID_WIDTH`, `MAX_GRID_HEIGHT`, `MAX_BOXES`) and reject malformed input with a descriptive error
 - `parseLevel` normalizes rows by stripping common leading whitespace and right-padding ragged rows with spaces (spaces are floor)
 - `parseLevel` rejects tabs and levels with no non-empty rows

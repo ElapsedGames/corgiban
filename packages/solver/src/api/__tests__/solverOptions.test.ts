@@ -62,4 +62,30 @@ describe('normalizeSolverOptions', () => {
     expect(() => normalizeSolverOptions('astarPush', { heuristicWeight: 1 })).not.toThrow();
     expect(() => normalizeSolverOptions('astarPush', { heuristicWeight: 10 })).not.toThrow();
   });
+
+  it('normalizes idaStarPush with explicit assignment heuristic options', () => {
+    const result = normalizeSolverOptions('idaStarPush', {
+      heuristicId: 'assignment',
+      heuristicWeight: 2.5,
+      timeBudgetMs: 1000,
+      nodeBudget: 2000,
+      enableSpectatorStream: true,
+    });
+
+    expect(result).toEqual({
+      heuristicId: 'assignment',
+      heuristicWeight: 2.5,
+      timeBudgetMs: 1000,
+      nodeBudget: 2000,
+      enableSpectatorStream: true,
+    });
+  });
+
+  it('applies default heuristic weight for idaStarPush when only heuristicId is provided', () => {
+    const result = normalizeSolverOptions('idaStarPush', { heuristicId: 'assignment' });
+
+    expect(result.heuristicId).toBe('assignment');
+    expect(result.heuristicWeight).toBe(1);
+    expect(result.enableSpectatorStream).toBe(false);
+  });
 });

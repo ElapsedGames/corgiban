@@ -4,7 +4,7 @@ import type { LevelRuntime } from '@corgiban/core';
 import { applyMove, createGame, parseLevel } from '@corgiban/core';
 import type { Direction } from '@corgiban/shared';
 
-import { directionsToString, expandSolutionFromStart } from '../expandSolution';
+import { directionsToString, expandSolution, expandSolutionFromStart } from '../expandSolution';
 import type { Push } from '../../api/solverTypes';
 
 function buildLevel(rows: string[]): LevelRuntime {
@@ -48,6 +48,30 @@ describe('expandSolution', () => {
     expect(moves).toEqual(['R', 'R']);
   });
 
+  it('expands from an explicit non-initial start snapshot', () => {
+    const level = buildLevel(['WWWWWWW', 'WPBEEEW', 'WWWWWWW']);
+    const firstBoxIndex = level.initialBoxes[0];
+
+    const moves = expandSolution(level, [{ boxIndex: firstBoxIndex + 1, direction: 'R' }], {
+      playerIndex: firstBoxIndex,
+      boxes: [firstBoxIndex + 1],
+    });
+
+    expect(moves).toEqual(['R']);
+  });
+
+  it('returns only push directions when the player already stands at push entry cells', () => {
+    const level = buildLevel(['WWWWW', 'WPBEW', 'WWWWW']);
+    const moves = expandSolutionFromStart(level, [
+      {
+        boxIndex: level.initialBoxes[0],
+        direction: 'R',
+      },
+    ]);
+
+    expect(moves).toEqual(['R']);
+  });
+
   it('returns empty moves for zero pushes', () => {
     const level = buildLevel(['WWWW', 'WPEW', 'WWWW']);
 
@@ -64,6 +88,13 @@ describe('expandSolution', () => {
   it('throws when the push entry cell is out of bounds', () => {
     const level = buildLevel(['B', 'P']);
     const push: Push = { boxIndex: level.initialBoxes[0], direction: 'D' };
+
+    expect(() => expandSolutionFromStart(level, [push])).toThrow('out of bounds');
+  });
+
+  it('throws when a push moves a box out of bounds', () => {
+    const level = buildLevel(['EPB']);
+    const push: Push = { boxIndex: level.initialBoxes[0], direction: 'R' };
 
     expect(() => expandSolutionFromStart(level, [push])).toThrow('out of bounds');
   });

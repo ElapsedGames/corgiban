@@ -57,3 +57,6 @@ If an ADR is superseded, link bidirectionally:
 - `0011-solver-protocol-solution-contract.md`
 - `0012-replay-pipeline-shadow-state.md`
 - `0013-solver-cancellation-worker-reset.md`
+- `0014-benchmark-worker-cancellation-semantics.md`
+- `0015-worker-progress-light-validation-mode.md`
+- `0016-benchmark-report-contract-versioning.md`

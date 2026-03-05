@@ -45,10 +45,10 @@ type WorkerLike = {
   terminate: () => void;
 };
 
-function createClientMock() {
+function createClientMock(): any {
   return {
-    solve: vi.fn(async () => ({
-      status: 'solved' as const,
+    solve: vi.fn(async (..._args: unknown[]) => ({
+      status: 'solved',
       solutionMoves: 'R',
       metrics: {
         elapsedMs: 1,
@@ -63,7 +63,7 @@ function createClientMock() {
     cancel: vi.fn(),
     ping: vi.fn(async () => undefined),
     retry: vi.fn(),
-    getWorkerHealth: vi.fn(() => 'idle' as const),
+    getWorkerHealth: vi.fn(() => 'idle'),
     subscribeWorkerHealth: vi.fn(() => () => undefined),
     dispose: vi.fn(),
   };
@@ -136,5 +136,216 @@ describe('createSolverPort (client)', () => {
     await port.pingWorker();
 
     expect(clientMock.ping).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps solver progress payloads to run-scoped app progress events', async () => {
+    const clientMock = createClientMock();
+    clientMock.solve = vi.fn(async (_request, callbacks) => {
+      callbacks?.onProgress?.({
+        type: 'SOLVE_PROGRESS',
+        runId: 'solver-run-id',
+        protocolVersion: 2,
+        expanded: 2,
+        generated: 3,
+        depth: 1,
+        frontier: 4,
+        elapsedMs: 5,
+        bestHeuristic: 6,
+        bestPathSoFar: 'R',
+      });
+      return {
+        status: 'solved',
+        solutionMoves: 'R',
+        metrics: {
+          elapsedMs: 1,
+          expanded: 1,
+          generated: 1,
+          maxDepth: 1,
+          maxFrontier: 1,
+          pushCount: 1,
+          moveCount: 1,
+        },
+      };
+    });
+    mocks.createSolverClient.mockReturnValue(clientMock);
+    const port = createSolverPort();
+    const onProgress = vi.fn();
+
+    const result = await port.startSolve({
+      ...sampleSolveRequest,
+      onProgress,
+      options: {
+        timeBudgetMs: 1000,
+        nodeBudget: 5000,
+      },
+    });
+
+    expect(clientMock.solve).toHaveBeenCalledWith(
+      {
+        runId: 'run-1',
+        levelRuntime: sampleSolveRequest.levelRuntime,
+        algorithmId: 'bfsPush',
+        options: {
+          timeBudgetMs: 1000,
+          nodeBudget: 5000,
+        },
+      },
+      expect.any(Object),
+    );
+    expect(onProgress).toHaveBeenCalledWith({
+      runId: 'run-1',
+      expanded: 2,
+      generated: 3,
+      depth: 1,
+      frontier: 4,
+      elapsedMs: 5,
+      bestHeuristic: 6,
+      bestPathSoFar: 'R',
+    });
+    expect(result).toMatchObject({
+      runId: 'run-1',
+      algorithmId: 'bfsPush',
+      status: 'solved',
+      solutionMoves: 'R',
+    });
+  });
+
+  it('omits optional progress and solution fields when solver does not provide them', async () => {
+    const clientMock = createClientMock();
+    clientMock.solve = vi.fn(async (_request, callbacks) => {
+      callbacks?.onProgress?.({
+        type: 'SOLVE_PROGRESS',
+        runId: 'solver-run-id',
+        protocolVersion: 2,
+        expanded: 8,
+        generated: 13,
+        depth: 3,
+        frontier: 5,
+        elapsedMs: 21,
+      });
+      return {
+        status: 'timeout',
+        metrics: {
+          elapsedMs: 21,
+          expanded: 8,
+          generated: 13,
+          maxDepth: 3,
+          maxFrontier: 5,
+          pushCount: 0,
+          moveCount: 0,
+        },
+      };
+    });
+    mocks.createSolverClient.mockReturnValue(clientMock);
+    const port = createSolverPort();
+    const onProgress = vi.fn();
+
+    const result = await port.startSolve({
+      ...sampleSolveRequest,
+      onProgress,
+    });
+
+    expect(onProgress).toHaveBeenCalledWith({
+      runId: 'run-1',
+      expanded: 8,
+      generated: 13,
+      depth: 3,
+      frontier: 5,
+      elapsedMs: 21,
+    });
+    const progressPayload = onProgress.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect('bestHeuristic' in progressPayload).toBe(false);
+    expect('bestPathSoFar' in progressPayload).toBe(false);
+
+    expect(result).toMatchObject({
+      runId: 'run-1',
+      algorithmId: 'bfsPush',
+      status: 'timeout',
+    });
+    expect('solutionMoves' in result).toBe(false);
+  });
+
+  it('maps solver error results and optional fields correctly', async () => {
+    const clientMock = createClientMock();
+    clientMock.solve = vi.fn(async () => ({
+      status: 'error' as const,
+      errorMessage: 'Solver failed',
+      metrics: {
+        elapsedMs: 1,
+        expanded: 0,
+        generated: 0,
+        maxDepth: 0,
+        maxFrontier: 0,
+        pushCount: 0,
+        moveCount: 0,
+      },
+    }));
+    mocks.createSolverClient.mockReturnValue(clientMock);
+
+    const port = createSolverPort();
+    const result = await port.startSolve(sampleSolveRequest);
+
+    expect(result).toMatchObject({
+      runId: 'run-1',
+      algorithmId: 'bfsPush',
+      status: 'error',
+      errorMessage: 'Solver failed',
+    });
+    expect('errorDetails' in result).toBe(false);
+    expect('solutionMoves' in result).toBe(false);
+  });
+
+  it('includes errorDetails when solver error payload provides them', async () => {
+    const clientMock = createClientMock();
+    clientMock.solve = vi.fn(async () => ({
+      status: 'error' as const,
+      errorMessage: 'Solver failed',
+      errorDetails: 'Detailed stack trace',
+      metrics: {
+        elapsedMs: 1,
+        expanded: 0,
+        generated: 0,
+        maxDepth: 0,
+        maxFrontier: 0,
+        pushCount: 0,
+        moveCount: 0,
+      },
+    }));
+    mocks.createSolverClient.mockReturnValue(clientMock);
+
+    const port = createSolverPort();
+    const result = await port.startSolve(sampleSolveRequest);
+
+    expect(result).toMatchObject({
+      runId: 'run-1',
+      algorithmId: 'bfsPush',
+      status: 'error',
+      errorMessage: 'Solver failed',
+      errorDetails: 'Detailed stack trace',
+    });
+  });
+
+  it('delegates cancel, retry, health subscription, and dispose methods', () => {
+    const unsubscribe = vi.fn();
+    const clientMock = createClientMock();
+    clientMock.subscribeWorkerHealth = vi.fn(() => unsubscribe);
+    clientMock.getWorkerHealth = vi.fn(() => 'healthy');
+    mocks.createSolverClient.mockReturnValue(clientMock);
+    const port = createSolverPort();
+    const listener = vi.fn();
+
+    port.cancelSolve('run-cancel');
+    port.retryWorker();
+    const currentHealth = port.getWorkerHealth();
+    const stop = port.subscribeWorkerHealth(listener);
+    port.dispose();
+
+    expect(clientMock.cancel).toHaveBeenCalledWith('run-cancel');
+    expect(clientMock.retry).toHaveBeenCalledTimes(1);
+    expect(clientMock.getWorkerHealth).toHaveBeenCalledTimes(1);
+    expect(currentHealth).toBe('healthy');
+    expect(clientMock.subscribeWorkerHealth).toHaveBeenCalledWith(listener);
+    expect(stop).toBe(unsubscribe);
+    expect(clientMock.dispose).toHaveBeenCalledTimes(1);
   });
 });

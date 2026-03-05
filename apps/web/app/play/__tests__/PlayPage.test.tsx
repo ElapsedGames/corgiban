@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Provider } from 'react-redux';
+import { builtinLevels } from '@corgiban/levels';
 
 import { createAppStore } from '../../state/store';
 import { move, nextLevel } from '../../state/gameSlice';
-import { solveRunCompleted, solveRunStarted } from '../../state/solverSlice';
+import { setWorkerHealth, solveRunCompleted, solveRunStarted } from '../../state/solverSlice';
 
 const testState = vi.hoisted(() => ({
   solverPanelProps: null as null | Record<string, unknown>,
@@ -108,6 +109,19 @@ describe('PlayPage', () => {
     expect(testState.sidePanelProps?.levelId).toBe('classic-001');
   });
 
+  it('uses fallback level metadata to compute next-level transitions from unknown ids', () => {
+    const store = createAppStore();
+    store.dispatch(nextLevel({ levelId: 'missing-level' }));
+    renderPage(store);
+
+    const onNextLevel = testState.sidePanelProps?.onNextLevel as (() => void) | undefined;
+    expect(onNextLevel).toBeTypeOf('function');
+
+    onNextLevel?.();
+
+    expect(store.getState().game.levelId).toBe(builtinLevels[1]?.id ?? builtinLevels[0]?.id);
+  });
+
   it('wires side-panel and sequence callbacks into game state updates', () => {
     const store = createAppStore();
     store.dispatch(move({ direction: 'L', changed: true, pushed: false }));
@@ -196,5 +210,80 @@ describe('PlayPage', () => {
     onApply?.();
 
     expect(store.getState().game.stats.moves).toBe(1);
+  });
+
+  it('dispatches cancelSolve when solver cancel is requested from the panel', () => {
+    const store = createAppStore();
+    store.dispatch(solveRunStarted({ runId: 'run-cancel-me', algorithmId: 'bfsPush' }));
+    renderPage(store);
+
+    const onCancel = testState.solverPanelProps?.onCancel as (() => void) | undefined;
+    expect(onCancel).toBeTypeOf('function');
+
+    onCancel?.();
+
+    expect(store.getState().solver.status).toBe('cancelling');
+    expect(store.getState().solver.activeRunId).toBe('run-cancel-me');
+  });
+
+  it('retries worker health from the panel callback', () => {
+    const store = createAppStore();
+    store.dispatch(setWorkerHealth('crashed'));
+    expect(store.getState().solver.workerHealth).toBe('crashed');
+    renderPage(store);
+
+    const onRetryWorker = testState.solverPanelProps?.onRetryWorker as (() => void) | undefined;
+    expect(onRetryWorker).toBeTypeOf('function');
+
+    onRetryWorker?.();
+
+    expect(store.getState().solver.status).toBe('idle');
+    expect(store.getState().solver.workerHealth).toBe('idle');
+    expect(store.getState().solver.error).toBeNull();
+  });
+
+  it('advances to the next level and resets game stats from side-panel callback', () => {
+    const store = createAppStore();
+    const initialLevelId = store.getState().game.levelId;
+    store.dispatch(move({ direction: 'L', changed: true, pushed: false }));
+    renderPage(store);
+
+    const onNextLevel = testState.sidePanelProps?.onNextLevel as (() => void) | undefined;
+    expect(onNextLevel).toBeTypeOf('function');
+    onNextLevel?.();
+
+    const expectedNextLevelId =
+      builtinLevels.length > 1
+        ? (builtinLevels[1]?.id ?? initialLevelId)
+        : (builtinLevels[0]?.id ?? initialLevelId);
+
+    expect(store.getState().game.levelId).toBe(expectedNextLevelId);
+    expect(store.getState().game.stats.moves).toBe(0);
+    expect(store.getState().game.stats.pushes).toBe(0);
+  });
+
+  it('keeps replay callbacks as no-ops when no replay controller is attached', () => {
+    const store = createAppStore();
+    renderPage(store);
+
+    const onReplayPlayPause = testState.solverPanelProps?.onReplayPlayPause as
+      | (() => void)
+      | undefined;
+    const onReplayStepBack = testState.solverPanelProps?.onReplayStepBack as
+      | (() => void)
+      | undefined;
+    const onReplayStepForward = testState.solverPanelProps?.onReplayStepForward as
+      | (() => void)
+      | undefined;
+
+    expect(onReplayPlayPause).toBeTypeOf('function');
+    expect(onReplayStepBack).toBeTypeOf('function');
+    expect(onReplayStepForward).toBeTypeOf('function');
+
+    expect(() => onReplayPlayPause?.()).not.toThrow();
+    expect(() => onReplayStepBack?.()).not.toThrow();
+    expect(() => onReplayStepForward?.()).not.toThrow();
+    expect(store.getState().solver.replayState).toBe('idle');
+    expect(store.getState().solver.replayIndex).toBe(0);
   });
 });

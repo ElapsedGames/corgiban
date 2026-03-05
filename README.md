@@ -5,7 +5,7 @@ solver execution, and benchmark-driven iteration.
 
 Domain packages stay framework-agnostic (`core`, `solver`, `benchmarks`). The Remix app in
 `apps/web` orchestrates UI state and adapters, while `packages/worker` keeps heavy compute off the
-main thread.
+main thread with versioned, runtime-validated protocol messages.
 
 ## Project State
 
@@ -13,12 +13,13 @@ main thread.
 - Phase 1 complete: levels + deterministic core engine.
 - Phase 2 complete: `/play` UI parity and canvas renderer split (`buildRenderPlan` + `draw`).
 - Phase 3 complete: versioned worker protocol, baseline push-based BFS solver, solver client/runtime, and `/play` solver controls + replay integration.
-- Next milestone: Phase 4 benchmark page and persistence.
+- Phase 4 complete: benchmark domain package, benchmark worker/runtime/client flows, worker pool orchestration, `/bench` UI, and IndexedDB-backed persistence with import/export and diagnostics.
+- Next milestone: Phase 5 quality and offline hardening.
 
 Current routes:
 
 - `/play`: playable level flow with keyboard controls, history, undo/restart, solver run/cancel, progress, apply/animate solution, and worker retry flow.
-- `/bench`: placeholder route for benchmark workflow in Phase 4.
+- `/bench`: benchmark suite builder, run/cancel controls, progress + diagnostics, persisted results table, and benchmark import/export flows.
 - `/dev/ui-kit`: UI primitive validation route.
 
 ## Goals
@@ -26,7 +27,7 @@ Current routes:
 - Deterministic, testable game engine
 - Multiple solver algorithms (BFS baseline, A* and IDA* planned)
 - Worker execution with progress and cancellation
-- Benchmark UI with local persistence
+- Benchmark UI with local persistence and reproducible run metadata
 - High unit coverage with strict CI gates
 
 ## Quickstart

@@ -1,0 +1,1899 @@
+<!doctype html>
+<!--
+  PROMPT PACK TEMPLATE
+  Do NOT fill in this file. Copy it, then save the copy to:
+
+    docs/prompt-packs/phase-NN-slug.html
+
+  Naming rules:
+  - NN   : zero-padded phase number matching docs/project-plan.md (00, 01, 02 ...)
+  - slug : short kebab-case description of the work (e.g. scaffold, core-engine, worker-protocol)
+  - Full example: phase-00-scaffold.html, phase-01-core-engine.html
+
+  Location rule:
+  - Always place in docs/prompt-packs/. Do not create a new folder.
+  - One file per PR.
+
+  IMPORTANT - after copying, update the storageKey in the <script> section near the bottom of
+  the file. Change 'promptPackTabColors' to 'promptPackTabColors_phase-NN-your-slug' (matching
+  your filename). If you skip this step, tab status from one pack will bleed into another when
+  both are open in the same browser.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 04 - Benchmark Page Prompt Pack</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600&family=Unbounded:wght@600;700&display=swap');
+
+      :root {
+        color-scheme: dark;
+        --bg-body: #070b16;
+        --bg-panel: rgba(15, 23, 42, 0.9);
+        --bg-panel-muted: rgba(30, 41, 59, 0.7);
+        --border-strong: rgba(148, 163, 184, 0.28);
+        --border-soft: rgba(148, 163, 184, 0.16);
+        --text-main: #f8fafc;
+        --text-muted: #9aa4b7;
+        --focus-ring: rgba(248, 250, 252, 0.9);
+        --glow-blue: rgba(56, 189, 248, 0.25);
+        --glow-orange: rgba(249, 115, 22, 0.25);
+        --glow-green: rgba(34, 197, 94, 0.18);
+        --accent-red: #ef4444;
+        --accent-yellow: #facc15;
+        --accent-green: #22c55e;
+        --accent-blue: #38bdf8;
+        --accent-teal: #2dd4bf;
+        --shadow-panel: 0 18px 44px rgba(2, 6, 23, 0.6);
+        --shadow-soft: 0 20px 60px rgba(2, 6, 23, 0.45);
+        --shell-edge: rgba(248, 250, 252, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+        background:
+          radial-gradient(1200px 800px at 8% -10%, var(--glow-blue), transparent 60%),
+          radial-gradient(900px 600px at 92% 0%, var(--glow-orange), transparent 65%),
+          radial-gradient(800px 600px at 50% 120%, var(--glow-green), transparent 70%),
+          var(--bg-body);
+        color: var(--text-main);
+        overflow-x: hidden;
+        position: relative;
+        z-index: 0;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image:
+          radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.08), transparent 35%),
+          radial-gradient(circle at 78% 22%, rgba(255, 255, 255, 0.05), transparent 40%),
+          repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0 2px, transparent 2px 12px);
+        opacity: 0.35;
+        pointer-events: none;
+        z-index: -2;
+      }
+
+      body::after {
+        content: '';
+        position: fixed;
+        top: -20%;
+        left: -10%;
+        right: -10%;
+        height: 70vh;
+        background:
+          radial-gradient(600px 600px at 10% 40%, rgba(56, 189, 248, 0.28), transparent 60%),
+          radial-gradient(480px 480px at 85% 20%, rgba(249, 115, 22, 0.22), transparent 65%);
+        filter: blur(30px);
+        opacity: 0.7;
+        animation: floatGlow 18s ease-in-out infinite alternate;
+        pointer-events: none;
+        z-index: -1;
+      }
+
+      .shell {
+        width: 100%;
+        min-height: 100vh;
+        margin: 0;
+        border-radius: 0;
+        border: 1px solid var(--shell-edge);
+        border-left: none;
+        border-right: none;
+        background: rgba(7, 12, 24, 0.8);
+        box-shadow: var(--shadow-soft);
+        overflow: hidden;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        position: relative;
+      }
+
+      .shell::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        padding: 1px;
+        background: linear-gradient(
+          120deg,
+          rgba(56, 189, 248, 0.4),
+          rgba(249, 115, 22, 0.3),
+          rgba(34, 197, 94, 0.3)
+        );
+        -webkit-mask:
+          linear-gradient(#000, #000) content-box,
+          linear-gradient(#000, #000);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        opacity: 0.6;
+      }
+
+      @keyframes floatGlow {
+        0% {
+          transform: translate3d(0, 0, 0) scale(1);
+        }
+        100% {
+          transform: translate3d(6%, -6%, 0) scale(1.05);
+        }
+      }
+
+      header {
+        padding: 28px 32px 20px;
+        background: linear-gradient(140deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.85));
+        border-bottom: 1px solid var(--border-strong);
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+
+      header::after {
+        content: '';
+        position: absolute;
+        left: 32px;
+        right: 32px;
+        bottom: 8px;
+        height: 3px;
+        border-radius: 999px;
+        background: var(
+          --progress-gradient,
+          linear-gradient(
+            90deg,
+            #ef4444 0%,
+            #ef4444 33.33%,
+            #facc15 33.33%,
+            #facc15 66.66%,
+            #22c55e 66.66%,
+            #22c55e 100%
+          )
+        );
+        box-shadow: 0 0 12px rgba(248, 250, 252, 0.25);
+        opacity: 0.95;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 1.6rem;
+        font-family: 'Unbounded', 'Space Grotesk', sans-serif;
+        letter-spacing: 0.02em;
+        color: #f8fafc;
+        background: linear-gradient(90deg, #f97316, #facc15, #38bdf8);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      header p {
+        margin: 6px 0 0;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        max-width: 680px;
+      }
+
+      .header-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+
+      .header-copy {
+        min-width: 240px;
+        flex: 1 1 320px;
+      }
+
+      .header-aside {
+        flex: 0 1 auto;
+      }
+
+      .status-legend {
+        display: grid;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.6);
+        box-shadow: 0 12px 30px rgba(2, 6, 23, 0.4);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+
+      .legend-title {
+        font-size: 0.7rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: rgba(226, 232, 240, 0.7);
+      }
+
+      .legend-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .legend-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+      }
+
+      .legend-count {
+        min-width: 20px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-align: center;
+        background: rgba(15, 23, 42, 0.5);
+        color: rgba(248, 250, 252, 0.9);
+      }
+
+      .legend-chip.legend-red {
+        background: linear-gradient(140deg, #ef4444, #b91c1c);
+        color: #ffffff;
+        border-color: rgba(248, 113, 113, 0.8);
+      }
+
+      .legend-chip.legend-yellow {
+        background: linear-gradient(140deg, #facc15, #f59e0b);
+        color: #111827;
+        border-color: rgba(253, 224, 71, 0.9);
+      }
+
+      .legend-chip.legend-green {
+        background: linear-gradient(140deg, #22c55e, #16a34a);
+        color: #0f172a;
+        border-color: rgba(74, 222, 128, 0.9);
+      }
+
+      .legend-tip {
+        font-size: 0.8rem;
+        color: rgba(226, 232, 240, 0.7);
+      }
+
+      .action-btn {
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: linear-gradient(120deg, rgba(59, 130, 246, 0.8), rgba(15, 23, 42, 0.9));
+        color: #f8fafc;
+        padding: 6px 12px;
+        border-radius: 10px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+        box-shadow: 0 10px 18px rgba(2, 6, 23, 0.45);
+        align-self: center;
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+
+      .action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 24px rgba(2, 6, 23, 0.5);
+      }
+
+      .action-btn:active {
+        transform: translateY(1px);
+      }
+
+      .action-btn:focus-visible {
+        outline: 2px solid rgba(248, 250, 252, 0.7);
+        outline-offset: 2px;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 6px;
+        padding: 8px 32px;
+        background:
+          linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.7)),
+          repeating-linear-gradient(90deg, rgba(248, 250, 252, 0.04) 0 1px, transparent 1px 80px);
+        border-bottom: 1px solid var(--border-strong);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        position: relative;
+        align-items: center;
+      }
+
+      .tabs::after {
+        content: '';
+        position: absolute;
+        left: 32px;
+        right: 32px;
+        bottom: 6px;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          rgba(56, 189, 248, 0.35),
+          rgba(249, 115, 22, 0.35),
+          rgba(34, 197, 94, 0.3)
+        );
+        opacity: 0.5;
+      }
+
+      .tabs-scroll {
+        display: flex;
+        gap: 6px;
+        flex: 1 1 0;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+        padding-top: 8px;
+        padding-bottom: 16px;
+      }
+
+      .tabs-divider {
+        width: 1px;
+        align-self: stretch;
+        margin: 6px 14px;
+        background: var(--border-strong);
+        flex-shrink: 0;
+      }
+
+      .tabs-scroll::-webkit-scrollbar {
+        height: 6px;
+      }
+
+      .tabs-scroll::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.35);
+        border-radius: 999px;
+      }
+
+      .tab-btn {
+        border: 1px solid var(--border-soft);
+        background: var(--bg-panel-muted);
+        color: inherit;
+        padding: 9px 16px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        position: relative;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease,
+          border-color 0.2s ease;
+        user-select: none;
+      }
+
+      .tab-btn::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          120deg,
+          rgba(255, 255, 255, 0.2),
+          transparent 35%,
+          transparent 65%,
+          rgba(255, 255, 255, 0.2)
+        );
+        opacity: 0.2;
+        background-size: 220% 100%;
+        background-position: 0% 50%;
+        transition: background-position 0.3s ease;
+        pointer-events: none;
+      }
+
+      .tab-btn::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.45), transparent 55%);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+      }
+
+      .tab-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 26px rgba(2, 6, 23, 0.4);
+        border-color: rgba(248, 250, 252, 0.35);
+      }
+
+      .tab-btn:hover::after {
+        opacity: 0.5;
+      }
+
+      .tab-btn:hover::before {
+        background-position: 100% 50%;
+      }
+
+      .tab-btn:active {
+        transform: translateY(1px);
+      }
+
+      .tab-btn:focus-visible {
+        outline: 2px solid rgba(248, 250, 252, 0.7);
+        outline-offset: 2px;
+      }
+
+      .tab-btn.is-active {
+        border-color: var(--focus-ring);
+        box-shadow:
+          0 0 0 1px var(--focus-ring) inset,
+          0 16px 30px rgba(2, 6, 23, 0.45);
+        animation: tabPop 0.35s ease;
+      }
+
+      .tab-btn.is-flash {
+        animation: tabFlash 0.4s ease;
+      }
+
+      @keyframes tabPop {
+        0% {
+          transform: translateY(4px);
+          opacity: 0.7;
+        }
+        100% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes tabFlash {
+        0% {
+          transform: translateY(2px);
+          filter: brightness(0.95);
+        }
+        50% {
+          transform: translateY(-1px);
+          filter: brightness(1.08);
+        }
+        100% {
+          transform: translateY(0);
+          filter: brightness(1);
+        }
+      }
+
+      .tab-color-red {
+        background: linear-gradient(140deg, #ef4444, #b91c1c);
+        color: #ffffff;
+        border-color: #f87171;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 12px 20px rgba(239, 68, 68, 0.3);
+      }
+
+      .tab-color-yellow {
+        background: linear-gradient(140deg, #facc15, #f59e0b);
+        color: #111827;
+        border-color: #fde047;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 12px 20px rgba(251, 191, 36, 0.28);
+      }
+
+      .tab-color-green {
+        background: linear-gradient(140deg, #22c55e, #16a34a);
+        color: #0f172a;
+        border-color: #4ade80;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 12px 20px rgba(34, 197, 94, 0.28);
+      }
+
+      main {
+        padding: 32px 32px 44px;
+        display: grid;
+        gap: 20px;
+      }
+
+      .tab-panel {
+        display: none;
+        background: linear-gradient(160deg, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.9));
+        border: 1px solid var(--border-strong);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: var(--shadow-panel);
+        position: relative;
+        overflow: hidden;
+        --state-accent: #ef4444;
+        --state-glow: rgba(239, 68, 68, 0.3);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+
+      .tab-panel.is-active {
+        display: block;
+        animation: panelIn 0.45s ease both;
+        box-shadow:
+          var(--shadow-panel),
+          0 0 40px var(--state-glow);
+      }
+
+      .tab-panel::before {
+        content: '';
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--state-accent), rgba(248, 250, 252, 0.1));
+        opacity: 0.9;
+      }
+
+      .tab-panel::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 12% 20%, rgba(248, 250, 252, 0.08), transparent 35%),
+          radial-gradient(circle at 85% 15%, rgba(56, 189, 248, 0.08), transparent 45%);
+        opacity: 0.6;
+        pointer-events: none;
+      }
+
+      .tab-panel > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      @keyframes panelIn {
+        0% {
+          transform: translateY(12px);
+          opacity: 0;
+        }
+        100% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .panel-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+      }
+
+      .tab-panel h2 {
+        margin: 0;
+        font-size: 1.2rem;
+        font-family: 'Unbounded', 'Space Grotesk', sans-serif;
+        letter-spacing: 0.01em;
+      }
+
+      .status-pill {
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+        box-shadow: 0 8px 16px rgba(2, 6, 23, 0.35);
+      }
+
+      .status-pill.is-pulse {
+        animation: pillPop 0.35s ease;
+      }
+
+      @keyframes pillPop {
+        0% {
+          transform: scale(0.94);
+          opacity: 0.75;
+        }
+        50% {
+          transform: scale(1.06);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
+      .state-red .panel-title h2 {
+        color: #f87171;
+      }
+
+      .state-red .status-pill {
+        background: linear-gradient(140deg, #ef4444, #b91c1c);
+        color: #ffffff;
+        border-color: #f87171;
+      }
+
+      .state-red {
+        --state-accent: #ef4444;
+        --state-glow: rgba(239, 68, 68, 0.32);
+        --prompt-status-position: 16.66%;
+        --prompt-status-color: #fca5a5;
+      }
+
+      .state-yellow .panel-title h2 {
+        color: #facc15;
+      }
+
+      .state-yellow .status-pill {
+        background: linear-gradient(140deg, #facc15, #f59e0b);
+        color: #111827;
+        border-color: #fde047;
+      }
+
+      .state-yellow {
+        --state-accent: #facc15;
+        --state-glow: rgba(250, 204, 21, 0.35);
+        --prompt-status-position: 50%;
+        --prompt-status-color: #fde047;
+      }
+
+      .state-green .panel-title h2 {
+        color: #4ade80;
+      }
+
+      .state-green .status-pill {
+        background: linear-gradient(140deg, #22c55e, #16a34a);
+        color: #0f172a;
+        border-color: #4ade80;
+      }
+
+      .state-green {
+        --state-accent: #22c55e;
+        --state-glow: rgba(34, 197, 94, 0.32);
+        --prompt-status-position: 83.33%;
+        --prompt-status-color: #86efac;
+      }
+
+      .tab-panel p {
+        margin: 0 0 16px;
+        color: var(--text-muted);
+        font-size: 0.98rem;
+      }
+
+      .prompt-block {
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(11, 18, 32, 0.95), rgba(2, 6, 23, 0.9));
+        color: #e2e8f0;
+        overflow: hidden;
+        box-shadow: 0 18px 34px rgba(2, 6, 23, 0.5);
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+
+      .prompt-block:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 22px 40px rgba(2, 6, 23, 0.6);
+      }
+
+      .commands-block {
+        border: 1px solid rgba(34, 197, 94, 0.2);
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(2, 8, 18, 0.98), rgba(2, 6, 23, 0.9));
+        overflow: hidden;
+        box-shadow: 0 18px 34px rgba(2, 6, 23, 0.5);
+        margin-top: 16px;
+      }
+
+      .commands-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.85));
+        border-bottom: 1px solid rgba(34, 197, 94, 0.2);
+        min-height: 44px;
+      }
+
+      .commands-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent-green);
+      }
+
+      .commands-block pre {
+        min-height: unset;
+      }
+
+      .commands-block code {
+        min-height: unset;
+      }
+
+      .prompt-block header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px 16px;
+        background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.85));
+        border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+        position: relative;
+        min-height: 44px;
+      }
+
+      .prompt-block header::before {
+        content: '';
+        display: inline-block;
+        width: 36px;
+        height: 10px;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle, #f87171 45%, transparent 46%) 0 50% / 10px 10px no-repeat,
+          radial-gradient(circle, #facc15 45%, transparent 46%) 13px 50% / 10px 10px no-repeat,
+          radial-gradient(circle, #4ade80 45%, transparent 46%) 26px 50% / 10px 10px no-repeat;
+        opacity: 0.8;
+        position: relative;
+        z-index: 1;
+      }
+
+      .prompt-block header::after {
+        content: '';
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 6px;
+        height: 3px;
+        border-radius: 999px;
+        background: linear-gradient(
+          90deg,
+          #ef4444 0%,
+          #ef4444 33.33%,
+          #facc15 33.33%,
+          #facc15 66.66%,
+          #22c55e 66.66%,
+          #22c55e 100%
+        );
+        opacity: 0.85;
+        z-index: 0;
+      }
+
+      .prompt-block header > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .prompt-status {
+        position: absolute !important;
+        left: var(--prompt-status-position, 16.66%);
+        top: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        color: var(--prompt-status-color, #fca5a5);
+        text-shadow: 0 6px 14px rgba(2, 6, 23, 0.5);
+        pointer-events: none;
+        white-space: nowrap;
+        transition:
+          left 0.25s ease,
+          color 0.25s ease;
+        z-index: 2;
+      }
+
+      .prompt-status.is-shift {
+        animation: promptShift 0.3s ease;
+      }
+
+      @keyframes promptShift {
+        0% {
+          transform: translate(-50%, -50%) scale(0.96);
+          opacity: 0.7;
+        }
+        100% {
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 1;
+        }
+      }
+
+      .copy-btn {
+        border: 1px solid rgba(56, 189, 248, 0.7);
+        background: linear-gradient(120deg, #38bdf8, #0ea5e9);
+        color: #ffffff;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+        box-shadow: 0 10px 20px rgba(14, 165, 233, 0.35);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .copy-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 26px rgba(14, 165, 233, 0.4);
+      }
+
+      .copy-btn:active {
+        transform: translateY(1px);
+      }
+
+      .copy-btn:focus-visible {
+        outline: 2px solid rgba(248, 250, 252, 0.7);
+        outline-offset: 2px;
+      }
+
+      .copy-btn::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          120deg,
+          transparent 20%,
+          rgba(255, 255, 255, 0.35) 50%,
+          transparent 80%
+        );
+        transform: translateX(-120%);
+        transition: transform 0.4s ease;
+        pointer-events: none;
+      }
+
+      .copy-btn:hover::after {
+        transform: translateX(120%);
+      }
+
+      .copy-btn:disabled {
+        opacity: 0.7;
+        cursor: default;
+      }
+
+      pre {
+        margin: 0;
+        padding: 14px 12px;
+        min-height: 120px;
+        white-space: pre-wrap;
+        font-family: 'JetBrains Mono', 'Consolas', 'SFMono-Regular', Menlo, monospace;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        background:
+          linear-gradient(180deg, rgba(2, 6, 23, 0.85), rgba(2, 6, 23, 0.65)),
+          repeating-linear-gradient(
+            0deg,
+            rgba(148, 163, 184, 0.06) 0,
+            rgba(148, 163, 184, 0.06) 1px,
+            transparent 1px,
+            transparent 26px
+          );
+        border-radius: 0 0 14px 14px;
+      }
+
+      code {
+        display: block;
+        min-height: 92px;
+      }
+
+      .tab-panel.is-active .panel-title {
+        animation: fadeUp 0.35s ease both;
+      }
+
+      .tab-panel.is-active p {
+        animation: fadeUp 0.45s ease 0.05s both;
+      }
+
+      .tab-panel.is-active .prompt-block {
+        animation: fadeUp 0.5s ease 0.1s both;
+      }
+
+      @keyframes fadeUp {
+        0% {
+          transform: translateY(10px);
+          opacity: 0;
+        }
+        100% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      @media (max-width: 720px) {
+        header {
+          padding: 20px 18px 16px;
+        }
+
+        header h1 {
+          font-size: 1.15rem;
+        }
+
+        .tabs {
+          padding: 12px 14px;
+        }
+
+        main {
+          padding: 20px 16px 26px;
+        }
+
+        .tab-panel {
+          padding: 14px;
+        }
+
+        .status-legend {
+          width: 100%;
+        }
+
+        .header-aside {
+          width: 100%;
+          justify-content: flex-start;
+          align-items: flex-start;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div class="header-row">
+          <div class="header-copy">
+            <h1>Phase 04 Prompt Pack - Benchmark Page</h1>
+            <p>
+              Phase 04 scope: benchmark domain model, worker pooling, persistence, diagnostics, and bench UI delivery.
+            </p>
+          </div>
+          <div class="header-aside">
+            <div class="status-legend" aria-label="Status legend">
+              <div class="legend-title">Status legend</div>
+              <div class="legend-items">
+                <span class="legend-chip legend-red"
+                  >Not Started <span class="legend-count" data-count="red">0</span></span
+                >
+                <span class="legend-chip legend-yellow"
+                  >In Progress <span class="legend-count" data-count="yellow">0</span></span
+                >
+                <span class="legend-chip legend-green"
+                  >Complete <span class="legend-count" data-count="green">0</span></span
+                >
+              </div>
+              <div class="legend-tip">Double-click a tab to cycle status.</div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="tabs">
+        <div class="tabs-scroll" role="tablist" aria-label="Prompt phases">
+          <button
+            class="tab-btn tab-color-red is-active"
+            type="button"
+            data-tab="phase-one"
+            role="tab"
+            aria-selected="true"
+          >
+            1. Planning
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-two"
+            role="tab"
+            aria-selected="false"
+          >
+            2. Bench Models + Persistence Core
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-three"
+            role="tab"
+            aria-selected="false"
+          >
+            3. Worker Pool + Protocol
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-four"
+            role="tab"
+            aria-selected="false"
+          >
+            4. Bench UI + Diagnostics + Settings
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-five"
+            role="tab"
+            aria-selected="false"
+          >
+            Documentation
+          </button>
+          <button
+            class="tab-btn tab-color-red"
+            type="button"
+            data-tab="phase-six"
+            role="tab"
+            aria-selected="false"
+          >
+            Verification
+          </button>
+        </div>
+        <div class="tabs-divider" aria-hidden="true"></div>
+        <button class="action-btn" type="button" data-copy-completed>Copy Completed Prompts</button>
+      </div>
+
+      <main>
+        <section class="tab-panel is-active" data-tab="phase-one" role="tabpanel">
+          <div class="panel-title">
+            <h2>1) Planning</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Define phase scope, copy Tasks and Integration Proofs verbatim, build a coverage map,
+            and set acceptance criteria. No implementation code in this phase.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-one">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-one">Read LLM_GUIDE.md, docs/Architecture.md, docs/project-plan.md (Phase 4), docs/Engineering-Process-Playbook.md, docs/dev-tools-spec.md, docs/adr/0003-worker-protocol-versioning-validation.md, docs/adr/0007-indexeddb-persistence-migration-retention.md, docs/adr/0013-solver-cancellation-worker-reset.md, docs/START_HERE.md, packages/core/README.md, packages/levels/README.md, packages/solver/README.md, packages/worker/README.md, and apps/web/README.md before proceeding.
+Note: packages/benchmarks/README.md does not exist yet in the current tree; inspect packages/benchmarks/src directly for baseline context.
+Do not write any implementation code in this phase.
+
+Context:
+- Phase 4 - Benchmark page.
+- Decision dependencies: ADR-0007 (IndexedDB model, migration policy, retention), ADR-0013 (Phase 3 cancellation baseline), and ADR-0003 (protocol validation strategy).
+- Phase 4 has 10 tasks, so this pack must use at least 3 implementation tabs.
+
+Required planning output:
+A) Scope lock (verbatim copy)
+1) Re-list the Phase 4 tasks from docs/project-plan.md verbatim in your plan output.
+
+B) Integration proofs (verbatim copy)
+2) Copy the Phase 4 Integration Proofs verbatim from docs/project-plan.md (if any). If none are listed, state "None listed for Phase 4."
+
+C) Pre-existing work inventory (current baseline)
+3) List relevant existing files and behavior with paths:
+   - packages/benchmarks baseline (current index export only)
+   - worker protocol/runtime/client baseline and current TODO markers for BENCH_* messages
+   - apps/web /bench route placeholder status
+   - existing solver defaults + settingsSlice fields used by /play thunks
+
+D) File plan (scope explicit)
+4) List every file that will be created or modified for Phase 4.
+   Group by Implementation tab in this pack.
+   For each file: (new|modified) + one-line purpose.
+
+E) Acceptance criteria (measurable)
+5) Write acceptance criteria as a numbered checklist mapped to all Phase 4 tasks.
+   Include:
+   - DB_VERSION ownership in packages/benchmarks and migration tests in apps/web adapter
+   - worker pool cap formula max(1, min(4, (navigator.hardwareConcurrency || 4) - 1))
+   - BENCH_* protocol schema and union discriminator coverage
+   - cancellation semantics decision and ADR update/supersession
+   - protocol-validation profiling outcome captured in-repo
+   - navigator.storage.persist feature detection + diagnostics behavior (log only in dev/debug)
+   - performance.mark/measure + PerformanceObserver wiring to benchSlice debug panel
+   - File System Access API export/import + anchor-download fallback
+   - settingsSlice solver budget defaults applied to /play startSolve defaults
+
+F) Prompt-pack coverage map
+6) Provide a coverage map assigning every Phase 4 task to exactly one implementation tab.
+   If a task spans multiple tabs, flag it as a risk before implementation.
+
+G) Open questions / risks
+7) List ambiguities and sequencing risks that must be resolved before implementation starts.
+
+Output the plan only. Do not edit files in this phase.</code></pre>
+<pre>OUTPUT:<code id="prompt-phase-one-output">A) Scope Lock (Verbatim)
+1. Benchmark models + runner in packages/benchmarks; define DB_VERSION and IndexedDB schema; add migration tests covering version upgrades
+2. Worker pool for benchmark runs: max(1, min(4, (navigator.hardwareConcurrency || 4) - 1))
+3. Bench page UI with suite builder + results + persistence adapter (IndexedDB)
+4. Call navigator.storage.persist() on adapter init when feature-detected; record outcome in bench diagnostics and log only in dev/debug
+5. Add performance.mark/measure instrumentation around solve dispatch and worker response; wire PerformanceObserver to debug perf panel in benchSlice
+6. File System Access API export/import for benchmark reports and level packs (anchor-download fallback)
+7. Extend protocol schema union discriminator tests when adding BENCH\_\* messages (SOLVE + unknown-type coverage already exists)
+8. Revisit solver client cancellation semantics for pooled execution: enforce one active run per SolverClient instance or implement run-scoped in-flight cancellation; update or supersede ADR-0013.
+9. Profile protocol validation overhead under benchmark load; if SOLVE_PROGRESS validation is a bottleneck, keep strict validation for structural messages and use a lighter or gated path for high-frequency progress messages.
+10. Add solver budget controls to Settings UI (time/node defaults), persist via settingsSlice, and apply them to `/play` solve orchestration defaults.
+
+B) Integration Proofs (Verbatim)
+- None listed for Phase 4 in docs/project-plan.md.
+
+C) Pre-existing Work Inventory (current baseline)
+- packages/benchmarks/src/index.ts exists and exports only `benchmarksVersion`.
+- packages/worker/src/protocol/protocol.ts currently has TODO markers for BENCH_* message union extension.
+- packages/worker/src/client/workerPool.client.ts already provides queueing/cancel/dispose behavior but has no benchmark-specific client orchestration.
+- packages/worker/src/client/solverClient.client.ts currently supports hard-reset cancellation; ADR-0013 reflects Phase 3 baseline.
+- apps/web/app/routes/bench.tsx is still a placeholder route with no benchmark workflows.
+- apps/web/app/state/settingsSlice.ts currently has tileAnimationDuration, solverReplaySpeed, theme, debug; no solver budget defaults.
+- apps/web/app/state/solverThunks.ts currently applies hard-coded defaults (`DEFAULT_SOLVER_TIME_BUDGET_MS`, `DEFAULT_NODE_BUDGET`) when starting solve runs.
+
+D) File Plan (Scope Explicit)
+
+Implementation A - Bench Models + Persistence Core
+Create:
+- (new) packages/benchmarks/src/model/benchmarkTypes.ts - benchmark suite/run/result domain types and comparability metadata.
+- (new) packages/benchmarks/src/model/benchmarkSchema.ts - DB_VERSION constant, store keys, and schema contracts owned by benchmarks package.
+- (new) packages/benchmarks/src/runner/benchmarkRunner.ts - pure benchmark runner orchestration over solver results and budgets.
+- (new) packages/benchmarks/src/model/__tests__/benchmarkSchema.test.ts - DB version/schema contract tests.
+- (new) packages/benchmarks/src/runner/__tests__/benchmarkRunner.test.ts - deterministic runner tests (repetitions, warmup discard, budget propagation).
+- (new) packages/benchmarks/src/runner/__tests__/benchmarkRunner.metadata.test.ts - comparability metadata coverage tests.
+- (new) packages/benchmarks/README.md - package API/boundary documentation for benchmark domain.
+- (new) packages/benchmarks/vitest.config.ts - package-level benchmark test config.
+- (new) apps/web/app/infra/persistence/benchmarkRepository.client.ts - IndexedDB repository with migration handling.
+- (new) apps/web/app/infra/persistence/benchmarkStorage.client.ts - persistence adapter API consumed by app thunks/ports.
+- (new) apps/web/app/infra/persistence/__tests__/benchmarkRepository.client.test.ts - migration upgrade tests across DB versions.
+- (new) apps/web/app/infra/persistence/__tests__/benchmarkStorage.client.test.ts - retention and clear-storage behavior tests.
+- (new) apps/web/app/ports/persistencePort.ts - persistence port contract for bench workflows.
+Modify:
+- (modified) packages/benchmarks/src/index.ts - export benchmark models, runner, and schema constants.
+- (modified) apps/web/package.json - add @corgiban/benchmarks dependency.
+- (modified) apps/web/tsconfig.json - add benchmarks project reference.
+- (modified) vitest.workspace.ts - include packages/benchmarks/vitest.config.ts.
+
+Implementation B - Worker Pool + Protocol
+Create:
+- (new) packages/worker/src/client/benchmarkClient.client.ts - benchmark-oriented worker client for BENCH_START runs.
+- (new) packages/worker/src/client/__tests__/benchmarkClient.test.ts - benchmark client queue/cancel/result mapping tests.
+- (new) packages/worker/src/runtime/benchmarkWorker.ts - benchmark run handling (BENCH_START dispatch into benchmark runner).
+- (new) packages/worker/src/runtime/__tests__/benchmarkWorker.test.ts - BENCH_* runtime behavior tests.
+- (new) tools/scripts/profile-worker-validation.mjs - deterministic local profiling harness for protocol-validation overhead.
+- (new) docs/_generated/analysis/phase-04-protocol-validation-profile.md - recorded profiling summary and decision outcome.
+- (new) docs/adr/0014-benchmark-worker-cancellation-semantics.md - documents benchmark two-tier cancellation while ADR-0013 remains the /play baseline.
+Modify:
+- (modified) packages/worker/src/protocol/protocol.ts - add BENCH_* message types and union wiring.
+- (modified) packages/worker/src/protocol/schema.ts - add BENCH_* schemas and discriminator-union coverage.
+- (modified) packages/worker/src/protocol/validation.ts - support optional/gated fast-path for high-frequency progress messages when justified by profile data.
+- (modified) packages/worker/src/protocol/__tests__/schema.test.ts - extend union discriminator tests for BENCH_* + unknown-type coverage.
+- (modified) packages/worker/src/protocol/__tests__/validation.test.ts - BENCH_* validation and version/error path tests.
+- (modified) packages/worker/src/runtime/solverWorker.ts - route BENCH_START and enforce protocol/version validation.
+- (modified) packages/worker/src/runtime/__tests__/solverWorker.test.ts - regression tests for mixed solve/bench traffic.
+- (modified) packages/worker/src/client/solverClient.client.ts - enforce single-active-run invariant or explicit run-scoped cancellation contract.
+- (modified) packages/worker/src/client/__tests__/solverClient.test.ts - cancellation semantics coverage updates.
+- (modified) packages/worker/src/client/workerPool.client.ts - pooled execution helpers for benchmark orchestration.
+- (modified) packages/worker/src/client/__tests__/workerPool.test.ts - queue/in-flight cancellation semantics under pooled bench load.
+- (modified) packages/worker/src/index.ts - export benchmark client/protocol types.
+- (modified) packages/worker/package.json - add @corgiban/benchmarks dependency.
+
+Implementation C - Bench UI + Diagnostics + Settings
+Create:
+- (new) apps/web/app/bench/BenchPage.tsx - bench route feature shell with suite/results/diagnostics sections.
+- (new) apps/web/app/bench/BenchmarkSuiteBuilder.tsx - suite builder controls (levels, algorithms, budgets, repetitions, warmup).
+- (new) apps/web/app/bench/BenchmarkResultsTable.tsx - sortable benchmark results table.
+- (new) apps/web/app/bench/BenchDiagnosticsPanel.tsx - diagnostics UI including storage persistence outcome.
+- (new) apps/web/app/bench/BenchmarkPerfPanel.tsx - debug perf panel for PerformanceObserver entries.
+- (new) apps/web/app/bench/BenchmarkExportImportControls.tsx - File System Access export/import + fallback controls.
+- (new) apps/web/app/bench/fileAccess.client.ts - file picker/save helpers with anchor-download fallback.
+- (new) apps/web/app/bench/performanceObserver.client.ts - performance.mark/measure observer wiring.
+- (new) apps/web/app/bench/__tests__/BenchPage.test.tsx - bench route behavior tests.
+- (new) apps/web/app/state/benchSlice.ts - bench workflow state, diagnostics, perf entries, storage status.
+- (new) apps/web/app/state/benchThunks.ts - start/cancel bench orchestration and persistence/export workflows.
+- (new) apps/web/app/state/__tests__/benchSlice.test.ts - reducer coverage for bench diagnostics/results.
+- (new) apps/web/app/state/__tests__/benchThunks.test.ts - thunk orchestration tests (ports + persistence + instrumentation).
+- (new) apps/web/app/ports/benchmarkPort.ts - benchmark worker port contract.
+- (new) apps/web/app/ports/benchmarkPort.client.ts - worker-backed benchmark port implementation.
+- (new) apps/web/app/ports/benchmarkWorker.client.ts - Remix/Vite benchmark worker url adapter.
+- (new) apps/web/app/ports/__tests__/benchmarkPort.client.test.ts - port mapping tests.
+Modify:
+- (modified) apps/web/app/routes/bench.tsx - replace placeholder route with Provider + BenchPage wiring.
+- (modified) apps/web/app/state/store.ts - register bench slice and inject benchmark/persistence ports.
+- (modified) apps/web/app/state/index.ts - export bench slice/thunks/types.
+- (modified) apps/web/app/state/settingsSlice.ts - add solver default time/node budget fields + actions.
+- (modified) apps/web/app/state/__tests__/settingsSlice.test.ts - cover new settings reducers.
+- (modified) apps/web/app/state/solverThunks.ts - source /play solve defaults from settingsSlice budgets.
+- (modified) apps/web/app/state/__tests__/solverThunks.test.ts - default budget propagation tests from settings.
+- (modified) apps/web/app/play/SolverPanel.tsx - expose solver budget controls in Settings UI.
+- (modified) apps/web/app/play/__tests__/SolverPanel.test.tsx - UI tests for budget controls.
+- (modified) apps/web/app/infra/persistence/benchmarkStorage.client.ts - call navigator.storage.persist() on init and surface diagnostic outcome.
+- (modified) apps/web/app/infra/persistence/__tests__/benchmarkStorage.client.test.ts - feature-detect persist() behavior and debug-only logging coverage.
+
+E) Acceptance Criteria (Measurable)
+1. `packages/benchmarks` exports a benchmark domain model and runner with DB_VERSION/schema constants; migration tests cover version-upgrade paths and pass.
+2. Benchmark run orchestration stores comparable metadata (algorithm/heuristic/budgets/environment) for every persisted result.
+3. Benchmark worker pool concurrency defaults to `max(1, min(4, (navigator.hardwareConcurrency || 4) - 1))` and is enforced by tests.
+4. BENCH protocol messages are run-scoped and mirror SOLVE semantics (`BENCH_START`, `BENCH_PROGRESS`, `BENCH_RESULT` keyed by `runId`); suite orchestration remains in `benchmarkClient` and `benchThunks`.
+5. BENCH_* protocol messages are versioned/validated in worker schemas; discriminator union tests include BENCH_* and unknown-type rejection coverage.
+6. Two-tier cancellation semantics are implemented and tested: keep `SolverClient` hard-reset behavior for `/play` (ADR-0013 unchanged), while benchmark suite cancellation uses `WorkerPool.cancel` for queued runs and `WorkerPool.dispose` plus generation-gated callbacks for suite cancellation. ADR-0014 documents the benchmark model.
+7. Protocol-validation profiling records per-call parse cost and message frequency; progress-message gating is only allowed when total SOLVE_PROGRESS validation cost exceeds 2% of median benchmark elapsedMs. Structural messages remain strictly validated.
+8. `/bench` provides suite builder, run/cancel controls, persisted results view, and IndexedDB-backed reload durability.
+9. `navigator.storage.persist()` is feature-detected independently; diagnostics store `persistOutcome` as `granted | denied | unsupported`, denied is not treated as an error, and console logging is limited to dev/debug mode.
+10. `performance.mark/measure` around solve dispatch/worker response are observed through PerformanceObserver and surfaced in a debug perf panel.
+11. Benchmark report/level-pack export/import feature-detects File System Access APIs (`showSaveFilePicker`, `showOpenFilePicker`) and falls back to anchor-download; `fileAccess.client.ts` supports API injection for tests.
+12. Solver budget defaults are validated at three layers: reducer clamp to positive values, UI input minima, and thunk fallback to `DEFAULT_SOLVER_TIME_BUDGET_MS`/`DEFAULT_NODE_BUDGET` when defensive guards detect invalid settings.
+13. All affected tests are updated and `pnpm typecheck`, `pnpm lint`, and `pnpm test:coverage` pass.
+
+F) Prompt-Pack Coverage Map
+- Implementation A (Bench Models + Persistence Core): Task 1
+- Implementation B (Worker Pool + Protocol): Tasks 2, 7, 8, 9
+- Implementation C (Bench UI + Diagnostics + Settings): Tasks 3, 4, 5, 6, 10
+- Integration proofs: none listed for Phase 4
+
+G) Architect Decisions / Residual Risks
+1. BENCH protocol granularity is resolved to per-run messages (`runId`-scoped), mirroring SOLVE flows. Residual risk: avoid suite-level protocol creep.
+2. Cancellation contract is resolved as two-tier: keep ADR-0013 hard-reset semantics for interactive `/play`; benchmark pool uses queued cancel + suite dispose, documented in ADR-0014.
+3. Validation-overhead gate is resolved to a numeric threshold: only gate SOLVE_PROGRESS validation when measured cost exceeds 2% of median benchmark elapsedMs.
+4. Browser API variance is resolved via independent feature detection for File System Access and Storage Persist; unsupported/denied states are normal paths, not error states.
+5. Stale callback risk is resolved with `suiteGeneration` gating in benchmark client progress/result dispatch plus explicit queued/in-flight race-path tests.
+6. Budget validity risk is resolved with reducer clamp, UI min constraints, and thunk runtime fallback to solver defaults.
+
+H) Sequencing Notes
+- Implement benchmark domain + persistence schema first so worker and UI layers consume stable contracts.
+- Lock BENCH protocol shape and benchmark cancellation ADR before wiring bench thunks/UI.
+- Add suiteGeneration callback guards before enabling suite cancel in UI.
+- Apply browser API feature-detection wrappers before export/import and persistence diagnostics tests.
+- Land budget positivity defenses before switching `/play` defaults to settings-backed values.</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-two" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>2) Bench Models + Persistence Core</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Implement benchmark domain models, runner behavior, and IndexedDB migration foundation. Keep this tab atomic and file-scoped.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-two">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-two">Read LLM_GUIDE.md, docs/Architecture.md, docs/project-plan.md (Phase 4 task 1), docs/adr/0007-indexeddb-persistence-migration-retention.md, docs/START_HERE.md, packages/worker/README.md, apps/web/README.md, and packages/core/README.md before making changes.
+Reference the coverage map and acceptance criteria defined in Phase 1.
+
+Context:
+- Build benchmark-domain contracts and IndexedDB migration foundation first.
+- Keep benchmark model ownership in packages/benchmarks and migration logic in apps/web persistence adapter.
+
+Coverage assignments for this tab:
+- Tasks:
+  1. Benchmark models + runner in packages/benchmarks; define DB_VERSION and IndexedDB schema; add migration tests covering version upgrades
+- Integration proofs: none
+
+File scope (required):
+Create:
+- packages/benchmarks/src/model/benchmarkTypes.ts
+- packages/benchmarks/src/model/benchmarkSchema.ts
+- packages/benchmarks/src/runner/benchmarkRunner.ts
+- packages/benchmarks/src/model/__tests__/benchmarkSchema.test.ts
+- packages/benchmarks/src/runner/__tests__/benchmarkRunner.test.ts
+- packages/benchmarks/src/runner/__tests__/benchmarkRunner.metadata.test.ts
+- packages/benchmarks/README.md
+- packages/benchmarks/vitest.config.ts
+- apps/web/app/infra/persistence/benchmarkRepository.client.ts
+- apps/web/app/infra/persistence/benchmarkStorage.client.ts
+- apps/web/app/infra/persistence/__tests__/benchmarkRepository.client.test.ts
+- apps/web/app/infra/persistence/__tests__/benchmarkStorage.client.test.ts
+- apps/web/app/ports/persistencePort.ts
+Modify:
+- packages/benchmarks/src/index.ts
+- apps/web/package.json
+- apps/web/tsconfig.json
+- vitest.workspace.ts
+
+Steps:
+1. Benchmarks package domain:
+   - Define suite/run/result contracts, solver-option metadata, and DB_VERSION/schema constants in packages/benchmarks.
+   - Implement benchmarkRunner with deterministic repetition/warmup handling and comparable result metadata.
+2. IndexedDB persistence adapter:
+   - Implement repository + adapter modules in apps/web/app/infra/persistence with explicit onupgradeneeded migration logic.
+   - Add version-upgrade tests and retention/clear-storage behavior tests.
+3. Workspace/test wiring:
+   - Add package README and vitest config for benchmarks.
+   - Wire @corgiban/benchmarks dependency/reference in apps/web and include benchmark tests in vitest.workspace.ts.
+
+Constraints (boundary rules, verbatim):
+- `packages/benchmarks` imports only `solver`, `core`, and `shared`.
+- `apps/web` imports packages through their public entrypoints only.
+
+Scope guard:
+- Only modify files listed in this tab. Flag deviation before acting.
+
+Additional constraints:
+- Main thread must stay responsive; heavy compute runs in workers.
+- Core and solver packages must remain deterministic and free of DOM/Web APIs.
+
+Local verification for this tab:
+- pnpm test -- --project packages/benchmarks/vitest.config.ts
+- Expected: benchmarks package tests pass (models, runner, schema).
+- pnpm test -- --project apps/web/vitest.config.ts
+- Expected: persistence adapter migration/retention tests pass.
+- pnpm lint
+- Expected: lint passes with no errors.
+
+You are not done until all of the following pass with no errors:
+  pnpm typecheck
+  pnpm lint
+  pnpm test:coverage</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-three" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>3) Worker Pool + Protocol</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Implement protocol and worker-pool behavior for benchmark execution, including cancellation semantics and validation-overhead profiling.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-three">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-three">Read LLM_GUIDE.md, docs/Architecture.md, docs/project-plan.md (Phase 4 tasks 2, 7, 8, 9), docs/adr/0003-worker-protocol-versioning-validation.md, docs/adr/0013-solver-cancellation-worker-reset.md, and packages/worker/README.md before making changes.
+Reference the coverage map and acceptance criteria defined in Phase 1.
+
+Context:
+- Extend protocol/worker infrastructure for benchmark execution and pooled behavior.
+- Keep BENCH protocol run-scoped per runId and keep suite orchestration in benchmarkClient/benchThunks.
+- Keep ADR-0013 as the /play baseline while documenting benchmark-specific cancellation in ADR-0014.
+
+Coverage assignments for this tab:
+- Tasks:
+  2. Worker pool for benchmark runs: max(1, min(4, (navigator.hardwareConcurrency || 4) - 1))
+  7. Extend protocol schema union discriminator tests when adding BENCH\_\* messages (SOLVE + unknown-type coverage already exists)
+  8. Revisit solver client cancellation semantics for pooled execution: enforce one active run per SolverClient instance or implement run-scoped in-flight cancellation; update or supersede ADR-0013.
+  9. Profile protocol validation overhead under benchmark load; if SOLVE_PROGRESS validation is a bottleneck, keep strict validation for structural messages and use a lighter or gated path for high-frequency progress messages.
+- Integration proofs: none
+
+File scope (required):
+Create:
+- packages/worker/src/client/benchmarkClient.client.ts
+- packages/worker/src/client/__tests__/benchmarkClient.test.ts
+- packages/worker/src/runtime/benchmarkWorker.ts
+- packages/worker/src/runtime/__tests__/benchmarkWorker.test.ts
+- tools/scripts/profile-worker-validation.mjs
+- docs/_generated/analysis/phase-04-protocol-validation-profile.md
+- docs/adr/0014-benchmark-worker-cancellation-semantics.md
+Modify:
+- packages/worker/src/protocol/protocol.ts
+- packages/worker/src/protocol/schema.ts
+- packages/worker/src/protocol/validation.ts
+- packages/worker/src/protocol/__tests__/schema.test.ts
+- packages/worker/src/protocol/__tests__/validation.test.ts
+- packages/worker/src/runtime/solverWorker.ts
+- packages/worker/src/runtime/__tests__/solverWorker.test.ts
+- packages/worker/src/client/solverClient.client.ts
+- packages/worker/src/client/__tests__/solverClient.test.ts
+- packages/worker/src/client/workerPool.client.ts
+- packages/worker/src/client/__tests__/workerPool.test.ts
+- packages/worker/src/index.ts
+- packages/worker/package.json
+
+Steps:
+1. Protocol and runtime:
+   - Add BENCH_* protocol message types/schemas as run-scoped messages and extend union discriminator tests (including unknown-type rejection).
+   - Keep suite sequencing/orchestration out of protocol and in benchmarkClient/benchThunks.
+2. Cancellation semantics:
+   - Keep SolverClient hard-reset cancel semantics for /play unchanged (ADR-0013).
+   - Implement benchmark two-tier cancellation: `pool.cancel(runId)` for queued runs and `pool.dispose()` for suite cancel.
+   - Add ADR-0014 documenting benchmark cancellation and its relationship to ADR-0013.
+3. Stale callback/race safety:
+   - Add `suiteGeneration` gating in benchmark client so stale progress/result callbacks no-op after suite cancellation/dispose.
+   - Add explicit race-path tests (queued cancel, in-flight cancel, late result after dispose).
+4. Validation-overhead profiling:
+   - Add/run profiling harness under benchmark-like message load.
+   - Capture per-call SOLVE_PROGRESS parse cost and message frequency; only gate progress validation if total cost exceeds 2% of median benchmark elapsedMs.
+   - Keep strict validation for structural messages in all cases and record raw numbers/decision in the checked-in profile document.
+
+Constraints (boundary rule, verbatim):
+- `packages/worker` imports only `solver`, `core`, `shared`, and `benchmarks`.
+
+Scope guard:
+- Only modify files listed in this tab. Flag deviation before acting.
+
+Additional constraints:
+- Main thread must stay responsive; heavy compute runs in workers.
+- Core and solver packages must remain deterministic and free of DOM/Web APIs.
+- Worker protocol must remain versioned and validated; no ad-hoc JSON shapes.
+- Do not regress interactive `/play` cancellation behavior defined in ADR-0013.
+
+Local verification for this tab:
+- pnpm test -- --project packages/worker/vitest.config.ts
+- Expected: worker protocol/client/runtime tests pass.
+- node tools/scripts/profile-worker-validation.mjs
+- Expected: profiling report is generated/updated without errors.
+- pnpm lint
+- Expected: lint passes with no errors.
+
+You are not done until all of the following pass with no errors:
+  pnpm typecheck
+  pnpm lint
+  pnpm test:coverage</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-four" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>4) Bench UI + Diagnostics + Settings</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Implement bench route workflows, diagnostics instrumentation, import/export paths, and solver budget settings integration.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-four">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-four">Read LLM_GUIDE.md, docs/Architecture.md, docs/project-plan.md (Phase 4 tasks 3, 4, 5, 6, 10), docs/Engineering-Process-Playbook.md, apps/web/README.md, and packages/worker/README.md before making changes.
+Reference the coverage map and acceptance criteria defined in Phase 1.
+
+Context:
+- Deliver the benchmark route end-to-end: suite builder, run/cancel flows, persisted results, diagnostics, perf panel, and import/export.
+- Add solver budget settings in UI/state and apply them as defaults in /play solve orchestration.
+
+Coverage assignments for this tab:
+- Tasks:
+  3. Bench page UI with suite builder + results + persistence adapter (IndexedDB)
+  4. Call navigator.storage.persist() on adapter init when feature-detected; record outcome in bench diagnostics and log only in dev/debug
+  5. Add performance.mark/measure instrumentation around solve dispatch and worker response; wire PerformanceObserver to debug perf panel in benchSlice
+  6. File System Access API export/import for benchmark reports and level packs (anchor-download fallback)
+  10. Add solver budget controls to Settings UI (time/node defaults), persist via settingsSlice, and apply them to `/play` solve orchestration defaults.
+- Integration proofs: none
+
+File scope (required):
+Create:
+- apps/web/app/bench/BenchPage.tsx
+- apps/web/app/bench/BenchmarkSuiteBuilder.tsx
+- apps/web/app/bench/BenchmarkResultsTable.tsx
+- apps/web/app/bench/BenchDiagnosticsPanel.tsx
+- apps/web/app/bench/BenchmarkPerfPanel.tsx
+- apps/web/app/bench/BenchmarkExportImportControls.tsx
+- apps/web/app/bench/fileAccess.client.ts
+- apps/web/app/bench/performanceObserver.client.ts
+- apps/web/app/bench/__tests__/BenchPage.test.tsx
+- apps/web/app/state/benchSlice.ts
+- apps/web/app/state/benchThunks.ts
+- apps/web/app/state/__tests__/benchSlice.test.ts
+- apps/web/app/state/__tests__/benchThunks.test.ts
+- apps/web/app/ports/benchmarkPort.ts
+- apps/web/app/ports/benchmarkPort.client.ts
+- apps/web/app/ports/benchmarkWorker.client.ts
+- apps/web/app/ports/__tests__/benchmarkPort.client.test.ts
+Modify:
+- apps/web/app/routes/bench.tsx
+- apps/web/app/state/store.ts
+- apps/web/app/state/index.ts
+- apps/web/app/state/settingsSlice.ts
+- apps/web/app/state/__tests__/settingsSlice.test.ts
+- apps/web/app/state/solverThunks.ts
+- apps/web/app/state/__tests__/solverThunks.test.ts
+- apps/web/app/play/SolverPanel.tsx
+- apps/web/app/play/__tests__/SolverPanel.test.tsx
+- apps/web/app/infra/persistence/benchmarkStorage.client.ts
+- apps/web/app/infra/persistence/__tests__/benchmarkStorage.client.test.ts
+
+Steps:
+1. Bench route + state wiring:
+   - Add benchSlice and benchThunks, wire benchmark/persistence ports into store, and replace bench.tsx placeholder with BenchPage composition.
+   - Implement suite builder, results table, run/cancel flow, and persisted reload behavior.
+2. Diagnostics + performance:
+   - Instrument solve dispatch and worker response with performance.mark/measure.
+   - Wire PerformanceObserver entries into benchSlice and render them in a debug perf panel.
+   - Add storage persistence diagnostics from adapter init with independent feature-detection and persistOutcome state (`granted | denied | unsupported`); only log in dev/debug.
+3. Import/export + settings defaults:
+   - Implement File System Access API export/import with explicit `showSaveFilePicker` / `showOpenFilePicker` feature detection and anchor-download fallback.
+   - Implement `fileAccess.client.ts` with injectable browser API implementations for deterministic jsdom tests.
+4. Budget defaults safety:
+   - Add settingsSlice solver budget defaults and enforce positive values at reducer level.
+   - Use UI minima (`min={1}`) for budget inputs and add thunk-level defensive fallback to solver defaults when invalid values are detected.
+   - Apply settings-backed defaults to `/play` startSolve orchestration.
+
+Constraints (boundary rule, verbatim):
+- `apps/web` imports packages through their public entrypoints only.
+
+Scope guard:
+- Only modify files listed in this tab. Flag deviation before acting.
+
+Additional constraints:
+- Main thread must stay responsive; heavy compute runs in workers.
+- Core and solver packages must remain deterministic and free of DOM/Web APIs.
+- Keep Redux state/actions JSON-serializable.
+- Treat missing browser APIs (`showSaveFilePicker`, `showOpenFilePicker`, `navigator.storage.persist`) as normal fallback paths, not hard errors.
+
+Local verification for this tab:
+- pnpm test -- --project apps/web/vitest.config.ts
+- Expected: bench route/state/port/settings tests pass.
+- pnpm lint
+- Expected: lint passes with no errors.
+- pnpm -C apps/web build
+- Expected: web build succeeds with bench route and worker adapters.
+
+You are not done until all of the following pass with no errors:
+  pnpm typecheck
+  pnpm lint
+  pnpm test:coverage</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-five" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>Documentation</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Review and update all project documentation affected by this PR. Run after all
+            implementation tabs are complete, before Verification.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-five">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-five">Read LLM_GUIDE.md, docs/Architecture.md, and docs/adr/* before proceeding.
+Do not write any new implementation code in this phase.
+
+Read the Planning tab output for this PR before reviewing documentation.
+Use Glob to list docs/prompt-packs/*.html, identify the pack for this PR (it will be the most
+recently modified file or match the phase you are working on), then Read that file and locate the
+OUTPUT section inside the Planning (phase-one) panel. This contains the scope lock, coverage map,
+and acceptance criteria that define what changed in this PR.
+
+Review every documentation file that may be affected by all uncommitted, unstaged, and untracked changes in the repo:
+- docs/Architecture.md - update if any architectural boundaries, module structure, or data flow changed.
+- docs/adr/ - create a new ADR if any architectural decision was made (new pattern, trade-off chosen, approach locked in).
+- packages/*/README.md - update each package README to reflect new exports, public API, or usage examples added in this PR.
+- docs/project-plan.md - mark completed tasks/phases as done if applicable.
+- LLM_GUIDE.md - update if new conventions, patterns, or constraints were established.
+- CONTRIBUTING.md - update if developer workflow, setup steps, or tooling changed.
+
+For each file:
+1. Read it in full.
+2. Identify any section that is stale, missing, or contradicts what was built.
+3. Update or create as needed.
+
+Do not mark this tab complete until every affected doc has been reviewed and either updated or explicitly confirmed as current.</code></pre>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-tab="phase-six" role="tabpanel" hidden>
+          <div class="panel-title">
+            <h2>Verification</h2>
+            <span class="status-pill" data-status-pill>Not Started</span>
+          </div>
+          <p>
+            Generic end-of-PR check. Run after all implementation tabs and Integration Proofs are
+            complete and commands pass.
+          </p>
+          <div class="prompt-block">
+            <header>
+              <span class="prompt-status" data-prompt-status>Prompt Not Started</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-phase-six">
+                Copy prompt
+              </button>
+            </header>
+            <pre><code id="prompt-phase-six">Read LLM_GUIDE.md and docs/Architecture.md.
+Review all changes made in this PR against the acceptance criteria from Phase 1 (Planning).
+
+Confirm each of the following:
+1. Every acceptance criterion from Phase 1 is met.
+2. No files outside the agreed scope were modified.
+3. All package boundary rules from LLM_GUIDE.md are satisfied.
+4. No dead code, debug artifacts, or commented-out blocks remain in package source files. No console.* calls remain in packages/*/src/ (tools/, scripts, and server entry points are exempt).
+5. Test coverage meets project standards.
+6. pnpm typecheck, pnpm lint, and pnpm test:coverage all pass with no errors.
+
+If any item is not confirmed, list exactly what is missing and what changes are needed.
+Do not mark this phase complete until every item above is confirmed.</code></pre>
+          </div>
+          <div class="commands-block">
+            <div class="commands-header">
+              <span class="commands-label">Verification Commands</span>
+              <button class="copy-btn" type="button" data-copy-target="prompt-verify-commands">
+                Copy commands
+              </button>
+            </div>
+            <pre><code id="prompt-verify-commands">pnpm typecheck
+pnpm lint
+pnpm test:coverage</code></pre>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      (function () {
+        const buttons = Array.from(document.querySelectorAll('.tab-btn'));
+        const panels = Array.from(document.querySelectorAll('.tab-panel'));
+        const copyButtons = Array.from(document.querySelectorAll('.copy-btn'));
+        const headerEl = document.querySelector('header');
+        const copyCompletedBtn = document.querySelector('[data-copy-completed]');
+        const countEls = {
+          red: document.querySelector('[data-count="red"]'),
+          yellow: document.querySelector('[data-count="yellow"]'),
+          green: document.querySelector('[data-count="green"]'),
+        };
+        const colorOrder = ['red', 'yellow', 'green'];
+        const colorHex = {
+          red: '#ef4444',
+          yellow: '#facc15',
+          green: '#22c55e',
+        };
+        const colorClasses = colorOrder.map((color) => `tab-color-${color}`);
+        const panelStateClasses = colorOrder.map((color) => `state-${color}`);
+        const statusLabels = {
+          red: 'Not Started',
+          yellow: 'In Progress',
+          green: 'Complete',
+        };
+        const promptStatusLabels = {
+          red: 'Prompt Not Started',
+          yellow: 'Prompt in Progress',
+          green: 'Prompt Complete',
+        };
+        // IMPORTANT: change this key to match your pack filename when copying the template
+        // (e.g. 'promptPackTabColors_phase-01-your-slug') to avoid status collisions.
+        const storageKey = 'promptPackTabColors_phase-04-benchmark-page';
+
+        function setActive(name) {
+          buttons.forEach((btn) => {
+            const isActive = btn.dataset.tab === name;
+            btn.classList.toggle('is-active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+          });
+          panels.forEach((panel) => {
+            const isActive = panel.dataset.tab === name;
+            panel.classList.toggle('is-active', isActive);
+            panel.hidden = !isActive;
+          });
+        }
+
+        function loadColorMap() {
+          try {
+            const raw = window.localStorage.getItem(storageKey);
+            return raw ? JSON.parse(raw) : {};
+          } catch (err) {
+            return {};
+          }
+        }
+
+        function saveColorMap(map) {
+          try {
+            window.localStorage.setItem(storageKey, JSON.stringify(map));
+          } catch (err) {
+            // ignore
+          }
+        }
+
+        function applyTabColor(btn, color) {
+          colorClasses.forEach((className) => btn.classList.remove(className));
+          btn.classList.add(`tab-color-${color}`);
+          btn.dataset.color = color;
+        }
+
+        function getPanel(tabKey) {
+          return panels.find((item) => item.dataset.tab === tabKey);
+        }
+
+        function applyPanelState(tabKey, color, animate) {
+          const panel = getPanel(tabKey);
+          if (!panel) {
+            return;
+          }
+          panelStateClasses.forEach((className) => panel.classList.remove(className));
+          panel.classList.add(`state-${color}`);
+          const statusPill = panel.querySelector('[data-status-pill]');
+          if (statusPill) {
+            statusPill.textContent = statusLabels[color] || '';
+            if (animate) {
+              statusPill.classList.remove('is-pulse');
+              void statusPill.offsetWidth;
+              statusPill.classList.add('is-pulse');
+            }
+          }
+          const promptStatuses = panel.querySelectorAll('[data-prompt-status]');
+          promptStatuses.forEach((statusEl) => {
+            statusEl.textContent = promptStatusLabels[color] || '';
+            if (animate) {
+              statusEl.classList.remove('is-shift');
+              void statusEl.offsetWidth;
+              statusEl.classList.add('is-shift');
+            }
+          });
+        }
+
+        function updateProgress() {
+          const counts = { red: 0, yellow: 0, green: 0 };
+          const total = buttons.length;
+          const segment = total ? 100 / total : 100;
+          const stops = [];
+
+          buttons.forEach((btn, index) => {
+            const color = btn.dataset.color || 'red';
+            if (counts[color] !== undefined) {
+              counts[color] += 1;
+            }
+            const start = (segment * index).toFixed(2);
+            const end = (segment * (index + 1)).toFixed(2);
+            const hex = colorHex[color] || colorHex.red;
+            stops.push(`${hex} ${start}%`, `${hex} ${end}%`);
+          });
+
+          if (headerEl) {
+            const gradient = stops.length ? `linear-gradient(90deg, ${stops.join(', ')})` : '';
+            headerEl.style.setProperty('--progress-gradient', gradient);
+          }
+          if (countEls.red) {
+            countEls.red.textContent = `${counts.red}`;
+          }
+          if (countEls.yellow) {
+            countEls.yellow.textContent = `${counts.yellow}`;
+          }
+          if (countEls.green) {
+            countEls.green.textContent = `${counts.green}`;
+          }
+        }
+
+        function cycleTabColor(btn) {
+          const current = btn.dataset.color || 'red';
+          const index = colorOrder.indexOf(current);
+          const next = colorOrder[(index + 1) % colorOrder.length];
+          applyTabColor(btn, next);
+          return next;
+        }
+
+        function initTabColors() {
+          const stored = loadColorMap();
+          buttons.forEach((btn) => {
+            const tabKey = btn.dataset.tab;
+            const storedColor = tabKey ? stored[tabKey] : null;
+            const color = colorOrder.includes(storedColor) ? storedColor : 'red';
+            applyTabColor(btn, color);
+            if (tabKey) {
+              applyPanelState(tabKey, color);
+            }
+          });
+          updateProgress();
+        }
+
+        buttons.forEach((btn) => {
+          btn.addEventListener('click', () => setActive(btn.dataset.tab));
+          btn.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            const tabKey = btn.dataset.tab;
+            const nextColor = cycleTabColor(btn);
+            if (tabKey) {
+              applyPanelState(tabKey, nextColor, true);
+            }
+            if (!tabKey) {
+              return;
+            }
+            btn.classList.remove('is-flash');
+            void btn.offsetWidth;
+            btn.classList.add('is-flash');
+            const stored = loadColorMap();
+            stored[tabKey] = nextColor;
+            saveColorMap(stored);
+            updateProgress();
+          });
+        });
+
+        async function copyText(text) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            return true;
+          }
+          const input = document.createElement('textarea');
+          input.value = text;
+          input.setAttribute('readonly', '');
+          input.style.position = 'fixed';
+          input.style.left = '-9999px';
+          document.body.appendChild(input);
+          input.select();
+          try {
+            document.execCommand('copy');
+          } catch (err) {
+            // ignore
+          }
+          document.body.removeChild(input);
+          return true;
+        }
+
+        copyButtons.forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const targetId = btn.getAttribute('data-copy-target');
+            const target = targetId ? document.getElementById(targetId) : null;
+            const text = target ? target.textContent : '';
+            const original = btn.textContent;
+            btn.disabled = true;
+            await copyText(text);
+            btn.textContent = 'Copied';
+            setTimeout(() => {
+              btn.textContent = original;
+              btn.disabled = false;
+            }, 1200);
+          });
+        });
+
+        if (copyCompletedBtn) {
+          copyCompletedBtn.addEventListener('click', async () => {
+            const sections = [];
+            buttons.forEach((btn) => {
+              const color = btn.dataset.color || 'red';
+              if (color !== 'green') {
+                return;
+              }
+              const tabKey = btn.dataset.tab;
+              const panel = tabKey ? getPanel(tabKey) : null;
+              if (!panel) {
+                return;
+              }
+              const title = panel.querySelector('h2');
+              const prompt = panel.querySelector('pre code');
+              const titleText = title ? title.textContent.trim() : '';
+              const promptText = prompt ? prompt.textContent.trim() : '';
+              if (titleText || promptText) {
+                sections.push([titleText, promptText].filter(Boolean).join('\n'));
+              }
+            });
+
+            const output = sections.join('\n\n');
+            const original = copyCompletedBtn.textContent;
+            copyCompletedBtn.disabled = true;
+            if (!output) {
+              copyCompletedBtn.textContent = 'No completed prompts';
+              setTimeout(() => {
+                copyCompletedBtn.textContent = original;
+                copyCompletedBtn.disabled = false;
+              }, 1400);
+              return;
+            }
+            await copyText(output);
+            copyCompletedBtn.textContent = 'Copied completed prompts';
+            setTimeout(() => {
+              copyCompletedBtn.textContent = original;
+              copyCompletedBtn.disabled = false;
+            }, 1400);
+          });
+        }
+
+        if (buttons.length) {
+          initTabColors();
+          setActive(buttons[0].dataset.tab);
+        }
+      })();
+    </script>
+  </body>
+</html>

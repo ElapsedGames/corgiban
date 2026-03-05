@@ -89,6 +89,13 @@ describe('isWin', () => {
 
     expect(isWin(state)).toBe(true);
   });
+
+  it('returns false when one of multiple boxes is off target', () => {
+    const level = buildLevel(['WWWWW', 'WPSBW', 'WWTWW']);
+    const state = createGame(level);
+
+    expect(isWin(state)).toBe(false);
+  });
 });
 
 describe('validateInvariants', () => {

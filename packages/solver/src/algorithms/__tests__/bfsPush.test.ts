@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseLevel } from '@corgiban/core';
+import { applyMoves, createGame, isWin, parseLevel } from '@corgiban/core';
+import type { Direction } from '@corgiban/shared';
 
 import { solve } from '../../api/solve';
 import { createCancelToken } from '../../infra/cancelToken';
@@ -24,6 +25,12 @@ describe('bfsPush', () => {
     expect(result.metrics.pushCount).toBe(1);
     expect(result.metrics.moveCount).toBe(1);
     expect(result.metrics.expanded).toBeGreaterThanOrEqual(1);
+
+    const replayed = applyMoves(
+      createGame(level),
+      Array.from(result.solutionMoves) as Direction[],
+    ).state;
+    expect(isWin(replayed)).toBe(true);
   });
 
   it('returns solved immediately when there are no boxes', () => {

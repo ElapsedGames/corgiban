@@ -4,6 +4,7 @@ import type {
   SolveStartMessage,
 } from '../protocol/protocol';
 import { PROTOCOL_VERSION } from '../protocol/protocol';
+import type { ValidateOutboundMessageOptions } from '../protocol/validation';
 import { assertInboundMessage, validateOutboundMessage } from '../protocol/validation';
 
 type WorkerLike = {
@@ -57,10 +58,13 @@ export type SolverClient = {
 
 export type CreateSolverClientOptions = {
   createWorker?: WorkerFactory;
+  outboundValidationMode?: ValidateOutboundMessageOptions['mode'];
 };
 
 export function createSolverClient(options?: CreateSolverClientOptions): SolverClient {
   const createWorker = options?.createWorker ?? defaultWorkerFactory;
+  const outboundValidationOptions: ValidateOutboundMessageOptions | undefined =
+    options?.outboundValidationMode === 'light-progress' ? { mode: 'light-progress' } : undefined;
 
   const healthListeners = new Set<(health: SolverWorkerHealth) => void>();
   const pendingRuns = new Map<string, PendingRun>();
@@ -124,7 +128,7 @@ export function createSolverClient(options?: CreateSolverClientOptions): SolverC
       if (worker !== targetWorker) {
         return;
       }
-      const parsed = validateOutboundMessage(event.data);
+      const parsed = validateOutboundMessage(event.data, outboundValidationOptions);
       if (!parsed.ok) {
         handleWorkerCrash(parsed.error, 'Received invalid message from solver worker.');
         return;
@@ -233,9 +237,13 @@ export function createSolverClient(options?: CreateSolverClientOptions): SolverC
         return Promise.reject(toError(error, 'Invalid SOLVE_START message.'));
       }
 
-      if (pendingRuns.has(request.runId)) {
-        pendingRuns.get(request.runId)?.reject(new Error(`Duplicate runId ${request.runId}.`));
-        pendingRuns.delete(request.runId);
+      if (pendingRuns.size > 0) {
+        const activeRunId = pendingRuns.keys().next().value as string;
+        return Promise.reject(
+          new Error(
+            `Solver client supports one active run per instance. Active runId: ${activeRunId}.`,
+          ),
+        );
       }
 
       return new Promise<SolveResultMessage>((resolve, reject) => {

@@ -73,6 +73,13 @@ const levelRuntimeSchema = z
           message: `initial box index must be within [0, ${cellCount - 1}].`,
         });
       }
+      if (boxIndex === value.initialPlayerIndex) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['initialBoxes', index],
+          message: 'initialBoxes must not overlap initialPlayerIndex.',
+        });
+      }
       if (seenBoxes.has(boxIndex)) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
@@ -95,6 +102,18 @@ const solveStartSchema = z
   })
   .strict();
 
+const benchStartSchema = z
+  .object({
+    type: z.literal('BENCH_START'),
+    runId: runIdSchema,
+    protocolVersion: protocolVersionSchema,
+    levelRuntime: levelRuntimeSchema,
+    algorithmId: algorithmIdSchema,
+    options: solverOptionsSchema.optional(),
+    benchmarkCaseId: runIdSchema.optional(),
+  })
+  .strict();
+
 const solveProgressSchema = z
   .object({
     type: z.literal('SOLVE_PROGRESS'),
@@ -107,6 +126,22 @@ const solveProgressSchema = z
     elapsedMs: z.number().nonnegative(),
     bestHeuristic: z.number().optional(),
     bestPathSoFar: z.string().optional(),
+  })
+  .strict();
+
+const benchProgressSchema = z
+  .object({
+    type: z.literal('BENCH_PROGRESS'),
+    runId: runIdSchema,
+    protocolVersion: protocolVersionSchema,
+    expanded: z.number().int().nonnegative(),
+    generated: z.number().int().nonnegative(),
+    depth: z.number().int().nonnegative(),
+    frontier: z.number().int().nonnegative(),
+    elapsedMs: z.number().nonnegative(),
+    bestHeuristic: z.number().optional(),
+    bestPathSoFar: z.string().optional(),
+    benchmarkCaseId: runIdSchema.optional(),
   })
   .strict();
 
@@ -148,6 +183,33 @@ const solveResultErrorSchema = solveResultBaseSchema
 
 const solveResultSchema = z.union([solveResultNonErrorSchema, solveResultErrorSchema]);
 
+const benchResultBaseSchema = z
+  .object({
+    type: z.literal('BENCH_RESULT'),
+    runId: runIdSchema,
+    protocolVersion: protocolVersionSchema,
+    metrics: solverMetricsSchema,
+    benchmarkCaseId: runIdSchema.optional(),
+  })
+  .strict();
+
+const benchResultNonErrorSchema = benchResultBaseSchema
+  .extend({
+    status: z.enum(['solved', 'unsolved', 'timeout', 'cancelled']),
+    solutionMoves: z.string().optional(),
+  })
+  .strict();
+
+const benchResultErrorSchema = benchResultBaseSchema
+  .extend({
+    status: z.literal('error'),
+    errorMessage: z.string(),
+    errorDetails: z.string().optional(),
+  })
+  .strict();
+
+const benchResultSchema = z.union([benchResultNonErrorSchema, benchResultErrorSchema]);
+
 const solveErrorSchema = z
   .object({
     type: z.literal('SOLVE_ERROR'),
@@ -172,11 +234,13 @@ export const pongSchema = z
   })
   .strict();
 
-export const workerInboundSchema = z.union([solveStartSchema, pingSchema]);
+export const workerInboundSchema = z.union([solveStartSchema, benchStartSchema, pingSchema]);
 
 export const workerOutboundSchema = z.union([
   solveProgressSchema,
+  benchProgressSchema,
   solveResultSchema,
+  benchResultSchema,
   solveErrorSchema,
   pongSchema,
 ]);
@@ -191,8 +255,11 @@ export function parseWorkerOutboundMessage(payload: unknown) {
 
 export const solverSchemas = {
   solveStartSchema,
+  benchStartSchema,
   solveProgressSchema,
+  benchProgressSchema,
   solveResultSchema,
+  benchResultSchema,
   solveErrorSchema,
   pingSchema,
   pongSchema,

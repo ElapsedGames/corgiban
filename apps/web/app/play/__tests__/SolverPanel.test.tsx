@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { ReactElement, ReactNode } from 'react';
 import { isValidElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Provider } from 'react-redux';
 
 import { Select } from '../../ui/Select';
+import { createAppStore } from '../../state/store';
 import { SolverControls } from '../SolverControls';
 import { SolverPanel } from '../SolverPanel';
 
@@ -213,5 +216,19 @@ describe('SolverPanel', () => {
     expect(controls).toBeDefined();
     expect(controls?.props.hasSolution).toBe(true);
     expect(controls?.props.replaySpeed).toBe(1);
+  });
+
+  it('renders budget controls with a positive minimum value', () => {
+    const store = createAppStore();
+    const html = renderToStaticMarkup(
+      <Provider store={store}>
+        <SolverPanel {...baseProps} />
+      </Provider>,
+    );
+    store.dispose();
+
+    expect(html).toContain('Default Time Budget (ms)');
+    expect(html).toContain('Default Node Budget');
+    expect((html.match(/min=\"1\"/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });
 });

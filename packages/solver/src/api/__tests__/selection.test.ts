@@ -38,6 +38,16 @@ describe('selection', () => {
     expect(features.boxCount).toBe(40);
   });
 
+  it('reports disconnected walkable regions even when there are no boxes', () => {
+    const level = buildLevel(['WWWWWWW', 'WPEWEEW', 'WWWWWWW']);
+    const features = analyzeLevel(level);
+
+    expect(features.boxCount).toBe(0);
+    expect(features.walkableCount).toBe(4);
+    expect(features.reachableCount).toBe(2);
+    expect(features.reachableCount).toBeLessThan(features.walkableCount);
+  });
+
   it('reports zero reachability when player is on a wall cell', () => {
     const level = {
       levelId: 'blocked-start',

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createSolverClient } from '../solverClient.client';
+import * as protocolValidation from '../../protocol/validation';
 
 class MockWorker {
   onmessage: ((event: { data: unknown }) => void) | null = null;
@@ -69,6 +70,61 @@ describe('createSolverClient', () => {
     unsubscribe();
   });
 
+  it('supports default worker factory by using global Worker/URL constructors', async () => {
+    const worker = new MockWorker();
+    let capturedUrl: unknown;
+    let capturedOptions: { type?: 'module' } | undefined;
+
+    class WorkerCtor {
+      constructor(url: unknown, options?: { type?: 'module' }) {
+        capturedUrl = url;
+        capturedOptions = options;
+        return worker;
+      }
+    }
+
+    class UrlCtor {
+      readonly path: string;
+      readonly base: string;
+
+      constructor(path: string, base: string) {
+        this.path = path;
+        this.base = base;
+      }
+    }
+
+    const previousWorker = (globalThis as unknown as { Worker?: unknown }).Worker;
+    const previousUrl = (globalThis as unknown as { URL?: unknown }).URL;
+    try {
+      (globalThis as unknown as { Worker?: unknown }).Worker = WorkerCtor;
+      (globalThis as unknown as { URL?: unknown }).URL = UrlCtor;
+
+      const client = createSolverClient();
+      const pingPromise = client.ping();
+
+      expect(worker.postedMessages[0]).toEqual({
+        type: 'PING',
+        protocolVersion: 2,
+      });
+
+      worker.emitMessage({
+        type: 'PONG',
+        protocolVersion: 2,
+      });
+
+      await expect(pingPromise).resolves.toBeUndefined();
+      expect(capturedUrl).toMatchObject({
+        path: '../runtime/solverWorker.ts',
+      });
+      expect(capturedOptions).toEqual({ type: 'module' });
+
+      client.dispose();
+    } finally {
+      (globalThis as unknown as { Worker?: unknown }).Worker = previousWorker;
+      (globalThis as unknown as { URL?: unknown }).URL = previousUrl;
+    }
+  });
+
   it('maps progress/result messages and updates worker health', async () => {
     const harness = createWorkerHarness();
     const client = createSolverClient({ createWorker: harness.createWorker });
@@ -132,6 +188,56 @@ describe('createSolverClient', () => {
       type: 'SOLVE_RESULT',
       runId: 'run-1',
       status: 'solved',
+    });
+  });
+
+  it('includes solve options in SOLVE_START payloads', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+
+    const solvePromise = client.solve({
+      runId: 'run-with-options',
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'bfsPush',
+      options: {
+        timeBudgetMs: 1_500,
+        nodeBudget: 3_000,
+        enableSpectatorStream: true,
+      },
+    });
+
+    expect(harness.workers[0]?.postedMessages[0]).toEqual({
+      type: 'SOLVE_START',
+      runId: 'run-with-options',
+      protocolVersion: 2,
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'bfsPush',
+      options: {
+        timeBudgetMs: 1_500,
+        nodeBudget: 3_000,
+        enableSpectatorStream: true,
+      },
+    });
+
+    harness.workers[0]?.emitMessage({
+      type: 'SOLVE_RESULT',
+      runId: 'run-with-options',
+      protocolVersion: 2,
+      status: 'unsolved',
+      metrics: {
+        elapsedMs: 2,
+        expanded: 1,
+        generated: 1,
+        maxDepth: 1,
+        maxFrontier: 1,
+        pushCount: 0,
+        moveCount: 0,
+      },
+    });
+
+    await expect(solvePromise).resolves.toMatchObject({
+      runId: 'run-with-options',
+      status: 'unsolved',
     });
   });
 
@@ -260,6 +366,60 @@ describe('createSolverClient', () => {
 
     await expect(solvePromise).rejects.toThrow('Invalid outbound protocol message');
     expect(client.getWorkerHealth()).toBe('crashed');
+  });
+
+  it('accepts SOLVE_PROGRESS unknown fields when light-progress mode is enabled', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({
+      createWorker: harness.createWorker,
+      outboundValidationMode: 'light-progress',
+    });
+    const progressMessages: unknown[] = [];
+
+    const solvePromise = client.solve(
+      {
+        runId: 'run-light-progress',
+        levelRuntime: sampleLevelRuntime,
+        algorithmId: 'bfsPush',
+      },
+      {
+        onProgress: (message) => {
+          progressMessages.push(message);
+        },
+      },
+    );
+
+    harness.workers[0]?.emitMessage({
+      type: 'SOLVE_PROGRESS',
+      runId: 'run-light-progress',
+      protocolVersion: 2,
+      expanded: 3,
+      generated: 5,
+      depth: 1,
+      frontier: 2,
+      elapsedMs: 7,
+      extraDebugField: 'allowed-in-light-mode',
+    });
+
+    harness.workers[0]?.emitMessage({
+      type: 'SOLVE_RESULT',
+      runId: 'run-light-progress',
+      protocolVersion: 2,
+      status: 'unsolved',
+      metrics: {
+        elapsedMs: 8,
+        expanded: 3,
+        generated: 5,
+        maxDepth: 1,
+        maxFrontier: 2,
+        pushCount: 0,
+        moveCount: 0,
+      },
+    });
+
+    await expect(solvePromise).resolves.toMatchObject({ runId: 'run-light-progress' });
+    expect(progressMessages).toHaveLength(1);
+    expect(client.getWorkerHealth()).toBe('healthy');
   });
 
   it('ignores error and result messages for unknown runIds', async () => {
@@ -462,27 +622,27 @@ describe('createSolverClient', () => {
     expect(updates).toEqual(['healthy']);
   });
 
-  it('rejects the first run when a duplicate runId is started', async () => {
+  it('enforces one active run per solver client instance', async () => {
     const harness = createWorkerHarness();
     const client = createSolverClient({ createWorker: harness.createWorker });
 
     const firstRun = client.solve({
-      runId: 'dup-run',
+      runId: 'run-1',
       levelRuntime: sampleLevelRuntime,
       algorithmId: 'bfsPush',
     });
 
     const secondRun = client.solve({
-      runId: 'dup-run',
+      runId: 'run-2',
       levelRuntime: sampleLevelRuntime,
       algorithmId: 'bfsPush',
     });
 
-    await expect(firstRun).rejects.toThrow('Duplicate runId dup-run.');
+    await expect(secondRun).rejects.toThrow('one active run per instance');
 
     harness.workers[0]?.emitMessage({
       type: 'SOLVE_RESULT',
-      runId: 'dup-run',
+      runId: 'run-1',
       protocolVersion: 2,
       status: 'unsolved',
       metrics: {
@@ -496,7 +656,7 @@ describe('createSolverClient', () => {
       },
     });
 
-    await expect(secondRun).resolves.toMatchObject({ status: 'unsolved' });
+    await expect(firstRun).resolves.toMatchObject({ status: 'unsolved' });
   });
 
   it('cancel terminates and recreates the worker and rejects the pending run', async () => {
@@ -541,6 +701,178 @@ describe('createSolverClient', () => {
     await expect(nextRun).resolves.toMatchObject({ status: 'unsolved' });
   });
 
+  it('recreates the worker when cancelling a non-active run id', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+
+    const ping = client.ping();
+    harness.workers[0]?.emitMessage({
+      type: 'PONG',
+      protocolVersion: 2,
+    });
+    await expect(ping).resolves.toBeUndefined();
+
+    client.cancel('run-missing');
+
+    expect(harness.workers[0]?.terminated).toBe(true);
+    expect(harness.workers).toHaveLength(2);
+    expect(client.getWorkerHealth()).toBe('idle');
+  });
+
+  it('ignores stale worker events after cancellation-based worker recreation', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+
+    const firstRun = client.solve({
+      runId: 'run-stale-1',
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'bfsPush',
+    });
+
+    const staleWorker = harness.workers[0];
+    if (!staleWorker) {
+      throw new Error('Expected worker instance.');
+    }
+
+    client.cancel('run-stale-1');
+    await expect(firstRun).rejects.toThrow('Solver run cancelled by user.');
+
+    staleWorker.emitError('stale worker boom');
+    staleWorker.emitMessageError();
+    expect(client.getWorkerHealth()).toBe('idle');
+
+    const secondRun = client.solve({
+      runId: 'run-stale-2',
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'bfsPush',
+    });
+
+    harness.workers[1]?.emitMessage({
+      type: 'SOLVE_RESULT',
+      runId: 'run-stale-2',
+      protocolVersion: 2,
+      status: 'unsolved',
+      metrics: {
+        elapsedMs: 1,
+        expanded: 1,
+        generated: 1,
+        maxDepth: 0,
+        maxFrontier: 0,
+        pushCount: 0,
+        moveCount: 0,
+      },
+    });
+
+    await expect(secondRun).resolves.toMatchObject({ runId: 'run-stale-2' });
+  });
+
+  it('ignores stale worker onmessage events after worker recreation', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+
+    const firstRun = client.solve({
+      runId: 'run-stale-message-1',
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'bfsPush',
+    });
+
+    const staleWorker = harness.workers[0];
+    if (!staleWorker) {
+      throw new Error('Expected worker instance.');
+    }
+
+    client.cancel('run-stale-message-1');
+    await expect(firstRun).rejects.toThrow('Solver run cancelled by user.');
+
+    staleWorker.emitMessage({
+      type: 'SOLVE_RESULT',
+      runId: 'run-stale-message-1',
+      protocolVersion: 2,
+      status: 'solved',
+      solutionMoves: 'R',
+      metrics: {
+        elapsedMs: 1,
+        expanded: 1,
+        generated: 1,
+        maxDepth: 1,
+        maxFrontier: 1,
+        pushCount: 1,
+        moveCount: 1,
+      },
+    });
+    expect(client.getWorkerHealth()).toBe('idle');
+
+    const secondRun = client.solve({
+      runId: 'run-stale-message-2',
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'bfsPush',
+    });
+
+    harness.workers[1]?.emitMessage({
+      type: 'SOLVE_RESULT',
+      runId: 'run-stale-message-2',
+      protocolVersion: 2,
+      status: 'unsolved',
+      metrics: {
+        elapsedMs: 1,
+        expanded: 1,
+        generated: 1,
+        maxDepth: 0,
+        maxFrontier: 0,
+        pushCount: 0,
+        moveCount: 0,
+      },
+    });
+
+    await expect(secondRun).resolves.toMatchObject({ runId: 'run-stale-message-2' });
+  });
+
+  it('ignores unexpected but schema-valid outbound message types', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+
+    const run = client.solve({
+      runId: 'run-unexpected-outbound',
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'bfsPush',
+    });
+
+    harness.workers[0]?.emitMessage({
+      type: 'BENCH_RESULT',
+      runId: 'run-unexpected-outbound',
+      protocolVersion: 2,
+      status: 'unsolved',
+      metrics: {
+        elapsedMs: 1,
+        expanded: 1,
+        generated: 1,
+        maxDepth: 0,
+        maxFrontier: 0,
+        pushCount: 0,
+        moveCount: 0,
+      },
+    });
+
+    harness.workers[0]?.emitMessage({
+      type: 'SOLVE_RESULT',
+      runId: 'run-unexpected-outbound',
+      protocolVersion: 2,
+      status: 'unsolved',
+      metrics: {
+        elapsedMs: 2,
+        expanded: 1,
+        generated: 1,
+        maxDepth: 0,
+        maxFrontier: 0,
+        pushCount: 0,
+        moveCount: 0,
+      },
+    });
+
+    await expect(run).resolves.toMatchObject({ runId: 'run-unexpected-outbound' });
+    expect(client.getWorkerHealth()).toBe('healthy');
+  });
+
   it('rejects runs when SOLVE_ERROR is received and disposes cleanly', async () => {
     const harness = createWorkerHarness();
     const client = createSolverClient({ createWorker: harness.createWorker });
@@ -563,6 +895,51 @@ describe('createSolverClient', () => {
 
     client.dispose();
     expect(harness.workers[0]?.terminated).toBe(true);
+    expect(client.getWorkerHealth()).toBe('idle');
+  });
+
+  it('rejects in-flight ping when dispose is called', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+
+    const pingPromise = client.ping();
+    const worker = harness.workers[0];
+    if (!worker) {
+      throw new Error('Expected worker instance.');
+    }
+
+    client.dispose();
+
+    await expect(pingPromise).rejects.toThrow('Solver client disposed.');
+    expect(worker.terminated).toBe(true);
+    expect(client.getWorkerHealth()).toBe('idle');
+  });
+
+  it('rejects in-flight solve when dispose is called', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+
+    const runPromise = client.solve({
+      runId: 'run-dispose-active',
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'bfsPush',
+    });
+
+    client.dispose();
+
+    await expect(runPromise).rejects.toThrow('Solver client disposed.');
+    expect(harness.workers[0]?.terminated).toBe(true);
+    expect(client.getWorkerHealth()).toBe('idle');
+  });
+
+  it('treats dispose as idempotent before any worker is created', () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+
+    client.dispose();
+    client.dispose();
+
+    expect(harness.workers).toHaveLength(0);
     expect(client.getWorkerHealth()).toBe('idle');
   });
 
@@ -612,5 +989,47 @@ describe('createSolverClient', () => {
 
     await expect(run).rejects.toThrow('post failure');
     expect(client.getWorkerHealth()).toBe('crashed');
+  });
+
+  it('uses worker event.message when event.error is unavailable', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+
+    const run = client.solve({
+      runId: 'run-message-fallback',
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'bfsPush',
+    });
+
+    harness.workers[0]?.onerror?.({ message: 'message only failure' });
+
+    await expect(run).rejects.toThrow('message only failure');
+    expect(client.getWorkerHealth()).toBe('crashed');
+  });
+
+  it('uses unknown worker error fallback when no error detail is present', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+
+    const ping = client.ping();
+    harness.workers[0]?.onerror?.({});
+
+    await expect(ping).rejects.toThrow('Unknown worker error.');
+    expect(client.getWorkerHealth()).toBe('crashed');
+  });
+
+  it('rejects ping before worker creation when ping message validation fails', async () => {
+    const harness = createWorkerHarness();
+    const client = createSolverClient({ createWorker: harness.createWorker });
+    const validationSpy = vi
+      .spyOn(protocolValidation, 'assertInboundMessage')
+      .mockImplementationOnce(() => {
+        throw new Error('invalid ping payload');
+      });
+
+    await expect(client.ping()).rejects.toThrow('invalid ping payload');
+    expect(harness.workers).toHaveLength(0);
+
+    validationSpy.mockRestore();
   });
 });

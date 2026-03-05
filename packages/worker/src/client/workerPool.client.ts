@@ -15,6 +15,12 @@ type WorkerSlot<TWorker, TResult> = {
   active: QueueEntry<TWorker, TResult> | null;
 };
 
+export function resolveBenchmarkWorkerPoolSize(hardwareConcurrency?: number): number {
+  const rawConcurrency = hardwareConcurrency || 4;
+  const clampedConcurrency = Math.max(1, Math.floor(rawConcurrency));
+  return Math.max(1, Math.min(4, clampedConcurrency - 1));
+}
+
 export class WorkerPool<TWorker, TResult> {
   private readonly workers: WorkerSlot<TWorker, TResult>[];
   private readonly queue: QueueEntry<TWorker, TResult>[] = [];

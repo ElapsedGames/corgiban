@@ -183,6 +183,32 @@ describe('solverWorker runtime', () => {
     });
   });
 
+  it('treats BENCH_START as unsupported for solver runtime', async () => {
+    const harness = await setupWorkerHarness();
+
+    harness.emit({
+      type: 'BENCH_START',
+      runId: 'bench-unsupported',
+      protocolVersion: 2,
+      levelRuntime: {
+        levelId: 'test-level',
+        width: 3,
+        height: 3,
+        staticGrid: Uint8Array.from([0, 0, 0, 0, 1, 0, 0, 0, 0]),
+        initialPlayerIndex: 4,
+        initialBoxes: Uint32Array.from([5]),
+      },
+      algorithmId: 'bfsPush',
+    });
+
+    expect(harness.messages[0]).toMatchObject({
+      type: 'SOLVE_ERROR',
+      runId: 'bench-unsupported',
+      protocolVersion: 2,
+      message: 'Unsupported inbound message BENCH_START for solver worker.',
+    });
+  });
+
   it('uses runId from invalid inbound payloads when available', async () => {
     const harness = await setupWorkerHarness();
 

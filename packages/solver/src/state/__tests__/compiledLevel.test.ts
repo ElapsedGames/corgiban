@@ -47,4 +47,26 @@ describe('compileLevel', () => {
     expect(distances[boxCell]).toBe(1);
     expect(distances[playerCell]).toBe(2);
   });
+
+  it('builds one goal-distance map per goal with stable goal indexing', () => {
+    const level = buildLevel(['WWWWWWW', 'WTEPETW', 'WWWWWWW']);
+    const compiled = compileLevel(level);
+
+    const leftGoalGlobal = level.width + 1;
+    const rightGoalGlobal = level.width + 5;
+    const leftGoalCell = compiled.globalToCell[leftGoalGlobal];
+    const rightGoalCell = compiled.globalToCell[rightGoalGlobal];
+    const playerCell = compiled.globalToCell[level.initialPlayerIndex];
+
+    expect(Array.from(compiled.goalCells)).toEqual([leftGoalCell, rightGoalCell]);
+    expect(compiled.goalDistances).toHaveLength(2);
+
+    const [distFromLeftGoal, distFromRightGoal] = compiled.goalDistances;
+    expect(distFromLeftGoal[leftGoalCell]).toBe(0);
+    expect(distFromLeftGoal[playerCell]).toBe(2);
+    expect(distFromLeftGoal[rightGoalCell]).toBe(4);
+    expect(distFromRightGoal[rightGoalCell]).toBe(0);
+    expect(distFromRightGoal[playerCell]).toBe(2);
+    expect(distFromRightGoal[leftGoalCell]).toBe(4);
+  });
 });

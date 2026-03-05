@@ -129,4 +129,29 @@ describe('undo', () => {
     expect(backToInitial.stats.moves).toBe(0);
     validateInvariants(backToInitial);
   });
+
+  it('reverts a push followed by a non-push move one step at a time', () => {
+    const level = buildLevel(['WWWWWW', 'WPBEEW', 'WWWWWW']);
+    const initial = createGame(level);
+
+    const afterPush = applyMove(initial, 'R').state;
+    const afterNonPush = applyMove(afterPush, 'L').state;
+
+    const afterUndoNonPush = undo(afterNonPush);
+    expect(afterUndoNonPush.playerIndex).toBe(afterPush.playerIndex);
+    expect(Array.from(afterUndoNonPush.boxes)).toEqual(Array.from(afterPush.boxes));
+    expect(Array.from(afterUndoNonPush.boxes)).not.toEqual(Array.from(initial.boxes));
+    expect(afterUndoNonPush.history).toHaveLength(1);
+    expect(afterUndoNonPush.stats.moves).toBe(1);
+    expect(afterUndoNonPush.stats.pushes).toBe(1);
+    validateInvariants(afterUndoNonPush);
+
+    const afterUndoPush = undo(afterUndoNonPush);
+    expect(afterUndoPush.playerIndex).toBe(initial.playerIndex);
+    expect(Array.from(afterUndoPush.boxes)).toEqual(Array.from(initial.boxes));
+    expect(afterUndoPush.history).toHaveLength(0);
+    expect(afterUndoPush.stats.moves).toBe(0);
+    expect(afterUndoPush.stats.pushes).toBe(0);
+    validateInvariants(afterUndoPush);
+  });
 });

@@ -167,6 +167,10 @@ function handleInboundMessage(message: WorkerInboundMessage): void {
       runSolve(message);
       return;
     }
+    case 'BENCH_START': {
+      postSolveError(message.runId, 'Unsupported inbound message BENCH_START for solver worker.');
+      return;
+    }
     default: {
       const unsupported: never = message;
       throw new Error(`Unsupported inbound message ${(unsupported as { type: string }).type}.`);

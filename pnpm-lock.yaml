@@ -49,6 +49,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@corgiban/benchmarks':
+        specifier: workspace:*
+        version: link:../../packages/benchmarks
       '@corgiban/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -111,7 +114,14 @@ importers:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@25.3.2)
 
-  packages/benchmarks: {}
+  packages/benchmarks:
+    dependencies:
+      '@corgiban/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@corgiban/solver':
+        specifier: workspace:*
+        version: link:../solver
 
   packages/core:
     dependencies:

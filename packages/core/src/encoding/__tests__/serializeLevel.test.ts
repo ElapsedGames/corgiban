@@ -51,6 +51,28 @@ describe('serializeLevel', () => {
     expectRuntimeEqual(parsed, reparsed);
   });
 
+  it('serializes levels with no boxes using only wall/player/floor/target tokens', () => {
+    const level: LevelRuntime = {
+      levelId: 'zero-boxes',
+      width: 4,
+      height: 2,
+      staticGrid: Uint8Array.from([
+        STATIC_WALL,
+        STATIC_TARGET,
+        STATIC_FLOOR,
+        STATIC_WALL,
+        STATIC_FLOOR,
+        STATIC_FLOOR,
+        STATIC_TARGET,
+        STATIC_FLOOR,
+      ]),
+      initialPlayerIndex: 5,
+      initialBoxes: Uint32Array.from([]),
+    };
+
+    expect(serializeLevel(level)).toEqual(['WTEW', 'EPTE']);
+  });
+
   it('throws when staticGrid size does not match width*height', () => {
     const level: LevelRuntime = {
       levelId: 'invalid-grid',

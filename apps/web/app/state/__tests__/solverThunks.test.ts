@@ -12,6 +12,7 @@ import {
   retryWorker,
   startSolve,
 } from '../solverThunks';
+import { benchSlice } from '../benchSlice';
 import { gameSlice, nextLevel } from '../gameSlice';
 import { settingsSlice } from '../settingsSlice';
 import { createAppStore } from '../store';
@@ -31,6 +32,7 @@ import {
 } from '../solverSlice';
 
 const baseState = () => ({
+  bench: benchSlice.reducer(undefined, { type: 'unknown' }),
   game: gameSlice.reducer(undefined, { type: 'unknown' }),
   settings: settingsSlice.reducer(undefined, { type: 'unknown' }),
   solver: solverSlice.reducer(undefined, { type: 'unknown' }),
@@ -295,6 +297,151 @@ describe('solverThunks', () => {
 
     const dispatch = vi.fn();
     await startSolve({ levelRuntime })(dispatch, () => baseState(), { solverPort });
+
+    expect(
+      (capturedOptions[0] as { timeBudgetMs?: number; nodeBudget?: number }).timeBudgetMs,
+    ).toBe(DEFAULT_SOLVER_TIME_BUDGET_MS);
+    expect((capturedOptions[0] as { timeBudgetMs?: number; nodeBudget?: number }).nodeBudget).toBe(
+      DEFAULT_NODE_BUDGET,
+    );
+  });
+
+  it('uses settings-backed budget defaults when they are valid', async () => {
+    const levelRuntime = parseLevel({ id: 'level', name: 'Level', rows: ['P'] });
+    const capturedOptions: unknown[] = [];
+
+    const solverPort: SolverPort = {
+      startSolve: async (request) => {
+        capturedOptions.push(request.options);
+        return {
+          runId: request.runId,
+          algorithmId: request.algorithmId,
+          status: 'unsolved',
+          metrics: {
+            elapsedMs: 0,
+            expanded: 0,
+            generated: 0,
+            maxDepth: 0,
+            maxFrontier: 0,
+            pushCount: 0,
+            moveCount: 0,
+          },
+        };
+      },
+      cancelSolve: () => undefined,
+      pingWorker: async () => undefined,
+      retryWorker: () => undefined,
+      getWorkerHealth: () => 'idle',
+      subscribeWorkerHealth: () => () => undefined,
+      dispose: () => undefined,
+    };
+
+    const dispatch = vi.fn();
+    const getState = () => ({
+      ...baseState(),
+      settings: {
+        ...baseState().settings,
+        solverTimeBudgetMs: 12_345,
+        solverNodeBudget: 678_901,
+      },
+    });
+
+    await startSolve({ levelRuntime })(dispatch, getState, { solverPort });
+
+    expect(
+      (capturedOptions[0] as { timeBudgetMs?: number; nodeBudget?: number }).timeBudgetMs,
+    ).toBe(12_345);
+    expect((capturedOptions[0] as { timeBudgetMs?: number; nodeBudget?: number }).nodeBudget).toBe(
+      678_901,
+    );
+  });
+
+  it('falls back to solver constants when settings budgets are invalid', async () => {
+    const levelRuntime = parseLevel({ id: 'level', name: 'Level', rows: ['P'] });
+    const capturedOptions: unknown[] = [];
+
+    const solverPort: SolverPort = {
+      startSolve: async (request) => {
+        capturedOptions.push(request.options);
+        return {
+          runId: request.runId,
+          algorithmId: request.algorithmId,
+          status: 'unsolved',
+          metrics: {
+            elapsedMs: 0,
+            expanded: 0,
+            generated: 0,
+            maxDepth: 0,
+            maxFrontier: 0,
+            pushCount: 0,
+            moveCount: 0,
+          },
+        };
+      },
+      cancelSolve: () => undefined,
+      pingWorker: async () => undefined,
+      retryWorker: () => undefined,
+      getWorkerHealth: () => 'idle',
+      subscribeWorkerHealth: () => () => undefined,
+      dispose: () => undefined,
+    };
+
+    const dispatch = vi.fn();
+    const getState = () => ({
+      ...baseState(),
+      settings: {
+        ...baseState().settings,
+        solverTimeBudgetMs: 0,
+        solverNodeBudget: -1,
+      },
+    });
+
+    await startSolve({ levelRuntime })(dispatch, getState, { solverPort });
+
+    expect(
+      (capturedOptions[0] as { timeBudgetMs?: number; nodeBudget?: number }).timeBudgetMs,
+    ).toBe(DEFAULT_SOLVER_TIME_BUDGET_MS);
+    expect((capturedOptions[0] as { timeBudgetMs?: number; nodeBudget?: number }).nodeBudget).toBe(
+      DEFAULT_NODE_BUDGET,
+    );
+  });
+
+  it('falls back to valid defaults when caller supplies invalid budget options', async () => {
+    const levelRuntime = parseLevel({ id: 'level', name: 'Level', rows: ['P'] });
+    const capturedOptions: unknown[] = [];
+
+    const solverPort: SolverPort = {
+      startSolve: async (request) => {
+        capturedOptions.push(request.options);
+        return {
+          runId: request.runId,
+          algorithmId: request.algorithmId,
+          status: 'unsolved',
+          metrics: {
+            elapsedMs: 0,
+            expanded: 0,
+            generated: 0,
+            maxDepth: 0,
+            maxFrontier: 0,
+            pushCount: 0,
+            moveCount: 0,
+          },
+        };
+      },
+      cancelSolve: () => undefined,
+      pingWorker: async () => undefined,
+      retryWorker: () => undefined,
+      getWorkerHealth: () => 'idle',
+      subscribeWorkerHealth: () => () => undefined,
+      dispose: () => undefined,
+    };
+
+    const dispatch = vi.fn();
+    await startSolve({ levelRuntime, options: { timeBudgetMs: 0, nodeBudget: -1 } })(
+      dispatch,
+      () => baseState(),
+      { solverPort },
+    );
 
     expect(
       (capturedOptions[0] as { timeBudgetMs?: number; nodeBudget?: number }).timeBudgetMs,

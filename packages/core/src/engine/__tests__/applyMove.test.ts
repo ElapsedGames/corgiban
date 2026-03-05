@@ -191,16 +191,41 @@ describe('applyMove', () => {
     validateInvariants(result.state);
   });
 
-  it('is deterministic across identical move sequences', () => {
-    const level = buildLevel(['WWWWW', 'WPBEW', 'WTEEW', 'WWWWW']);
-    const moves: Direction[] = ['R', 'R', 'L', 'D', 'L', 'U', 'U', 'R'];
+  it('applies a move sequence to the expected final state', () => {
+    const level = buildLevel(['WWWWW', 'WPBEW', 'WETEW', 'WWWWW']);
+    const moves: Direction[] = ['R', 'D', 'L'];
 
-    const first = runMoves(level, moves);
-    const second = runMoves(level, moves);
+    const result = runMoves(level, moves);
 
-    expect(first.playerIndex).toBe(second.playerIndex);
-    expect(Array.from(first.boxes)).toEqual(Array.from(second.boxes));
-    expect(first.stats).toEqual(second.stats);
-    expect(first.history).toEqual(second.history);
+    expect(result.playerIndex).toBe(11);
+    expect(Array.from(result.boxes)).toEqual([8]);
+    expect(result.stats).toEqual({
+      moves: 3,
+      pushes: 1,
+    });
+    expect(result.history).toHaveLength(3);
+    expect(result.history.map((entry) => entry.pushed)).toEqual([true, false, false]);
+    expect(result.history[0]).toMatchObject({
+      prevPlayerIndex: 6,
+      movedBoxFrom: 7,
+      movedBoxTo: 8,
+      pushed: true,
+    });
+    validateInvariants(result);
+  });
+
+  it('accumulates stats across multiple moves with pushes and walks', () => {
+    const level = buildLevel(['WWWWWWW', 'WPBEEEW', 'WWWWWWW']);
+    const moves: Direction[] = ['R', 'R', 'L', 'L', 'R'];
+
+    const result = runMoves(level, moves);
+
+    expect(result.playerIndex).toBe(9);
+    expect(Array.from(result.boxes)).toEqual([11]);
+    expect(result.stats.moves).toBe(5);
+    expect(result.stats.pushes).toBe(2);
+    expect(result.history).toHaveLength(5);
+    expect(result.history.map((entry) => entry.pushed)).toEqual([true, true, false, false, false]);
+    validateInvariants(result);
   });
 });

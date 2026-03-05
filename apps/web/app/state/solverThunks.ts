@@ -45,6 +45,13 @@ function isRunCancelledError(error: unknown): boolean {
   return error instanceof Error && error.name === 'SolverRunCancelledError';
 }
 
+function resolvePositiveBudget(value: number | undefined, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+  return Math.max(1, Math.floor(value));
+}
+
 export type StartSolveArgs = {
   levelRuntime: LevelRuntime;
   algorithmId?: AlgorithmId;
@@ -112,6 +119,17 @@ export const startSolve =
       recommendedAlgorithmId,
     );
     const runId = nextRunId();
+    const settings = getState().settings;
+    const defaultTimeBudgetMs = resolvePositiveBudget(
+      settings.solverTimeBudgetMs,
+      DEFAULT_SOLVER_TIME_BUDGET_MS,
+    );
+    const defaultNodeBudget = resolvePositiveBudget(settings.solverNodeBudget, DEFAULT_NODE_BUDGET);
+    const mergedOptions = {
+      ...options,
+      timeBudgetMs: resolvePositiveBudget(options?.timeBudgetMs, defaultTimeBudgetMs),
+      nodeBudget: resolvePositiveBudget(options?.nodeBudget, defaultNodeBudget),
+    };
 
     dispatch(solveRunStarted({ runId, algorithmId: selectedAlgorithmId }));
 
@@ -120,11 +138,7 @@ export const startSolve =
         runId,
         levelRuntime,
         algorithmId: selectedAlgorithmId,
-        options: {
-          timeBudgetMs: DEFAULT_SOLVER_TIME_BUDGET_MS,
-          nodeBudget: DEFAULT_NODE_BUDGET,
-          ...options,
-        },
+        options: mergedOptions,
         onProgress: (progress) => {
           dispatch(solveProgressReceived({ runId, progress }));
         },

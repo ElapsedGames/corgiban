@@ -37,4 +37,28 @@ describe('computeReachability', () => {
       'Player start cell is occupied by a box.',
     );
   });
+
+  it('returns only the start cell when the player is isolated by walls', () => {
+    const level = buildLevel(['WWW', 'WPW', 'WWW']);
+    const compiled = compileLevel(level);
+    const playerCell = compiled.globalToCell[level.initialPlayerIndex];
+    const occupancy = buildOccupancy(compiled.cellCount, new Uint16Array(0));
+
+    const result = computeReachability(compiled, playerCell, occupancy);
+
+    expect(result.count).toBe(1);
+    expect(result.minCellId).toBe(playerCell);
+    expect(result.reachable.toArray()).toEqual([playerCell]);
+  });
+
+  it('throws when the start cell id is out of bounds', () => {
+    const level = buildLevel(['WWWW', 'WPEW', 'WWWW']);
+    const compiled = compileLevel(level);
+    const occupancy = buildOccupancy(compiled.cellCount, new Uint16Array(0));
+
+    expect(() => computeReachability(compiled, -1, occupancy)).toThrow('out of bounds');
+    expect(() => computeReachability(compiled, compiled.cellCount, occupancy)).toThrow(
+      'out of bounds',
+    );
+  });
 });

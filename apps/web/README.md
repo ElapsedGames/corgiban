@@ -11,14 +11,24 @@ Remix application containing the product UI, routes, and orchestration.
 - Worker clients (via ports/adapters) for solver + benchmarks
 - Persistence adapters (IndexedDB, File System Access export/import)
 
-## Current status (Phase 3 solver integration)
+## Current status (Phase 4 benchmark + settings integration)
 
-- Routes: `/play` (interactive), `/bench` (placeholder), and `/dev/ui-kit` (design system); `/lab` is still planned.
-- State: RTK store includes `game`, `solver`, and `settings` slices; bench slice is pending.
-- Play: GameState is derived from move history using core helpers; render plan split and keyboard/sequence input are wired. Solver panel runs/cancels solves, shows progress, and can apply/animate results.
-- Level-change workflow: `handleLevelChange` thunk cancels any active solve before resetting solver run state and recomputing recommendation.
+- Routes: `/play` (interactive), `/bench` (benchmark workflows), and `/dev/ui-kit` (design system); `/lab` is still planned.
+- State: RTK store includes `game`, `solver`, `bench`, and `settings` slices.
+- Play:
+  - GameState is derived from move history using core helpers.
+  - Solver panel runs/cancels solves, shows progress, and can apply/animate results.
+  - Settings include default solver budgets (time/node), and `/play` solve orchestration uses those defaults with defensive fallback to solver constants.
+  - Optional env toggle: `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` enables light validation mode for high-frequency `SOLVE_PROGRESS` messages in the solver client; strict mode remains default.
+- Bench:
+  - `/bench` renders suite builder, run/cancel controls, diagnostics, persisted results, and import/export controls.
+  - Bench workflow uses injected ports (`BenchmarkPort`, `PersistencePort`) via thunks; UI components do not call persistence adapters directly.
+  - Worker-level benchmark progress streaming is spectator-only and adapter-gated; `/bench` keeps spectator stream disabled unless a per-run worker-progress consumer is explicitly attached.
+  - Persistence initialization feature-detects `navigator.storage.persist()` and records diagnostics (`granted | denied | unsupported`), with console logging only in dev+debug mode.
+  - Performance instrumentation (`performance.mark/measure`) is observed via `PerformanceObserver` and rendered in a debug perf panel.
+  - File System Access API export/import is feature-detected with fallback to anchor download and file input.
 - Replay: controller is wired to solver playback controls.
-- Store lifecycle: `/play` creates a route-scoped store with injected `SolverPort` and disposes it on route unmount.
+- Store lifecycle: route-scoped stores inject ports and dispose worker/persistence resources on unmount.
 - Solver recommendation/availability contract: `chooseAlgorithm` only recommends implemented ids; when enabling new algorithms, keep solver `IMPLEMENTED_ALGORITHM_IDS` and `/play` option enablement in sync.
 
 ## Non-responsibilities

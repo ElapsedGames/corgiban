@@ -44,6 +44,7 @@ When starting any task, read these in order:
    - `packages/levels/README.md`
    - `packages/solver/README.md`
    - `packages/worker/README.md`
+   - `packages/benchmarks/README.md`
    - `apps/web/README.md`
 
 If documentation is missing, create the smallest doc needed (see Documentation routing).
@@ -80,7 +81,8 @@ If documentation is missing, create the smallest doc needed (see Documentation r
 
 - `SharedArrayBuffer` and `Atomics` are banned in all authored repo code (production, tests, and `tools/`).
 - `packages/core` and `packages/solver` must not use `Date`/`Date.now` directly.
-- If wall-clock time is needed, source it through `packages/shared/src/time.ts` and pass values via explicit parameters at boundaries.
+- If wall-clock time is needed, pass a clock source explicitly at boundaries (for example a
+  `nowMs` callback in solver context) rather than coupling core/solver to ambient globals.
 - Typed arrays returned by `packages/core` and `packages/solver` are treated as immutable snapshots. Consumers must not mutate them.
 
 ---
@@ -253,6 +255,11 @@ Validate both directions:
 
 - main thread validates worker responses
 - worker validates main thread requests
+- high-frequency progress validation may use a documented light mode, but structural
+  messages (`SOLVE_START`, `BENCH_START`, `SOLVE_RESULT`, `BENCH_RESULT`, `SOLVE_ERROR`,
+  `PING`, `PONG`) remain strict-schema validated
+- `BENCH_PROGRESS` streaming is opt-in (`enableSpectatorStream`); do not emit high-frequency
+  benchmark progress when no consumer is attached
 
 ### 7.3 Never silently ignore configuration fields
 
@@ -279,6 +286,9 @@ Validate both directions:
 - `packages/solver-kernels` (when introduced) stays TS-first; WASM promotion uses Rust +
   `wasm-pack`, lazy-loaded in workers via `fetch` + `WebAssembly.instantiateStreaming` with
   fallback to `WebAssembly.instantiate`.
+- Optional `/play` validation-path toggle:
+  `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` enables solver-client outbound
+  `light-progress` validation for `SOLVE_PROGRESS`; default remains strict validation.
 - Keep Redux state/actions JSON-serializable; keep typed-array runtime caches outside Redux.
 
 ---
@@ -439,12 +449,21 @@ the archive includes the current worktree.
 - schemas updated on both sides
 - protocol versioning respected
 - client and worker tests added or updated
+- for validation-path changes, run `node tools/scripts/profile-worker-validation.mjs` and
+  refresh `docs/_generated/analysis/phase-04-protocol-validation-profile.md`
 
 ### 13.4 If you touch benchmarks
 
 - persistence schema migration considered (IndexedDB)
 - results remain comparable across runs (metadata captured)
+- benchmark report payloads are typed/versioned with explicit `exportModel`; current baseline model is `multi-suite-history`
+- benchmark report imports reject unsupported versions/models and invalid records with explicit errors
+- level-pack imports currently support compatibility shapes (`levelIds` / `levels[].id`); strict type/version level-pack contracts are Phase 6 hardening work
 - time/node budgets enforced
+- browser capability checks are explicit (`navigator.storage.persist`, File System Access APIs)
+- unsupported browser APIs use documented fallback paths, not hard errors
+- diagnostics capture storage persistence outcome and persistence errors; repository durability health split is a Phase 5 follow-up
+- perf instrumentation uses `performance.mark/measure` with observer-driven diagnostics in debug flows
 
 ---
 

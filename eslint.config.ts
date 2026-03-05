@@ -129,6 +129,7 @@ export default [
       '**/build/**',
       '**/coverage/**',
       '**/artifacts/**',
+      '**/.claude/**',
       '**/docs/_generated/**',
     ],
   },

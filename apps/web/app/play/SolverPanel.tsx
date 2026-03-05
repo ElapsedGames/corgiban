@@ -1,7 +1,11 @@
+import { useDispatch, useSelector } from 'react-redux';
 import type { AlgorithmId } from '@corgiban/solver';
 import { ALGORITHM_IDS, DEFAULT_ALGORITHM_ID, isImplementedAlgorithmId } from '@corgiban/solver';
 
 import type { WorkerHealth } from '../ports/solverPort';
+import type { AppDispatch, RootState } from '../state';
+import { setSolverNodeBudget, setSolverTimeBudgetMs } from '../state/settingsSlice';
+import { Input } from '../ui/Input';
 import type {
   ReplayState,
   SolverProgressState,
@@ -55,6 +59,46 @@ function recommendationLabel(recommendation: SolverRecommendation | null): strin
 
   const { algorithmId, features } = recommendation;
   return `Recommended: ${algorithmId} (${features.boxCount} boxes, ${features.width}x${features.height})`;
+}
+
+function toPositiveInt(value: string, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return Math.max(1, Math.floor(parsed));
+}
+
+function SolverBudgetSettings() {
+  const dispatch = useDispatch<AppDispatch>();
+  const solverTimeBudgetMs = useSelector((state: RootState) => state.settings.solverTimeBudgetMs);
+  const solverNodeBudget = useSelector((state: RootState) => state.settings.solverNodeBudget);
+
+  return (
+    <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <Input
+        label="Default Time Budget (ms)"
+        type="number"
+        min={1}
+        step={1}
+        value={solverTimeBudgetMs}
+        onChange={(event) => {
+          dispatch(setSolverTimeBudgetMs(toPositiveInt(event.target.value, solverTimeBudgetMs)));
+        }}
+      />
+      <Input
+        label="Default Node Budget"
+        type="number"
+        min={1}
+        step={1}
+        value={solverNodeBudget}
+        onChange={(event) => {
+          dispatch(setSolverNodeBudget(toPositiveInt(event.target.value, solverNodeBudget)));
+        }}
+      />
+    </div>
+  );
 }
 
 export function SolverPanel({
@@ -113,6 +157,8 @@ export function SolverPanel({
           ))}
         </Select>
       </div>
+
+      <SolverBudgetSettings />
 
       <SolverControls
         status={status}

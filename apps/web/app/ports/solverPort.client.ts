@@ -11,6 +11,14 @@ function createAppSolverWorker() {
   return new Worker(solverWorkerUrl, { type: 'module', name: 'corgiban-solver' });
 }
 
+function readLightProgressValidationEnv(): boolean {
+  const raw = import.meta.env?.VITE_WORKER_LIGHT_PROGRESS_VALIDATION;
+  if (raw === true || raw === 'true' || raw === 'TRUE' || raw === '1') {
+    return true;
+  }
+  return false;
+}
+
 function mapProgressMessage(
   runId: string,
   message: {
@@ -36,7 +44,10 @@ function mapProgressMessage(
 }
 
 export function createSolverPort(): SolverPort {
-  const client = createSolverClient({ createWorker: createAppSolverWorker });
+  const client = createSolverClient({
+    createWorker: createAppSolverWorker,
+    outboundValidationMode: readLightProgressValidationEnv() ? 'light-progress' : 'strict',
+  });
 
   return {
     async startSolve(request: StartSolveRequest) {

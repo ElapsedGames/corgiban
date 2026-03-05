@@ -12,6 +12,7 @@
     { "path": "../../packages/core" },
     { "path": "../../packages/levels" },
     { "path": "../../packages/solver" },
+    { "path": "../../packages/benchmarks" },
     { "path": "../../packages/worker" }
   ]
 }

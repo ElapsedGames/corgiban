@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { WorkerPool } from '../workerPool.client';
+import { resolveBenchmarkWorkerPoolSize, WorkerPool } from '../workerPool.client';
 
 function createDeferred<T>() {
   let resolve: (value: T) => void;
@@ -261,5 +261,22 @@ describe('WorkerPool', () => {
         run: async () => undefined,
       }),
     ).rejects.toThrow('disposed');
+  });
+});
+
+describe('resolveBenchmarkWorkerPoolSize', () => {
+  it('uses the benchmark default pool formula', () => {
+    expect(resolveBenchmarkWorkerPoolSize(undefined)).toBe(3);
+    expect(resolveBenchmarkWorkerPoolSize(1)).toBe(1);
+    expect(resolveBenchmarkWorkerPoolSize(2)).toBe(1);
+    expect(resolveBenchmarkWorkerPoolSize(4)).toBe(3);
+    expect(resolveBenchmarkWorkerPoolSize(8)).toBe(4);
+  });
+
+  it('falls back for invalid hardwareConcurrency values', () => {
+    expect(resolveBenchmarkWorkerPoolSize(0)).toBe(3);
+    expect(resolveBenchmarkWorkerPoolSize(Number.NaN)).toBe(3);
+    expect(resolveBenchmarkWorkerPoolSize(-1)).toBe(1);
+    expect(resolveBenchmarkWorkerPoolSize(2.9)).toBe(1);
   });
 });

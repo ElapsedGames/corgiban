@@ -41,6 +41,25 @@ describe('Bitset', () => {
     expect(bitset.toArray()).toEqual([0, 1, 2, 3]);
   });
 
+  it('fills with false to clear all bits', () => {
+    const bitset = new Bitset(5);
+    bitset.fill(true);
+    bitset.fill(false);
+
+    expect(bitset.toArray()).toEqual([]);
+  });
+
+  it('builds from iterable indices', () => {
+    const bitset = bitsetFromIndices(6, new Set([1, 4]));
+
+    expect(bitset.toArray()).toEqual([1, 4]);
+  });
+
+  it('throws when constructed with an invalid size', () => {
+    expect(() => new Bitset(-1)).toThrow('non-negative integer');
+    expect(() => new Bitset(1.5)).toThrow('non-negative integer');
+  });
+
   it('throws on out-of-bounds access', () => {
     const bitset = new Bitset(2);
 

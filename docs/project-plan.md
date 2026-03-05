@@ -138,14 +138,17 @@ protocol.ts
 schema.ts
 validation.ts
 runtime/
+benchmarkWorker.ts
 solverWorker.ts
 throttle.ts
 client/
+benchmarkClient.client.ts
 solverClient.client.ts
 workerPool.client.ts
 /benchmarks
 src/
 model/
+benchmarkSchema.ts
 benchmarkTypes.ts
 runner/
 benchmarkRunner.ts
@@ -404,6 +407,8 @@ Use module workers.
   - app adapter url import (Remix/Vite):
     `import solverWorkerUrl from "./solverWorker.client.ts?worker&url";`
     `new Worker(solverWorkerUrl, { type: "module", name: "corgiban-solver" })`
+    `import benchmarkWorkerUrl from "./benchmarkWorker.client.ts?worker&url";`
+    `new Worker(benchmarkWorkerUrl, { type: "module", name: "corgiban-benchmark" })`
 
 All run-scoped worker messages MUST include:
 
@@ -418,12 +423,13 @@ Main -> Worker (implemented in protocol v2 baseline):
 
 - SOLVE_START { runId, protocolVersion, levelRuntime, algorithmId, options }
   Note: algorithmId is always a concrete resolved ID (e.g. 'bfsPush', 'astarPush'). Resolution from level features via analyzeLevel/chooseAlgorithm happens on the main thread before dispatch. The protocol never carries 'auto' or any unresolved value.
+- BENCH_START { runId, protocolVersion, levelRuntime, algorithmId, options, benchmarkCaseId? }
 - PING { protocolVersion }
 
 Main -> Worker (planned protocol extension):
 
 - SOLVE_CANCEL { runId, protocolVersion }
-- BENCH_START { runId, protocolVersion, suite, options }
+- BENCH_CANCEL { runId, protocolVersion }
 
 Worker -> Main (implemented in protocol v2 baseline):
 
@@ -433,11 +439,9 @@ Worker -> Main (implemented in protocol v2 baseline):
   - metrics: elapsedMs, expanded, generated, maxDepth, maxFrontier, pushCount, moveCount
 - SOLVE_ERROR { runId, protocolVersion, message, details? }
 - PONG { protocolVersion }
-
-Worker -> Main (planned protocol extension):
-
-- BENCH_PROGRESS { ... }
-- BENCH_RESULT { ... }
+- BENCH_PROGRESS { runId, protocolVersion, expanded, generated, frontier, depth, elapsedMs, bestHeuristic?, bestPathSoFar?, benchmarkCaseId? }
+  - emitted only when `enableSpectatorStream` is enabled for that run
+- BENCH_RESULT { runId, protocolVersion, status, solutionMoves?, metrics, errorMessage?, errorDetails?, benchmarkCaseId? }
 
 Validation:
 
@@ -448,8 +452,9 @@ Validation:
 Protocol validation posture:
 
 - Phase 3 baseline validates full inbound/outbound protocol messages in all builds.
-- If a reduced production validation mode is introduced later, gate it behind explicit config and
-  require tests for both validation modes.
+- Phase 4 adds an optional `light-progress` path for outbound `SOLVE_PROGRESS` validation only;
+  strict mode remains the default and structural messages remain strict.
+- Any further reduced validation mode must be gated behind explicit config with tests for each mode.
 
 Progress throttling:
 
@@ -468,6 +473,8 @@ Concurrency model:
 - In-flight cancellation in Phase 3 uses solver-client worker reset (terminate + recreate);
   queue cancellation remains runId-based.
 - Worker pool dispose drains queued runs and rejects their promises.
+- Benchmark suite cancellation uses pool disposal plus generation-guarded callback dispatch to
+  ignore stale progress/results after cancel/dispose.
 
 SharedArrayBuffer/Atomics:
 
@@ -519,12 +526,13 @@ Initial Play page must mirror the existing UI shape:
 Canvas rendering:
 
 - React owns layout; rendering is imperative in a renderer module.
-- Do NOT re-render React on every animation frame; use RAF-based drawing with throttled state snapshots.
+- Do NOT re-render React on every animation frame.
 - Renderer is split into two layers:
   - buildRenderPlan(state): RenderPlan - pure function, no canvas dependency, fully unit-tested.
   - draw(ctx, plan): void - thin caller of ctx.drawImage/ctx.fillRect, not directly unit-tested.
   - RenderPlan is serializable and emitted in stable order (deterministic).
-  - The RAF loop calls buildRenderPlan then draw. Only buildRenderPlan requires test coverage.
+  - Draw on state or size changes; reserve RAF for replay/animation flows. Only buildRenderPlan
+    requires direct unit-test coverage.
 
 Replay pipeline:
 
@@ -542,8 +550,8 @@ State slices (RTK):
 - solverSlice: activeRunId, selectedAlgorithmId, latest progress snapshot, last result, status,
   recommendation ({ algorithmId, features } from analyzeLevel), workerHealth ('idle' | 'healthy'
   | 'crashed'), replayState, replayIndex, replayTotalSteps
-- benchSlice: suites, active run status, results, filters
-- settingsSlice: tileAnimationDuration, solverReplaySpeed, theme, debug flags
+- benchSlice: suite config, active run status/progress, persisted results, diagnostics, and perf entries
+- settingsSlice: tileAnimationDuration, solverReplaySpeed, solver budget defaults (time/node), theme, debug flags
 
 Redux serializability strategy (required):
 
@@ -560,12 +568,12 @@ Worker failure recovery:
 - On either event: set workerHealth to 'crashed' in solverSlice; surface "Solver crashed - retry" state in the solver panel.
 - retryWorker thunk tears down the current worker client and recreates it cleanly, resetting workerHealth to 'idle'.
 - Solver panel renders a Retry button when workerHealth === 'crashed'.
-- Bench worker/pool health is tracked similarly and surfaced in benchSlice.
+- Benchmark run failures/cancellations are surfaced through bench status + diagnostics state.
 
 Side-effects:
 
 - Use thunks for starting/cancelling solver runs and benchmark runs.
-- Store wiring currently injects `SolverPort`; add `BenchmarkPort` when bench workflows are implemented so UI never calls workers directly.
+- Store wiring injects `SolverPort`, `BenchmarkPort`, and `PersistencePort` at creation.
 - startSolve thunk calls analyzeLevel + chooseAlgorithm, stores recommendation in solverSlice, then dispatches SOLVE_START with the resolved algorithmId.
 - Async failures in thunks/ports are converted to typed slice errors (no uncaught promise paths in UI components).
 
@@ -583,26 +591,30 @@ Design system primitives (minimal, Tailwind-based):
 
 Benchmark model:
 
-- BenchmarkSuite: levelIds[], algorithmConfigs[], repetitions, budgets (time/node)
+- BenchmarkSuite (app): levelIds[], algorithmIds[], repetitions, budgets (time/node)
 - Results captured with environment metadata (UA, cores, build version)
 
 Execution:
 
 - Run benchmarks in worker pool; default pool size: max(1, min(4, (navigator.hardwareConcurrency || 4) - 1)).
-- Warm-up: opt-in toggle in suite builder, default off. When enabled, warm-up iterations run first and their results are discarded; only timed runs are stored. The warm-up setting is recorded per result for comparability.
+- Warm-up capability exists in `packages/benchmarks` (`warmupRepetitions`), but `/bench` currently runs measured repetitions only; warm-up UI controls are deferred to Phase 6 (Task 11).
 - Each stored result includes the full solver options used (algorithmId, heuristic, budgets) so runs are strictly comparable.
 - Persist results locally using IndexedDB via an adapter (do not access persistence directly from UI components).
-- IndexedDB schema: define DB_VERSION constant in packages/benchmarks; migration logic (onupgradeneeded) lives in apps/web/app persistence adapter with unit tests covering version upgrades. Retention: cap at 100 stored runs (configurable); provide "Clear storage" action in bench settings.
+- IndexedDB schema: define `BENCHMARK_DB_VERSION` and schema constants in packages/benchmarks; migration logic (onupgradeneeded) lives in apps/web/app persistence adapter with unit tests covering version upgrades. Retention: cap at 100 stored runs (configurable); provide "Clear storage" action in bench settings.
 - Compression is deferred.
 - Call navigator.storage.persist() on adapter init (feature-detected); record the result in bench diagnostics and log only in dev/debug mode.
-- Instrument with performance.mark/measure around solve dispatch, worker response, and result write; surface via PerformanceObserver in a debug/perf panel.
+- Instrument with performance.mark/measure around solve dispatch and worker response; surface via PerformanceObserver in a debug/perf panel.
 
 UI:
 
-- suite builder (levels, algorithms, budgets)
+- suite builder (levels, algorithms, repetitions, budgets)
 - run/cancel
+- diagnostics panel for status/progress/persistence outcome/errors
 - results table (sortable; virtualize if large)
 - export/import JSON for benchmark runs and level packs (File System Access API with fallback to anchor-download)
+- Benchmark report export semantics (Phase 4 baseline): export retained benchmark history with explicit `type`, `version`, and `exportModel` (`multi-suite-history`) plus strict run-record `results`.
+- Benchmark report schema policy: accept only explicitly supported `type`/`version`/`exportModel` combinations; reject unsupported versions/models and invalid records with user-visible errors. Record validation must enforce required solver options and enum-like fields for comparability.
+- Level-pack import baseline: accept `levelIds[]` or `levels[].id` payload shapes and filter to known built-in ids; strict typed/versioned level-pack contracts are deferred to Phase 6 (Task 11).
 - perf panel (visible when debug flag is set): shows PerformanceObserver entries for solver and bench timing
 
 # ==================================================================== 8) TESTING, LINTING, CI SCRIPTS (MUST BE INCLUDED)
@@ -677,7 +689,7 @@ Other documentation:
 - Ensure /docs/dev-tools-spec.md exists and defines boundary/tooling implementation details.
 - Ensure /docs/Engineering-Process-Playbook.md exists and defines process/governance flow.
 - Ensure root /LLM_GUIDE.md exists as canonical and root /AGENTS.md and /CLAUDE.md exist as short wrappers pointing to it.
-- Add short package READMEs where useful (core/solver/worker/web) describing public APIs and boundaries.
+- Add short package READMEs where useful (core/solver/worker/benchmarks/web) describing public APIs and boundaries.
 - Add ADRs only when introducing new cross-cutting patterns beyond what's specified here.
 
 Keep docs short and current.
@@ -718,7 +730,7 @@ Status: Complete (Phase 2 scope delivered in this PR)
 2. Remix route modules for /play, /bench, /dev/ui-kit with route-level ErrorBoundary exports
 3. RTK store + gameSlice
 4. Add core helpers applyMoves and selectCellAt with tests (Phase 2 glue)
-5. Canvas renderer split: buildRenderPlan(state): RenderPlan (pure, tested) + draw(ctx, plan): void (thin, untested); RAF loop; keyboard input + move history + restart + undo + next level
+5. Canvas renderer split: buildRenderPlan(state): RenderPlan (pure, tested) + draw(ctx, plan): void (thin, untested); draw-on-change render loop; keyboard input + move history + restart + undo + next level
 6. Sequence input applies moves deterministically
 7. Add /dev/ui-kit route rendering all design system primitives
 
@@ -734,9 +746,10 @@ Status: Complete (Phase 3 scope delivered).
 5. Add solverSlice (recommendation + workerHealth fields) + UI panel: show recommendation, run/cancel, progress, apply/animate solution, retry crashed worker
 
 Phase 4 - Benchmark page
-Decision dependencies: ADR-0007 (IndexedDB model, migration policy, retention), ADR-0013 (Phase 3 cancellation baseline), and ADR-0003 (protocol validation strategy).
+Decision dependencies: ADR-0007 (IndexedDB model, migration policy, retention), ADR-0013 (Phase 3 cancellation baseline), ADR-0014 (benchmark cancellation semantics), ADR-0003 (protocol validation strategy), and ADR-0015 (progress light-validation mode).
+Status: Complete (Phase 4 scope delivered in this PR, including a scoped optional `light-progress` validation path for SOLVE_PROGRESS while keeping strict mode as default)
 
-1. Benchmark models + runner in packages/benchmarks; define DB_VERSION and IndexedDB schema; add migration tests covering version upgrades
+1. Benchmark models + runner in packages/benchmarks; define `BENCHMARK_DB_VERSION` + schema constants and IndexedDB schema; add migration tests covering version upgrades
 2. Worker pool for benchmark runs: max(1, min(4, (navigator.hardwareConcurrency || 4) - 1))
 3. Bench page UI with suite builder + results + persistence adapter (IndexedDB)
 4. Call navigator.storage.persist() on adapter init when feature-detected; record outcome in bench diagnostics and log only in dev/debug
@@ -744,24 +757,28 @@ Decision dependencies: ADR-0007 (IndexedDB model, migration policy, retention), 
 6. File System Access API export/import for benchmark reports and level packs (anchor-download fallback)
 7. Extend protocol schema union discriminator tests when adding BENCH\_\* messages (SOLVE + unknown-type coverage already exists)
 8. Revisit solver client cancellation semantics for pooled execution: enforce one active run per SolverClient instance or implement run-scoped in-flight cancellation; update or supersede ADR-0013.
-9. Profile protocol validation overhead under benchmark load; if SOLVE_PROGRESS validation is a bottleneck, keep strict validation for structural messages and use a lighter or gated path for high-frequency progress messages.
+9. Profile protocol validation overhead under benchmark load (`node tools/scripts/profile-worker-validation.mjs` writes `docs/_generated/analysis/phase-04-protocol-validation-profile.md`); if SOLVE_PROGRESS validation is a bottleneck, keep strict validation for structural messages and use a lighter or gated path for high-frequency progress messages.
 10. Add solver budget controls to Settings UI (time/node defaults), persist via settingsSlice, and apply them to `/play` solve orchestration defaults.
 
 Phase 5 - Quality and offline
+Decision dependencies: ADR-0016 (benchmark export artifact + import contract policy).
 
 1. Add/raise coverage gates to >=95%
 2. Add boundary lint rules and ensure no violations
-3. Add minimal Playwright smoke test (play a level, run a bench, verify IndexedDB persistence)
-4. Add PWA: service worker/Workbox integration compatible with Remix hosting; verify app loads without network
+3. Add minimal Playwright smoke test (play a level, run a bench, verify IndexedDB persistence) [deferred from Phase 4]
+4. Add PWA: service worker/Workbox integration compatible with Remix hosting; verify app loads without network [deferred from Phase 4]
 5. Add solver-client ping timeout hardening: `ping(timeoutMs)` default timeout, reject hung pings deterministically, set worker health to crashed on timeout, and cover with unit tests.
+6. Bench diagnostics operability follow-up (deferred from Phase 4): surface persistence health separately from `navigator.storage.persist()` outcome. Acceptance: diagnostics must distinguish at least `durable | memory-fallback | unavailable` (or equivalent `repositoryHealth`) and reflect repository init/load failures even when persist outcome is `granted`.
 
 Deferred notes:
 
 - ReplayController dispatches slice actions directly; consider injecting callbacks or ports when solverSlice expands.
 - encoding-check.mjs skips null-byte files; consider hard-failing instead of skipping.
 - Replay controller tests rely on action type strings; re-audit when solverSlice expands.
-- /play Redux Provider is scoped to the route until cross-route state sharing is needed.
-- RenderPlan build is O(cells x boxes); no measured perf issue with current Sokoban sizes or the idle draw loop. Revisit only if profiling shows regressions.
+- /play Redux Provider is scoped to the route until cross-route state sharing is needed; keep this unscheduled until a concrete cross-route workflow requires shared store ownership.
+- Protocol-level `SOLVE_CANCEL` and `BENCH_CANCEL` remain out of protocol v2 and are unscheduled; revisit only in a future protocol-version ADR after current queue/dispose cancellation semantics are insufficient.
+- Persistence degradation visibility is tracked for Phase 5 (Task 6) with explicit acceptance criteria so memory-fallback mode is user-visible in diagnostics.
+- RenderPlan build is O(cells x boxes); no measured perf issue with current Sokoban sizes or the draw-on-change pipeline. Revisit only if profiling shows regressions.
 - Two sources of truth (GameState ref + Redux history) are intentional in Phase 2; revisit if replay or solver integration needs shared state outside /play.
 - Canvas distortion on small screens needs a responsive cellSize design; schedule a dedicated PR.
 - A11y gaps (Dialog focus trap, Tabs arrow navigation, Tooltip aria-describedby merge) are deferred while primitives are only used in /dev/ui-kit; fix before they move into user-facing routes.
@@ -770,7 +787,7 @@ Deferred notes:
 - Process: keep PR scope manageable; split when Phase 2 and Phase 3 changes start to mix.
 
 Phase 6 - Adapters, tooling, and performance
-Decision dependencies: ADR-0006 (embed Shadow DOM and styling delivery strategy) and ADR-0010 (format interop policy).
+Decision dependencies: ADR-0006 (embed Shadow DOM and styling delivery strategy), ADR-0010 (format interop policy), and ADR-0016 (benchmark export/import contract policy).
 
 1. Level Lab page (/lab): level editor (text input for row encoding) + preview/play area + one-click solver/bench run + export/import JSON
 2. formats package: XSB/SOK/SLC import/export with full SOK 0.17 grammar, normalization rules, and variant detection; integrate with Level Lab and import/export flows
@@ -785,6 +802,10 @@ Decision dependencies: ADR-0006 (embed Shadow DOM and styling delivery strategy)
    - Race result screen shows winner by elapsedMs and plays back each solution.
    - Depends on worker pool, bestPathSoFar in SOLVE_PROGRESS, and SolverPersonality type.
 7. Profile and reduce solve-progress overhead by consolidating throttling strategy across solver and worker: choose one primary throttle layer, avoid per-expansion progress churn, and verify effective progress cadence under load.
+8. Benchmark analytics follow-up: add aggregate views (for example success rate and p50/p95 elapsed time) for persisted benchmark runs.
+9. Benchmark comparison UX follow-up: add multi-suite comparison workflows (baseline selection, diff tables/charts, and exportable comparison snapshots).
+10. Benchmark/report import hardening (deferred from Phase 4): enforce a versioned benchmark report parser with strict record validation (required solver `options`, validated enum-like fields, explicit unsupported-version errors) and define compatibility behavior for future schema versions.
+11. Level pack import contract hardening + warm-up UX follow-up (deferred from Phase 4): require versioned level-pack payloads (`type` + `version`) and add `/bench` warm-up controls (`warmupRepetitions`) with clear separation of warm-up vs measured runs in UI copy and exported metadata.
 
 Phase 7 - Optional browser-dev adapters
 

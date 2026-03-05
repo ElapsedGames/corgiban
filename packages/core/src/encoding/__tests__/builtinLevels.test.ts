@@ -22,6 +22,11 @@ describe('builtinLevels', () => {
       expect(result.staticGrid.length).toBe(result.width * result.height);
       expect(result.initialPlayerIndex).toBeGreaterThanOrEqual(0);
       expect(result.initialPlayerIndex).toBeLessThan(result.staticGrid.length);
+
+      const boxes = Array.from(result.initialBoxes);
+      for (let index = 1; index < boxes.length; index += 1) {
+        expect(boxes[index]).toBeGreaterThan(boxes[index - 1]);
+      }
     }
   });
 });

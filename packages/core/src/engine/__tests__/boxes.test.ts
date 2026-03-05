@@ -24,6 +24,14 @@ describe('moveBoxSorted', () => {
     expect(Array.from(result)).toEqual([5, 7, 9]);
   });
 
+  it('returns an identical copy when source and destination are the same', () => {
+    const boxes = Uint32Array.from([1, 5, 9]);
+    const result = moveBoxSorted(boxes, 5, 5);
+
+    expect(Array.from(result)).toEqual([1, 5, 9]);
+    expect(result).not.toBe(boxes);
+  });
+
   it('throws when the box is not found', () => {
     const boxes = Uint32Array.from([2, 4]);
     expect(() => moveBoxSorted(boxes, 3, 5)).toThrow('Box not found');

@@ -36,9 +36,16 @@ pnpm test            # Vitest workspace (unit tests)
 pnpm test:coverage   # Vitest with enforced coverage thresholds
 pnpm dev             # start Remix dev server
 pnpm build           # build Remix app
+node tools/scripts/profile-worker-validation.mjs  # optional: protocol validation profiling report
 ```
 
 Dev server note: use `pnpm dev -- --clearScreen=false` (single argument). Passing `--clearScreen false` can be treated as a positional projectDir and result in "Remix Vite plugin not found in Vite config".
+
+Validation profiling note: `node tools/scripts/profile-worker-validation.mjs` writes
+`docs/_generated/analysis/phase-04-protocol-validation-profile.md`.
+
+Optional runtime toggle: set `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` when running `/play` to
+exercise solver-client `light-progress` outbound validation for `SOLVE_PROGRESS` (default is strict).
 
 ## Creating a clean source zip
 
@@ -97,9 +104,10 @@ Common types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`, `perf
 
 ## Adding a new benchmark metric
 
-- Add the metric to the benchmark model (single source of truth)
-- Ensure the worker runner emits it deterministically
-- Update any persistence schema or report formatting that depends on it
+- Add the metric to `packages/benchmarks` model/schema exports (single source of truth)
+- Ensure worker solve/bench paths emit the metric deterministically
+- Update `apps/web` persistence migration/tests when IndexedDB shape or indexes change
+- Update benchmark report import/export shapes if the metric is serialized there
 - Add or update tests and keep results comparable across runs
 
 ## Reporting issues

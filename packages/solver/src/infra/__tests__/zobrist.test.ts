@@ -35,4 +35,19 @@ describe('zobrist', () => {
 
     expect(big).toBe((BigInt(0x01020304) << 32n) | BigInt(0x05060708));
   });
+
+  it('supports zero-cell tables', () => {
+    const table = createZobristTable(0);
+
+    expect(table.boxHi).toHaveLength(0);
+    expect(table.boxLo).toHaveLength(0);
+    expect(table.playerHi).toHaveLength(0);
+    expect(table.playerLo).toHaveLength(0);
+    expect(hashState(table, -1, new Uint16Array(0))).toEqual({ hi: 0, lo: 0 });
+  });
+
+  it('throws when cellCount is not a non-negative integer', () => {
+    expect(() => createZobristTable(-1)).toThrow('non-negative integer');
+    expect(() => createZobristTable(2.5)).toThrow('non-negative integer');
+  });
 });

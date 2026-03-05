@@ -1,27 +1,225 @@
-import { Link, isRouteErrorResponse, useRouteError } from '@remix-run/react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { isRouteErrorResponse, useRouteError } from '@remix-run/react';
+import { Provider, useDispatch, useSelector } from 'react-redux';
+
+import {
+  BENCHMARK_REPORT_EXPORT_MODEL,
+  BENCHMARK_REPORT_TYPE,
+  BENCHMARK_REPORT_VERSION,
+} from '@corgiban/benchmarks';
+import { builtinLevels } from '@corgiban/levels';
+import { ALGORITHM_IDS, isImplementedAlgorithmId } from '@corgiban/solver';
+
+import { BenchPage } from '../bench/BenchPage';
+import { exportTextFile, importTextFile } from '../bench/fileAccess.client';
+import { formatLevelPackImportNotice, resolveLevelPackImport } from '../bench/levelPackImport';
+import {
+  clearBenchPerformanceEntries,
+  observeBenchPerformance,
+} from '../bench/performanceObserver.client';
+import { createNoopBenchmarkPort } from '../ports/benchmarkPort';
+import { createBenchmarkPort } from '../ports/benchmarkPort.client';
+import { createNoopSolverPort } from '../ports/solverPort';
+import { createSolverPort } from '../ports/solverPort.client';
+import type { AppDispatch, AppStore, RootState } from '../state';
+import {
+  benchErrorRecorded,
+  benchNoticeRecorded,
+  benchPerfEntriesCleared,
+  benchPerfEntriesObserved,
+  clearBenchResults,
+  createAppStore,
+  importBenchmarkReport,
+  initializeBench,
+  runBenchSuite,
+  cancelBenchRun,
+  setSuiteLevelIds,
+  setSuiteNodeBudget,
+  setSuiteRepetitions,
+  setSuiteTimeBudgetMs,
+  toggleSuiteAlgorithmId,
+  toggleSuiteLevelId,
+} from '../state';
+
+const knownLevelIds = new Set(builtinLevels.map((level) => level.id));
+
+function BenchRoutePage() {
+  const dispatch = useDispatch<AppDispatch>();
+  const bench = useSelector((state: RootState) => state.bench);
+  const debug = useSelector((state: RootState) => state.settings.debug);
+
+  useEffect(() => {
+    void dispatch(initializeBench());
+  }, [dispatch]);
+
+  useEffect(() => {
+    return observeBenchPerformance((entries) => {
+      dispatch(benchPerfEntriesObserved(entries));
+    });
+  }, [dispatch]);
+
+  const availableLevels = useMemo(
+    () => builtinLevels.map((level) => ({ id: level.id, name: level.name })),
+    [],
+  );
+
+  const availableAlgorithms = useMemo(
+    () =>
+      ALGORITHM_IDS.map((algorithmId) => ({
+        id: algorithmId,
+        label: isImplementedAlgorithmId(algorithmId) ? algorithmId : `${algorithmId} (coming soon)`,
+        disabled: !isImplementedAlgorithmId(algorithmId),
+      })),
+    [],
+  );
+
+  const handleExportReport = useCallback(() => {
+    const payload = {
+      type: BENCHMARK_REPORT_TYPE,
+      version: BENCHMARK_REPORT_VERSION,
+      exportModel: BENCHMARK_REPORT_EXPORT_MODEL,
+      exportedAtIso: new Date().toISOString(),
+      results: bench.results,
+    };
+
+    void exportTextFile({
+      suggestedName: 'corgiban-benchmark-history.json',
+      content: JSON.stringify(payload, null, 2),
+    }).catch((error) => {
+      dispatch(
+        benchErrorRecorded(error instanceof Error ? error.message : 'Failed to export report.'),
+      );
+    });
+  }, [bench.results, dispatch]);
+
+  const handleImportReport = useCallback(() => {
+    void importTextFile({ acceptMimeTypes: ['application/json'] })
+      .then((result) => {
+        return dispatch(importBenchmarkReport(result.content));
+      })
+      .catch((error) => {
+        dispatch(
+          benchErrorRecorded(error instanceof Error ? error.message : 'Failed to import report.'),
+        );
+      });
+  }, [dispatch]);
+
+  const handleExportLevelPack = useCallback(() => {
+    const selectedLevels = builtinLevels.filter((level) => bench.suite.levelIds.includes(level.id));
+    const payload = {
+      type: 'corgiban-level-pack',
+      version: 1,
+      exportedAtIso: new Date().toISOString(),
+      levelIds: selectedLevels.map((level) => level.id),
+      levels: selectedLevels,
+    };
+
+    void exportTextFile({
+      suggestedName: 'corgiban-level-pack.json',
+      content: JSON.stringify(payload, null, 2),
+    }).catch((error) => {
+      dispatch(
+        benchErrorRecorded(error instanceof Error ? error.message : 'Failed to export level pack.'),
+      );
+    });
+  }, [bench.suite.levelIds, dispatch]);
+
+  const handleImportLevelPack = useCallback(() => {
+    void importTextFile({ acceptMimeTypes: ['application/json'] })
+      .then((result) => {
+        const summary = resolveLevelPackImport(result.content, knownLevelIds);
+        const { validLevelIds } = summary;
+
+        if (validLevelIds.length === 0) {
+          throw new Error('No known built-in level ids were found in the imported level pack.');
+        }
+
+        dispatch(setSuiteLevelIds(validLevelIds));
+        dispatch(benchErrorRecorded(null));
+        dispatch(benchNoticeRecorded(formatLevelPackImportNotice(summary)));
+      })
+      .catch((error) => {
+        dispatch(benchNoticeRecorded(null));
+        dispatch(
+          benchErrorRecorded(
+            error instanceof Error ? error.message : 'Failed to import level pack.',
+          ),
+        );
+      });
+  }, [dispatch]);
+
+  return (
+    <BenchPage
+      suite={bench.suite}
+      status={bench.status}
+      progress={bench.progress}
+      results={bench.results}
+      diagnostics={bench.diagnostics}
+      perfEntries={bench.perfEntries}
+      debug={debug}
+      availableLevels={availableLevels}
+      availableAlgorithms={availableAlgorithms}
+      onToggleLevel={(levelId) => {
+        dispatch(toggleSuiteLevelId(levelId));
+      }}
+      onToggleAlgorithm={(algorithmId) => {
+        dispatch(toggleSuiteAlgorithmId(algorithmId));
+      }}
+      onSetRepetitions={(value) => {
+        dispatch(setSuiteRepetitions(value));
+      }}
+      onSetTimeBudgetMs={(value) => {
+        dispatch(setSuiteTimeBudgetMs(value));
+      }}
+      onSetNodeBudget={(value) => {
+        dispatch(setSuiteNodeBudget(value));
+      }}
+      onRun={() => {
+        void dispatch(runBenchSuite());
+      }}
+      onCancel={() => {
+        dispatch(cancelBenchRun());
+      }}
+      onClearPerfEntries={() => {
+        clearBenchPerformanceEntries();
+        dispatch(benchPerfEntriesCleared());
+      }}
+      onExportReport={handleExportReport}
+      onImportReport={handleImportReport}
+      onExportLevelPack={handleExportLevelPack}
+      onImportLevelPack={handleImportLevelPack}
+      onClearResults={() => {
+        void dispatch(clearBenchResults());
+      }}
+    />
+  );
+}
 
 export default function BenchRoute() {
+  const storeRef = useRef<AppStore>();
+
+  if (!storeRef.current) {
+    const isServer = typeof document === 'undefined';
+    const solverPort = isServer ? createNoopSolverPort() : createSolverPort();
+    const benchmarkPort = isServer ? createNoopBenchmarkPort() : createBenchmarkPort();
+
+    storeRef.current = createAppStore({
+      solverPort,
+      benchmarkPort,
+    });
+  }
+
+  useEffect(() => {
+    return () => {
+      storeRef.current?.dispose();
+      storeRef.current = undefined;
+    };
+  }, []);
+
   return (
-    <main className="page-shell">
-      <h1 className="page-title">Bench</h1>
-      <p className="page-subtitle">
-        Benchmark tooling and persistence will live here once Phase 4 arrives.
-      </p>
-      <section className="route-card">
-        <h2 className="text-xl font-semibold">Placeholder</h2>
-        <p className="mt-2 text-sm text-[color:var(--color-muted)]">
-          Solver and benchmark wiring is deferred. Use /play for the primary experience.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-3 text-sm">
-          <Link className="font-semibold text-[color:var(--color-accent)]" to="/play">
-            Back to /play
-          </Link>
-          <Link className="font-semibold text-[color:var(--color-accent)]" to="/dev/ui-kit">
-            Visit /dev/ui-kit
-          </Link>
-        </div>
-      </section>
-    </main>
+    <Provider store={storeRef.current}>
+      <BenchRoutePage />
+    </Provider>
   );
 }
 

@@ -181,19 +181,59 @@ See ADR-0006 (`docs/adr/0006-embed-shadow-dom-styling-delivery.md`).
 
 See ADR-0010 (`docs/adr/0010-level-format-interop-policy.md`).
 
+### 3.12 Benchmark cancellation semantics: **queue-cancel + suite dispose**
+
+**Decision:** Keep queue cancellation run-scoped (`cancel(runId)`) and use suite-level disposal
+for in-flight benchmark cancellation, guarded by suite generation checks to drop stale callbacks.
+
+**Why**
+
+- `/bench` needs deterministic suite-level cancellation without protocol-level cancel messages.
+- Generation guards prevent stale progress/result updates after cancel/dispose.
+
+See ADR-0014 (`docs/adr/0014-benchmark-worker-cancellation-semantics.md`).
+
+### 3.13 Protocol validation optimization: **strict default + scoped light-progress**
+
+**Decision:** Keep strict runtime validation as default and allow an optional `light-progress`
+mode for high-frequency `SOLVE_PROGRESS` payloads only.
+
+**Why**
+
+- Preserves structural protocol safety while reducing avoidable hot-path validation overhead.
+- Keeps protocol version unchanged for a runtime-only optimization path.
+
+See ADR-0015 (`docs/adr/0015-worker-progress-light-validation-mode.md`).
+
+### 3.14 Benchmark report contract: **history export model + versioned strict report parsing**
+
+**Decision:** Keep benchmark report export as a typed/versioned history artifact in Phase 4, and
+enforce strict run-record validation on import.
+
+**Why**
+
+- Keeps export/import behavior explicit without implicit shape guessing.
+- Preserves comparability by validating per-run solver options and metrics structure.
+- Allows forward evolution through explicit `version` + `exportModel` checks.
+
+See ADR-0016 (`docs/adr/0016-benchmark-report-contract-versioning.md`).
+
 ## 4. Monorepo layout
 
 ```
 /apps
   /web
     /app
-      /ui
+      /bench
       /canvas
-      /replay
+      /infra
+        /persistence
       /play
       /ports
+      /replay
       /routes
       /state
+      /ui
       /styles
       root.tsx
       entry.client.tsx
@@ -276,14 +316,17 @@ See ADR-0010 (`docs/adr/0010-level-format-interop-policy.md`).
         schema.ts
         validation.ts
       runtime/
+        benchmarkWorker.ts
         solverWorker.ts
         throttle.ts
       client/
+        benchmarkClient.client.ts
         solverClient.client.ts
         workerPool.client.ts
   /benchmarks
     src/
       model/
+        benchmarkSchema.ts
         benchmarkTypes.ts
       runner/
         benchmarkRunner.ts
@@ -323,8 +366,9 @@ tree (and `docs/project-plan.md`) for what is implemented in the current phase.
 - `packages/worker` imports from `solver`, `core`, `shared`, and `benchmarks` only. No React.
 - `packages/benchmarks` imports from `solver`, `core`, and `shared` only.
 - `apps/web` imports from all packages, but only via public entrypoints.
-- Benchmark runner domain logic lives in `packages/benchmarks` and is executed from worker
-  runtime modules by importing `benchmarks` entrypoints (one-way dependency: worker -> benchmarks).
+- Benchmark suite orchestration currently runs in `apps/web` through `BenchmarkPort` + `benchThunks`.
+  Workers execute run-scoped `BENCH_START` requests and return `BENCH_PROGRESS` / `BENCH_RESULT`.
+  `packages/benchmarks` owns shared benchmark contracts/schema constants and runner utilities.
 
 Note: If `packages/formats` ever needs to depend on `core` (for solution validation or
 simulation), add an explicit boundary rule and document the rationale in an ADR.
@@ -436,20 +480,25 @@ All invariants are validated in unit tests and optionally in dev builds.
 [React UI] -> dispatch(action) -> [RTK reducers/thunks]
                       |                     |
                       v                     v
-                [core engine]      [SolverPort adapter]
+                [core engine]      [Ports: Solver/Benchmark/Persistence]
                       |                     |
                       v                     v
-                [render canvas]       [solver client]
+                [render canvas]   [worker clients + persistence adapters]
                                             |
                                             v
-                                    postMessage to worker
+                              postMessage to solver/benchmark workers
                                            |
                                            v
-                                   [solver algorithms]
+                     [solver algorithms + run-scoped benchmark execution]
                                            |
                                            v
-                              progress/result messages -> UI
+                     progress/result messages + persisted runs -> UI
 ```
+
+- `/play` solve thunks route through `SolverPort`.
+- `/bench` run/cancel workflows route through `BenchmarkPort` and persist through `PersistencePort`.
+- `/bench` suite planning/progress aggregation/persistence writes stay on the main thread; workers
+  run each benchmark case in isolation.
 
 ### 6.2 Threads and responsibilities
 
@@ -465,6 +514,7 @@ All invariants are validated in unit tests and optionally in dev builds.
 - solver execution
 - benchmarks (potentially a pool of workers)
 - heavy computations (heuristics, deadlocks, visited sets)
+- runtime entrypoints are split by role (`solverWorker` and `benchmarkWorker`)
 
 ---
 
@@ -484,12 +534,13 @@ Worker lifecycle messages (`PING`/`PONG`) include `protocolVersion` only.
 **Main -> Worker (implemented in protocol v2 baseline)**
 
 - `SOLVE_START` (level runtime payload + algorithm + limits)
+- `BENCH_START` (benchmark run payload + algorithm + limits)
 - `PING` (health check)
 
-**Main -> Worker (planned for benchmark phase / future protocol extension)**
+**Main -> Worker (deferred to a future protocol extension)**
 
 - `SOLVE_CANCEL`
-- `BENCH_START` (suite definition + limits)
+- `BENCH_CANCEL`
 
 **Worker -> Main (implemented in protocol v2 baseline)**
 
@@ -503,10 +554,11 @@ Worker lifecycle messages (`PING`/`PONG`) include `protocolVersion` only.
 - `SOLVE_ERROR`
 - `PONG`
 
-**Worker -> Main (planned for benchmark phase / future protocol extension)**
-
 - `BENCH_PROGRESS`
+  - fields: `runId`, `protocolVersion`, `expanded`, `generated`, `depth`, `frontier`, `elapsedMs`, `bestHeuristic?`, `bestPathSoFar?`, `benchmarkCaseId?`
+  - emitted only when `enableSpectatorStream === true` for the run
 - `BENCH_RESULT`
+  - fields: `runId`, `protocolVersion`, `status`, `solutionMoves?`, `metrics`, `errorMessage?`, `errorDetails?`, `benchmarkCaseId?`
 
 See ADR-0011 (`docs/adr/0011-solver-protocol-solution-contract.md`).
 
@@ -518,6 +570,13 @@ Use schema validation (example: Zod) at both ends:
 - Client treats protocol mismatches as worker failures and enters a retryable crashed state
 - Typed-array fields are validated with `instanceof` and are expected to arrive through
   structured-clone `postMessage`.
+- Inbound `levelRuntime` payloads enforce structural invariants (grid shape consistency,
+  in-bounds player/box indices, unique boxes, and no player-on-box overlap).
+- Outbound validation supports an optional `light-progress` mode for high-frequency
+  `SOLVE_PROGRESS` messages; strict mode remains the default and structural messages stay
+  strict-schema validated.
+- `apps/web` enables `light-progress` in solver client wiring only when
+  `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1`.
 
 ### 7.4 Cancellation and timeouts
 
@@ -528,8 +587,9 @@ Use schema validation (example: Zod) at both ends:
   extension once the worker runtime supports interruptible in-flight runs.
 - In Phase 3, `createSolverClient` is single-active-run oriented for `/play`; use `WorkerPool`
   for concurrent solve orchestration.
-- App-level solve orchestration applies default budgets unless caller overrides:
-  `timeBudgetMs = 30_000`, `nodeBudget = 2_000_000`.
+- App-level `/play` solve orchestration applies settings-backed default budgets unless caller
+  overrides (`timeBudgetMs` and `nodeBudget`, initialized to `30_000` and `2_000_000` with
+  defensive fallback to solver constants when invalid values are encountered).
 - `timeBudgetMs` enforced in worker loop.
 - `nodeBudget` optional.
 - Benchmarks always run with budgets to avoid infinite searches.
@@ -537,10 +597,14 @@ Use schema validation (example: Zod) at both ends:
   additional runs are queued until a worker is free.
 - Worker pool supports cancelling queued runs by `runId` before they dispatch.
 - Worker pool cancel is queue-only.
+- Benchmark suite cancellation uses pool disposal (`WorkerPool.dispose`) plus generation-guarded
+  callback dispatch to prevent stale progress/result updates after cancel/dispose.
 - Worker pool dispose rejects queued and in-flight tasks without waiting for running tasks to
   settle; callers should provide a worker-disposer callback when they need workers terminated.
 
 See ADR-0013 (`docs/adr/0013-solver-cancellation-worker-reset.md`).
+See ADR-0014 (`docs/adr/0014-benchmark-worker-cancellation-semantics.md`).
+See ADR-0015 (`docs/adr/0015-worker-progress-light-validation-mode.md`).
 
 ---
 
@@ -599,6 +663,8 @@ All algorithms implement the same interface:
   - list of algorithm configs
   - run count (repetitions)
   - budgets (time/node)
+- `/bench` UI suite state stores `levelIds` + `algorithmIds`; benchmark orchestration expands
+  these into run plans with per-run solver options and environment metadata.
 - `BenchmarkRunResult`:
   - solver result + metrics
   - environment snapshot: user agent, cores, build version
@@ -608,8 +674,12 @@ All algorithms implement the same interface:
 - Benchmarks run in a worker pool (configurable concurrency).
 - Main thread schedules and aggregates results.
 - Results persisted to IndexedDB (via a thin repository adapter).
-- `DB_VERSION` and benchmark data model contracts are owned by `packages/benchmarks`.
+- `BENCHMARK_DB_VERSION` and related schema constants are owned by `packages/benchmarks`.
 - IndexedDB migration logic (`onupgradeneeded`) and migration tests live in the `apps/web` persistence adapter.
+- Benchmark persistence initialization feature-detects `navigator.storage.persist()` and stores
+  diagnostics (`granted | denied | unsupported`) without treating denied/unsupported as hard errors.
+- Bench orchestration records `performance.mark/measure` around solve dispatch/worker response and
+  surfaces observed measure entries through a debug perf panel.
 
 See ADR-0007 (`docs/adr/0007-indexeddb-persistence-migration-retention.md`).
 
@@ -618,9 +688,50 @@ See ADR-0007 (`docs/adr/0007-indexeddb-persistence-migration-retention.md`).
 A dedicated route:
 
 - `/bench`
-  - filters: levels, algorithms, budgets
-  - tables and charts
-  - export/import JSON for sharing benchmark runs
+  - suite builder (levels, algorithms, repetitions, budgets)
+  - run/cancel controls with progress and diagnostics panels
+  - persisted results table (sortable)
+  - export/import JSON for benchmark runs and level packs (File System Access API with fallback)
+  - debug perf panel sourced from `PerformanceObserver` entries
+
+### 9.4 Benchmark export artifact semantics
+
+- Benchmark report export is a typed/versioned history artifact in the current baseline.
+- Export payload fields are:
+  - `type: "corgiban-benchmark-report"`
+  - `version`
+  - `exportModel: "multi-suite-history"`
+  - `results`
+- Exported `results` correspond to the currently retained benchmark history and may include multiple
+  suite runs.
+- Single-suite snapshot exports remain a future workflow decision.
+
+### 9.5 Benchmark and level-pack import/version policy
+
+- Benchmark report payloads are typed/versioned contracts; level-pack versioned contracts are
+  deferred in the current baseline.
+- Benchmark reports require:
+  - `type: "corgiban-benchmark-report"`
+  - `version` (explicitly supported versions only)
+  - `exportModel` (explicitly supported values only)
+  - `results` entries that pass strict run-record validation
+- Strict run-record validation includes required solver options and enum-like field validation
+  (`algorithmId`, `status`) in addition to metrics/environment structure checks.
+- Unsupported benchmark report versions/export models are rejected with explicit user-facing
+  errors (no silent fallback).
+- Level-pack import is currently compatibility-first in `/bench`:
+  - accepts `levelIds: string[]` or `levels[].id` payloads
+  - filters to recognized built-in level ids
+  - strict typed/versioned level-pack contracts are deferred to a later phase
+- See ADR-0016 (`docs/adr/0016-benchmark-report-contract-versioning.md`).
+
+### 9.6 Persistence diagnostics model
+
+- Current diagnostics include:
+  - storage persistence permission outcome (`granted | denied | unsupported`)
+  - latest persistence error/notice surfaced to the user
+- Explicit repository durability health state (`durable | memory-fallback | unavailable`, or
+  equivalent) is tracked as a Phase 5 follow-up.
 
 ---
 
@@ -711,9 +822,9 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
     recommendation, workerHealth
   - replay metadata: replayState, replayIndex, replayTotalSteps
 - `benchSlice`
-  - suites, active benchmark status, results, filters
+  - suite config, active benchmark status/progress, results, diagnostics, perf entries
 - `settingsSlice`
-  - tileAnimationDuration, solverReplaySpeed, theme, debug flags
+  - tileAnimationDuration, solverReplaySpeed, solver time/node budget defaults, theme, debug flags
 
 ### 12.2 Side effects
 
@@ -723,8 +834,10 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 - Level changes route through a dedicated workflow thunk that cancels any active run before
   resetting solver run state and recomputing recommendation.
 - Replay scheduling is handled by `ReplayController` (RAF loop + shadow state), not by a thunk.
-- Current thunks depend on `SolverPort` injected at store creation.
-- `BenchmarkPort` and `PersistencePort` are planned for benchmark-phase wiring.
+- Current thunks depend on injected ports at store creation:
+  - `SolverPort` for `/play` solve orchestration
+  - `BenchmarkPort` for `/bench` run/cancel orchestration
+  - `PersistencePort` for benchmark persistence and import/export workflows
 - Port interfaces used by thunks:
   - `SolverPort`
   - `BenchmarkPort`
@@ -850,6 +963,9 @@ Current accepted ADRs:
 - ADR-0011: Solver protocol solution contract and options validation
 - ADR-0012: Replay pipeline shadow state and RAF scheduling
 - ADR-0013: Solver cancellation via worker reset (Phase 3 baseline)
+- ADR-0014: Benchmark worker cancellation semantics
+- ADR-0015: Worker progress light-validation mode
+- ADR-0016: Benchmark report contract and versioning policy
 
 ---
 

@@ -170,4 +170,36 @@ describe('solve', () => {
     }
     expect(result.errorDetails).toBe('string boom');
   });
+
+  it('omits errorDetails when algorithm throws a non-Error object', () => {
+    const spy = vi.spyOn(registry, 'getAlgorithm').mockReturnValue({
+      id: 'bfsPush',
+      solve: () => {
+        throw { code: 'E_OBJECT' };
+      },
+    });
+
+    const result = solve(
+      {
+        levelId: 'level',
+        width: 1,
+        height: 1,
+        staticGrid: Uint8Array.from([1]),
+        initialPlayerIndex: 0,
+        initialBoxes: Uint32Array.from([]),
+      },
+      'bfsPush',
+      undefined,
+      undefined,
+      { nowMs: () => 0 },
+    );
+
+    spy.mockRestore();
+
+    expect(result.status).toBe('error');
+    if (result.status !== 'error') {
+      return;
+    }
+    expect(result.errorDetails).toBeUndefined();
+  });
 });
