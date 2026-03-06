@@ -11,6 +11,7 @@ import {
   BENCHMARK_DB_VERSION,
   DEFAULT_BENCHMARK_RETENTION_LIMIT,
   isBenchmarkRunRecord,
+  parseBenchmarkReportJson,
 } from '../benchmarkSchema';
 
 function createValidRecord() {
@@ -419,5 +420,43 @@ describe('benchmarkSchema', () => {
     const record = Object.assign(Object.create(null), createValidRecord());
 
     expect(isBenchmarkRunRecord(record)).toBe(true);
+  });
+
+  it('parses valid benchmark report payload JSON', () => {
+    const parsed = parseBenchmarkReportJson(
+      JSON.stringify({
+        type: BENCHMARK_REPORT_TYPE,
+        version: BENCHMARK_REPORT_VERSION,
+        exportModel: BENCHMARK_REPORT_EXPORT_MODEL,
+        results: [createValidRecord()],
+      }),
+    );
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].id).toBe('suite-1:1');
+  });
+
+  it('rejects unsupported versions and invalid report entries', () => {
+    expect(() =>
+      parseBenchmarkReportJson(
+        JSON.stringify({
+          type: BENCHMARK_REPORT_TYPE,
+          version: BENCHMARK_REPORT_VERSION + 1,
+          exportModel: BENCHMARK_REPORT_EXPORT_MODEL,
+          results: [],
+        }),
+      ),
+    ).toThrow('supports up to');
+
+    expect(() =>
+      parseBenchmarkReportJson(
+        JSON.stringify({
+          type: BENCHMARK_REPORT_TYPE,
+          version: BENCHMARK_REPORT_VERSION,
+          exportModel: BENCHMARK_REPORT_EXPORT_MODEL,
+          results: [{ id: 'bad-record' }],
+        }),
+      ),
+    ).toThrow('invalid result entries');
   });
 });

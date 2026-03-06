@@ -83,13 +83,13 @@ describe('PlayRoute', () => {
     expect(mocks.createSolverPort).not.toHaveBeenCalled();
   });
 
-  it('uses browser solver port when document is available', () => {
+  it('defers browser solver port creation until the route commits', () => {
     vi.stubGlobal('document', {} as never);
 
     renderToStaticMarkup(<PlayRoute />);
 
-    expect(mocks.createSolverPort).toHaveBeenCalledTimes(1);
-    expect(mocks.createNoopSolverPort).not.toHaveBeenCalled();
+    expect(mocks.createNoopSolverPort).toHaveBeenCalledTimes(1);
+    expect(mocks.createSolverPort).not.toHaveBeenCalled();
   });
 });
 

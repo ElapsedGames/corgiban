@@ -15,6 +15,10 @@ export type {
   BenchmarkSuiteRunRequest,
 } from './model/benchmarkTypes';
 
+export type { BenchmarkComparableRunInput, BenchmarkSuiteComparisonInfo } from './model/comparison';
+
+export { buildSuiteComparisonInfo, toComparableRunInput } from './model/comparison';
+
 export {
   BENCHMARK_DB_INDEXES,
   BENCHMARK_DB_NAME,
@@ -26,7 +30,10 @@ export {
   BENCHMARK_DB_VERSION,
   DEFAULT_BENCHMARK_RETENTION_LIMIT,
   isBenchmarkRunRecord,
+  parseBenchmarkReportJson,
 } from './model/benchmarkSchema';
+
+export type { BenchmarkReportPayload } from './model/benchmarkSchema';
 
 export type {
   BenchmarkRunnerOptions,

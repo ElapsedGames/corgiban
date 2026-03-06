@@ -3,10 +3,13 @@
   "references": [
     { "path": "./packages/shared" },
     { "path": "./packages/levels" },
+    { "path": "./packages/formats" },
     { "path": "./packages/core" },
     { "path": "./packages/solver" },
+    { "path": "./packages/solver-kernels" },
     { "path": "./packages/benchmarks" },
     { "path": "./packages/worker" },
+    { "path": "./packages/embed" },
     { "path": "./apps/web" }
   ]
 }

@@ -62,6 +62,7 @@ describe('benchmarkWorker runtime', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -230,7 +231,7 @@ describe('benchmarkWorker runtime', () => {
     });
   });
 
-  it('drops throttled BENCH_PROGRESS events when spectator stream is enabled', async () => {
+  it('passes spectator throttling context to solver and forwards BENCH_PROGRESS callbacks', async () => {
     solveMock.mockImplementation((_levelRuntime, _algorithmId, _options, hooks) => {
       hooks?.onProgress?.({
         expanded: 1,
@@ -276,7 +277,16 @@ describe('benchmarkWorker runtime', () => {
       harness.messages.filter(
         (message) => (message as { type?: string }).type === 'BENCH_PROGRESS',
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
+
+    const solveContext = solveMock.mock.calls[0]?.[4] as
+      | {
+          progressThrottleMs?: number;
+          progressExpandedInterval?: number;
+        }
+      | undefined;
+    expect(solveContext?.progressThrottleMs).toBe(100);
+    expect(solveContext?.progressExpandedInterval).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   it('emits BENCH_RESULT status error for solver domain failures', async () => {
@@ -435,11 +445,11 @@ describe('benchmarkWorker runtime', () => {
     });
   });
 
-  it('falls back to zero clock when performance.now is unavailable', async () => {
+  it('does not inject a non-monotonic clock when performance.now is unavailable', async () => {
     solveMock.mockImplementation((_levelRuntime, _algorithmId, _options, _hooks, context) => {
-      expect(context.nowMs()).toBe(0);
+      expect(context.nowMs).toBeUndefined();
       return {
-        status: 'unsolved',
+        status: 'error',
         metrics: {
           elapsedMs: 0,
           expanded: 0,
@@ -449,6 +459,8 @@ describe('benchmarkWorker runtime', () => {
           pushCount: 0,
           moveCount: 0,
         },
+        errorMessage:
+          'Solver clock source unavailable. Pass context.nowMs when performance.now is unavailable.',
       };
     });
 
@@ -466,7 +478,9 @@ describe('benchmarkWorker runtime', () => {
       type: 'BENCH_RESULT',
       runId: 'bench-no-performance',
       protocolVersion: 2,
-      status: 'unsolved',
+      status: 'error',
+      errorMessage:
+        'Solver clock source unavailable. Pass context.nowMs when performance.now is unavailable.',
     });
   });
 

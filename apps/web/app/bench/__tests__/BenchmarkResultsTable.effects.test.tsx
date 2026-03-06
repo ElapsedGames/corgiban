@@ -1,51 +1,15 @@
-import type { ReactElement, ReactNode } from 'react';
-import { isValidElement } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+// @vitest-environment jsdom
+
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import type { BenchmarkRunRecord } from '../../ports/benchmarkPort';
+import { BenchmarkResultsTable } from '../BenchmarkResultsTable';
 
-type ButtonElement = ReactElement<{ children?: ReactNode; onClick?: () => void }>;
-
-function collectButtons(node: unknown, buttons: ButtonElement[] = []): ButtonElement[] {
-  if (!node) {
-    return buttons;
-  }
-  if (Array.isArray(node)) {
-    node.forEach((child) => collectButtons(child, buttons));
-    return buttons;
-  }
-  if (!isValidElement<{ children?: ReactNode }>(node)) {
-    return buttons;
-  }
-  if (node.type === 'button') {
-    buttons.push(node as ButtonElement);
-  }
-  collectButtons(node.props?.children, buttons);
-  return buttons;
-}
-
-function collectText(node: ReactNode, parts: string[] = []): string[] {
-  if (typeof node === 'string' || typeof node === 'number') {
-    parts.push(String(node));
-    return parts;
-  }
-  if (!node) {
-    return parts;
-  }
-  if (Array.isArray(node)) {
-    node.forEach((child) => collectText(child, parts));
-    return parts;
-  }
-  if (isValidElement<{ children?: ReactNode }>(node)) {
-    collectText(node.props?.children, parts);
-  }
-  return parts;
-}
-
-function findButtonByLabel(node: unknown, label: string): ButtonElement | undefined {
-  const buttons = collectButtons(node);
-  return buttons.find((button) => collectText(button.props.children).join(' ').includes(label));
-}
+Object.assign(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }, {
+  IS_REACT_ACT_ENVIRONMENT: true,
+});
 
 function createResult(overrides: Partial<BenchmarkRunRecord> = {}): BenchmarkRunRecord {
   return {
@@ -81,73 +45,266 @@ function createResult(overrides: Partial<BenchmarkRunRecord> = {}): BenchmarkRun
   };
 }
 
-describe('BenchmarkResultsTable effects', () => {
-  afterEach(() => {
-    vi.resetModules();
-    vi.doUnmock('react');
+const mountedRoots: Root[] = [];
+
+async function renderTable(results: BenchmarkRunRecord[]) {
+  const container = document.createElement('div');
+  document.body.append(container);
+
+  const root = createRoot(container);
+  mountedRoots.push(root);
+
+  await act(async () => {
+    root.render(<BenchmarkResultsTable results={results} />);
   });
 
-  it('toggles direction when clicking the active Completed column header', async () => {
-    const setSortKey = vi.fn();
-    const setDirection = vi.fn();
+  return { container };
+}
 
-    vi.doMock('react', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('react')>();
-      let useStateCalls = 0;
+function findButton(container: HTMLElement, label: string): HTMLButtonElement | null {
+  return (
+    [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes(label),
+    ) ?? null
+  );
+}
 
-      return {
-        ...actual,
-        useMemo: ((factory: () => unknown) => factory()) as typeof actual.useMemo,
-        useState: ((initialValue: unknown) => {
-          useStateCalls += 1;
-          if (useStateCalls === 1) {
-            return ['finishedAtMs', setSortKey];
-          }
-          return [initialValue, setDirection];
-        }) as unknown as typeof actual.useState,
-      };
+function getRenderedLevelOrder(container: HTMLElement): string[] {
+  return [...container.querySelectorAll('[data-testid="benchmark-result-level"]')].map(
+    (cell) => cell.textContent ?? '',
+  );
+}
+
+function expectRenderedLevelOrder(container: HTMLElement, expectedLevelIds: string[]) {
+  expect(getRenderedLevelOrder(container)).toEqual(expectedLevelIds);
+}
+
+afterEach(async () => {
+  while (mountedRoots.length > 0) {
+    const root = mountedRoots.pop();
+    await act(async () => {
+      root?.unmount();
+    });
+  }
+
+  document.body.innerHTML = '';
+});
+
+describe('BenchmarkResultsTable interactions', () => {
+  it('toggles the Completed sort direction and re-renders rows in ascending order', async () => {
+    const oldest = createResult({
+      id: 'oldest',
+      levelId: 'level-oldest',
+      finishedAtMs: 1_000,
+      startedAtMs: 900,
+    });
+    const middle = createResult({
+      id: 'middle',
+      levelId: 'level-middle',
+      finishedAtMs: 2_000,
+      startedAtMs: 1_900,
+    });
+    const newest = createResult({
+      id: 'newest',
+      levelId: 'level-newest',
+      finishedAtMs: 3_000,
+      startedAtMs: 2_900,
     });
 
-    const { BenchmarkResultsTable } = await import('../BenchmarkResultsTable');
-    const element = BenchmarkResultsTable({ results: [createResult()] });
-    const completedButton = findButtonByLabel(element, 'Completed');
+    const { container } = await renderTable([oldest, newest, middle]);
 
-    expect(completedButton).toBeDefined();
-    completedButton?.props.onClick?.();
+    expectRenderedLevelOrder(container, ['level-newest', 'level-middle', 'level-oldest']);
 
-    expect(setSortKey).toHaveBeenCalledWith('finishedAtMs');
-    expect(setDirection).toHaveBeenCalledWith('asc');
+    await act(async () => {
+      findButton(container, 'Completed')?.click();
+    });
+
+    expectRenderedLevelOrder(container, ['level-oldest', 'level-middle', 'level-newest']);
   });
 
-  it('sets ascending direction when switching to a different sort key', async () => {
-    const setSortKey = vi.fn();
-    const setDirection = vi.fn();
-
-    vi.doMock('react', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('react')>();
-      let useStateCalls = 0;
-
-      return {
-        ...actual,
-        useMemo: ((factory: () => unknown) => factory()) as typeof actual.useMemo,
-        useState: ((initialValue: unknown) => {
-          useStateCalls += 1;
-          if (useStateCalls === 1) {
-            return ['finishedAtMs', setSortKey];
-          }
-          return [initialValue, setDirection];
-        }) as unknown as typeof actual.useState,
-      };
+  it('switches to Level sorting and re-renders rows in ascending level order', async () => {
+    const zebra = createResult({
+      id: 'zebra',
+      levelId: 'zebra-level',
+      finishedAtMs: 3_000,
+      startedAtMs: 2_900,
+    });
+    const alpha = createResult({
+      id: 'alpha',
+      levelId: 'alpha-level',
+      finishedAtMs: 1_000,
+      startedAtMs: 900,
+    });
+    const middle = createResult({
+      id: 'middle',
+      levelId: 'middle-level',
+      finishedAtMs: 2_000,
+      startedAtMs: 1_900,
     });
 
-    const { BenchmarkResultsTable } = await import('../BenchmarkResultsTable');
-    const element = BenchmarkResultsTable({ results: [createResult()] });
-    const levelButton = findButtonByLabel(element, 'Level');
+    const { container } = await renderTable([alpha, zebra, middle]);
 
-    expect(levelButton).toBeDefined();
-    levelButton?.props.onClick?.();
+    expectRenderedLevelOrder(container, ['zebra-level', 'middle-level', 'alpha-level']);
 
-    expect(setSortKey).toHaveBeenCalledWith('levelId');
-    expect(setDirection).toHaveBeenCalledWith('asc');
+    await act(async () => {
+      findButton(container, 'Level')?.click();
+    });
+
+    expectRenderedLevelOrder(container, ['alpha-level', 'middle-level', 'zebra-level']);
+  });
+
+  it('switches to Suite sorting and re-renders rows in ascending suite order', async () => {
+    const suiteC = createResult({
+      id: 'suite-c',
+      suiteRunId: 'suite-c',
+      levelId: 'level-suite-c',
+      finishedAtMs: 3_000,
+    });
+    const suiteA = createResult({
+      id: 'suite-a',
+      suiteRunId: 'suite-a',
+      levelId: 'level-suite-a',
+      finishedAtMs: 1_000,
+    });
+    const suiteB = createResult({
+      id: 'suite-b',
+      suiteRunId: 'suite-b',
+      levelId: 'level-suite-b',
+      finishedAtMs: 2_000,
+    });
+
+    const { container } = await renderTable([suiteA, suiteC, suiteB]);
+
+    expectRenderedLevelOrder(container, ['level-suite-c', 'level-suite-b', 'level-suite-a']);
+
+    await act(async () => {
+      findButton(container, 'Suite')?.click();
+    });
+
+    expectRenderedLevelOrder(container, ['level-suite-a', 'level-suite-b', 'level-suite-c']);
+  });
+
+  it('switches to Algorithm sorting and re-renders rows in ascending algorithm order', async () => {
+    const ida = createResult({
+      id: 'ida',
+      algorithmId: 'idaStarPush',
+      levelId: 'level-ida',
+      finishedAtMs: 3_000,
+    });
+    const astar = createResult({
+      id: 'astar',
+      algorithmId: 'astarPush',
+      levelId: 'level-astar',
+      finishedAtMs: 1_000,
+    });
+    const bfs = createResult({
+      id: 'bfs',
+      algorithmId: 'bfsPush',
+      levelId: 'level-bfs',
+      finishedAtMs: 2_000,
+    });
+
+    const { container } = await renderTable([astar, ida, bfs]);
+
+    expectRenderedLevelOrder(container, ['level-ida', 'level-bfs', 'level-astar']);
+
+    await act(async () => {
+      findButton(container, 'Algorithm')?.click();
+    });
+
+    expectRenderedLevelOrder(container, ['level-astar', 'level-bfs', 'level-ida']);
+  });
+
+  it('switches to Elapsed sorting and re-renders rows in ascending elapsed order', async () => {
+    const slow = createResult({
+      id: 'slow',
+      levelId: 'level-slow',
+      finishedAtMs: 3_000,
+      metrics: { ...createResult().metrics, elapsedMs: 300 },
+    });
+    const fast = createResult({
+      id: 'fast',
+      levelId: 'level-fast',
+      finishedAtMs: 1_000,
+      metrics: { ...createResult().metrics, elapsedMs: 10 },
+    });
+    const medium = createResult({
+      id: 'medium',
+      levelId: 'level-medium',
+      finishedAtMs: 2_000,
+      metrics: { ...createResult().metrics, elapsedMs: 100 },
+    });
+
+    const { container } = await renderTable([fast, slow, medium]);
+
+    expectRenderedLevelOrder(container, ['level-slow', 'level-medium', 'level-fast']);
+
+    await act(async () => {
+      findButton(container, 'Elapsed (ms)')?.click();
+    });
+
+    expectRenderedLevelOrder(container, ['level-fast', 'level-medium', 'level-slow']);
+  });
+
+  it('switches to Status sorting and re-renders rows in ascending status order', async () => {
+    const timeout = createResult({
+      id: 'timeout',
+      status: 'timeout',
+      levelId: 'level-timeout',
+      finishedAtMs: 3_000,
+    });
+    const solved = createResult({
+      id: 'solved',
+      status: 'solved',
+      levelId: 'level-solved',
+      finishedAtMs: 1_000,
+    });
+    const unsolved = createResult({
+      id: 'unsolved',
+      status: 'unsolved',
+      levelId: 'level-unsolved',
+      finishedAtMs: 2_000,
+    });
+
+    const { container } = await renderTable([solved, timeout, unsolved]);
+
+    expectRenderedLevelOrder(container, ['level-timeout', 'level-unsolved', 'level-solved']);
+
+    await act(async () => {
+      findButton(container, 'Status')?.click();
+    });
+
+    expectRenderedLevelOrder(container, ['level-solved', 'level-timeout', 'level-unsolved']);
+  });
+
+  it('toggles a non-default sort key back to descending when the same header is clicked twice', async () => {
+    const alpha = createResult({
+      id: 'alpha',
+      levelId: 'alpha-level',
+      finishedAtMs: 1_000,
+    });
+    const middle = createResult({
+      id: 'middle',
+      levelId: 'middle-level',
+      finishedAtMs: 2_000,
+    });
+    const zebra = createResult({
+      id: 'zebra',
+      levelId: 'zebra-level',
+      finishedAtMs: 3_000,
+    });
+
+    const { container } = await renderTable([alpha, zebra, middle]);
+
+    await act(async () => {
+      findButton(container, 'Level')?.click();
+    });
+    expectRenderedLevelOrder(container, ['alpha-level', 'middle-level', 'zebra-level']);
+
+    await act(async () => {
+      findButton(container, 'Level')?.click();
+    });
+
+    expectRenderedLevelOrder(container, ['zebra-level', 'middle-level', 'alpha-level']);
   });
 });

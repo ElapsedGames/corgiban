@@ -16,7 +16,7 @@ Solver algorithms, heuristics, and pruning logic.
 - Deterministic progress reporting hooks
 - SolverOptions validation (budgets, heuristic defaults, weighted A\*, rejects heuristics for bfsPush)
 
-## Current status (Phase 3 baseline solver)
+## Current status (baseline solver + Phase 6 runtime follow-ups)
 
 - Implemented: solver option normalization/validation, solution expansion utilities, compiled level + solver state scaffolding, reachability, cancellation/progress hooks, BFS push-based solver, registry/solve entrypoint, and selection (`analyzeLevel`/`chooseAlgorithm` with implemented-algorithm fallback).
 - Pending: A* / IDA* algorithms, assignment heuristic integration, and additional deadlock pruning beyond corners.
@@ -39,6 +39,8 @@ Runtime exports:
 - `DEFAULT_ALGORITHM_ID`
 - `DEFAULT_SOLVER_TIME_BUDGET_MS`
 - `DEFAULT_NODE_BUDGET`
+- `DEFAULT_SOLVER_PROGRESS_THROTTLE_MS`
+- `DEFAULT_SOLVER_PROGRESS_EXPANDED_INTERVAL`
 - `HEURISTIC_IDS`
 - `MIN_HEURISTIC_WEIGHT` / `MAX_HEURISTIC_WEIGHT`
 - `isImplementedAlgorithmId(algorithmId)`
@@ -72,8 +74,19 @@ const result = solve(levelRuntime, algorithmId, {
 Clock behavior:
 
 - If `context.nowMs` is omitted, `solve(...)` uses `globalThis.performance.now()` when available.
-- If `performance.now()` is unavailable, it falls back to a constant `0` clock (time budgets will not elapse in that environment).
+- If `performance.now()` is unavailable, `solve(...)` returns an explicit error result; callers in
+  that environment must pass `context.nowMs`.
+- This is an intentional contract: the solver does not fall back to `Date.now()` or any other
+  non-monotonic source.
 - For deterministic tests and deterministic offline runners, pass `context.nowMs` explicitly.
+
+Progress cadence:
+
+- Progress throttling is solver-owned.
+- Callers can request coarser emission through `SolveContext.progressThrottleMs` and
+  `SolveContext.progressExpandedInterval`.
+- Worker runtimes should pass those fields through solver context instead of adding a second
+  runtime throttle layer.
 
 ## Allowed imports
 
@@ -90,7 +103,8 @@ No other workspace packages. No DOM imports and no React.
 - `SharedArrayBuffer` and `Atomics` are banned repo-wide
 - Must support cooperative cancellation via `CancelToken`
 - Timing should flow through `context.nowMs`; if omitted, `solve(...)` may read
-  `globalThis.performance.now()` and fall back to `0` when unavailable
+  `globalThis.performance.now()`, and callers must provide `context.nowMs` when that clock is
+  unavailable. Missing monotonic time is an explicit error path, not a silent fallback case.
 
 ## Output contract
 
@@ -104,4 +118,6 @@ No other workspace packages. No DOM imports and no React.
 - Unit tests for reachability, pruning, hashing, cancellation
 - Tests for every `chooseAlgorithm` rule branch and `analyzeLevel` edge case (0 boxes, max boxes, minimal grid)
 - Small fixture levels for algorithm correctness
+- `src/api/__tests__/solve.test.ts` covers both the `performance.now()` default path and the
+  explicit error returned when no monotonic clock source is available.
 - When enabling new algorithms, update `IMPLEMENTED_ALGORITHM_IDS` and web UI availability together so recommendations and selectable options remain consistent.

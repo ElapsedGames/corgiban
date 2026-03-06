@@ -15,12 +15,14 @@ main thread with versioned, runtime-validated protocol messages.
 - Phase 3 complete: versioned worker protocol, baseline push-based BFS solver, solver client/runtime, and `/play` solver controls + replay integration.
 - Phase 4 complete: benchmark domain package, benchmark worker/runtime/client flows, worker pool orchestration, `/bench` UI, and IndexedDB-backed persistence with import/export and diagnostics.
 - Phase 5 complete: coverage/boundary quality gates verified, solver ping timeout hardening, Playwright smoke coverage, and Workbox-based offline shell support.
-- Next milestone: Phase 6 (adapters, tooling, and performance) covering `/lab`, `packages/formats`, `packages/embed`, OffscreenCanvas fallback integration, and solver-kernel/WASM profiling work.
+- Phase 6 baseline landed: `/lab` route is live, `packages/formats` / `packages/embed` / `packages/solver-kernels` are active, OffscreenCanvas sprite-atlas pre-rendering is integrated with fallback, benchmark analytics/comparison flows are live, and level-pack/persistence contracts are hardened. This is not the final Phase 6 closeout state yet; tracked follow-up issues remain in `BUG-003`, `BUG-005`, `BUG-006`, `BUG-007`, `BUG-009`, and `BUG-010`.
+- Next Step: Phase 6.1 focuses on resolving the remaining Phase 6 contract/correctness issues plus repo code cleanup and best-practices alignment before expanding scope.
 
 Current routes:
 
 - `/play`: playable level flow with keyboard controls, history, undo/restart, solver run/cancel, progress, apply/animate solution, and worker retry flow.
-- `/bench`: benchmark suite builder, run/cancel controls, progress + diagnostics, persisted results table, and benchmark import/export flows.
+- `/bench`: benchmark suite builder (including warm-up reps), run/cancel controls, progress + diagnostics, persisted results table, analytics/comparison panel, and benchmark import/export flows.
+- `/lab`: Level Lab route for parsing CORG/XSB/SOK/SLC input, previewing levels, and running one-click worker solve/bench checks.
 - `/dev/ui-kit`: UI primitive validation route.
 
 ## Goals
@@ -40,7 +42,13 @@ pnpm typecheck
 pnpm lint
 pnpm test
 pnpm test:coverage
-pnpm build
+pnpm test:smoke
+```
+
+Playwright setup (once per machine):
+
+```bash
+pnpm exec playwright install chromium
 ```
 
 ## Validation Commands
@@ -51,9 +59,16 @@ pnpm typecheck
 pnpm lint
 pnpm test
 pnpm test:coverage
+pnpm test:smoke
 pnpm exec depcruise --config dependency-cruiser.config.mjs packages/ apps/
 node tools/scripts/encoding-check.mjs
 ```
+
+## Local issue tracker
+
+GitHub issues are disabled for this repo. Track non-trivial bugs, review findings, regressions,
+and deferred cleanup in `.tracker/issues/*.md`, regenerate `KNOWN_ISSUES.md` with
+`pnpm issue:generate`, and use `pnpm issue:check` to verify the dashboard is in sync.
 
 ## Repo Layout
 
@@ -65,20 +80,26 @@ Current:
 /packages
   /shared
   /levels
+  /formats
   /core
   /solver
+  /solver-kernels
   /worker
   /benchmarks
+  /embed
 /tools
 /docs
 ```
 
-Planned/optional later phases:
+Planned next-phase extensions:
 
-- `packages/formats` for external level format interop
-- `packages/embed` for Web Component embedding
-- `packages/solver-kernels` for optional accelerated kernels
-- `/lab` route for level tooling and optional browser dev adapters
+- Phase 6.1: remaining Phase 6 follow-up fixes, repo code cleanup, and best-practices alignment
+- Phase 7: UX and route-responsibility pass across `/play`, `/lab`, and `/bench`
+- Phase 8: solver optimization and advanced search
+- Phase 9: UI/visual polish and sprite/art pass
+- Phase 10: `/lab` browser-dev workspace (Sandpack/WebContainers, feature-gated)
+- Phase 11: Race Mode and multi-runner `/play` workflows
+- benchmark/report evolution beyond current versioned contracts
 
 ## Documentation Map
 
@@ -87,6 +108,7 @@ Planned/optional later phases:
 - `docs/project-plan.md` (phases, tasks, integration proofs)
 - `docs/dev-tools-spec.md` (boundary and tooling implementation details)
 - `docs/Engineering-Process-Playbook.md` (execution/governance process)
+- `docs/review-notes.md` (review-sensitive existing contracts that are intentional, not defects)
 - `docs/adr/*` (architecture decision records)
 - `AGENTS.md` and `CLAUDE.md` (thin wrappers pointing to `LLM_GUIDE.md`)
 

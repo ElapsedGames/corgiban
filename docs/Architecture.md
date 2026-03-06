@@ -151,20 +151,29 @@ its shadow root, and bundles React as a dependency (not a peer dependency).
 - Embeds must remain stable under arbitrary host-page CSS.
 - Canvas rendering is naturally isolated; only surrounding chrome needs controlled styles.
 - A self-contained runtime works on non-React hosts and avoids host version coupling.
+- Embed level resolution is deterministic: a known built-in `level-id` takes precedence, `level-data`
+  is used only when the id is missing or unknown, and unresolved inputs surface an explicit invalid
+  state instead of silently falling back.
 
 See ADR-0006 (`docs/adr/0006-embed-shadow-dom-styling-delivery.md`).
 
-### 3.10 Optional WASM strategy: **Rust + wasm-pack behind TS interface**
+### 3.10 WASM kernel strategy: **Rust + wasm-pack behind TS interface**
 
 **Decision:** `packages/solver-kernels` remains TS-first and promotes hotspots to Rust +
-`wasm-pack` only after benchmark evidence. WASM loads lazily inside workers via `fetch` +
-`WebAssembly.instantiateStreaming` with fallback to `WebAssembly.instantiate`.
+`wasm-pack` only after benchmark evidence. `apps/web` owns optional kernel URL wiring for worker
+bootstraps, accepts only absolute or app-root-relative kernel URLs, normalizes accepted values to
+absolute URLs before bootstrap, and worker runtimes preload configured WASM kernels best-effort via
+`fetch` + `WebAssembly.instantiateStreaming` with fallback to `WebAssembly.instantiate`. The
+current Phase 6 baseline lands delivery/preload groundwork only; solve and bench execution still
+run through the TS solver path until a later runtime-integration phase is benchmark-proven.
 
 **Why**
 
 - Keeps early phases simple and testable while preserving a high-performance path.
 - Avoids base-bundle bloat by loading kernels only when needed.
 - Preserves stable TS boundaries so worker protocol and UI contracts stay unchanged.
+
+See ADR-0021 (`docs/adr/0021-solver-kernel-delivery-preload-contract.md`).
 
 ---
 
@@ -246,6 +255,96 @@ worker health as `crashed` on timeout/error with immediate worker termination.
 
 See ADR-0018 (`docs/adr/0018-solver-client-ping-liveness-timeout.md`).
 
+### 3.17 Benchmark persistence recovery: **sticky memory-fallback until reset**
+
+**Decision:** When repository persistence fails in `/bench`, switch to `memory-fallback` and keep
+that mode sticky until storage is recreated (for example page reload).
+
+**Why**
+
+- Makes degraded persistence behavior deterministic and diagnosable.
+- Avoids noisy repeated repository retries after failure.
+- Keeps benchmark workflows usable with in-memory retention.
+
+See ADR-0019 (`docs/adr/0019-benchmark-persistence-sticky-memory-fallback.md`).
+
+### 3.18 Benchmark comparison snapshots: **strict suite-input fingerprint contract**
+
+**Decision:** `/bench` comparison exports use a typed/versioned snapshot contract and only compute
+deltas when measured-suite inputs match exactly through stored comparable-metadata fingerprints.
+
+**Why**
+
+- Prevents misleading comparisons across different solver settings, warm-up semantics, or runtime
+  environments.
+- Makes comparison export behavior explicit and versionable instead of relying on implicit UI-only
+  assumptions.
+- Keeps future comparison models additive (`comparisonModel` + version bump) rather than silently
+  changing the current baseline.
+
+See ADR-0020 (`docs/adr/0020-benchmark-comparison-snapshot-contract.md`).
+
+### 3.19 Progress emission cadence: **solver-owned throttle + spectator-gated benchmark streaming**
+
+**Decision:** Keep progress throttling in the solver layer and let worker runtimes request cadence
+through solver context instead of applying a second runtime throttle. Benchmark worker progress
+remains opt-in through spectator streaming.
+
+**Why**
+
+- Keeps progress cadence decisions in one place across solver and worker paths.
+- Reduces duplicated hot-path throttling logic during solve/bench runs.
+- Avoids unnecessary `BENCH_PROGRESS` traffic when no consumer is attached.
+
+See ADR-0022 (`docs/adr/0022-solver-progress-throttle-ownership.md`).
+
+### 3.20 Level Lab ownership: **route-local state + direct worker ports**
+
+**Decision:** Keep `/lab` authoring text, parsed level metadata, preview `GameState`, and
+single-run solve/bench status in route-local React state. `LabPage` creates/disposes
+`SolverPort` and `BenchmarkPort` refs directly instead of extending the shared Redux store.
+
+**Why**
+
+- Keeps authoring/debugging state isolated from gameplay and persisted benchmark workflows.
+- Avoids adding unstable draft/editor state to global Redux before cross-route handoff flows are
+  defined.
+- Lets the route drop stale worker callbacks by guarding on `(runId, authoredRevision)` after
+  edits, imports, or cancellations.
+
+See ADR-0023 (`docs/adr/0023-lab-route-local-state-ownership.md`).
+
+### 3.21 Sprite atlas rendering: **app-owned OffscreenCanvas worker + canvas fallback**
+
+**Decision:** Keep sprite-atlas generation in `apps/web/app/canvas` and use a dedicated auxiliary
+worker with `OffscreenCanvas` only when the browser supports it. Atlas requests are keyed by
+`cellSize`/DPR, cached lazily, and fall back to the existing main-thread canvas draw path on any
+capability or worker failure.
+
+**Why**
+
+- Preserves main-thread responsiveness without turning rendering optimization into a protocol or
+  domain concern.
+- Keeps `buildRenderPlan(...)` + `draw(...)` as the canonical deterministic rendering contract.
+- Lets unsupported browsers stay on the baseline renderer with no feature loss.
+
+See ADR-0024 (`docs/adr/0024-offscreen-sprite-atlas-worker-fallback.md`).
+
+### 3.22 Route store bootstrap: **stable route-scoped stores + mutable browser ports**
+
+**Decision:** Keep `/play` and `/bench` route stores stable across SSR/hydration by creating the
+store during render with mutable no-op ports, then replacing those ports with browser-backed
+implementations after commit.
+
+**Why**
+
+- Keeps Remix route render pure; workers and persistence adapters are not created before mount.
+- Preserves one stable store instance per route so thunk wiring and subscriptions stay explicit.
+- Lets route modules own browser-resource cleanup without promoting those adapters into global
+  singletons.
+
+See ADR-0025 (`docs/adr/0025-route-store-ssr-safe-port-bootstrap.md`).
+
 ## 4. Monorepo layout
 
 ```
@@ -256,6 +355,7 @@ See ADR-0018 (`docs/adr/0018-solver-client-ping-liveness-timeout.md`).
       /canvas
       /infra
         /persistence
+      /lab
       /play
       /ports
       /replay
@@ -346,7 +446,6 @@ See ADR-0018 (`docs/adr/0018-solver-client-ping-liveness-timeout.md`).
       runtime/
         benchmarkWorker.ts
         solverWorker.ts
-        throttle.ts
       client/
         benchmarkClient.client.ts
         solverClient.client.ts
@@ -391,8 +490,11 @@ tree (and `docs/project-plan.md`) for what is implemented in the current phase.
 - `packages/core` imports from `packages/shared` and `packages/levels` only.
 - `packages/formats` imports from `packages/shared` and `packages/levels` only.
 - `packages/solver` imports from `core` and `shared` only.
-- `packages/worker` imports from `solver`, `core`, `shared`, and `benchmarks` only. No React.
+- `packages/solver-kernels` imports from `solver`, `core`, and `shared` only.
+- `packages/worker` imports from `solver`, `solver-kernels`, `core`, `shared`, and `benchmarks`
+  only. No React.
 - `packages/benchmarks` imports from `solver`, `core`, and `shared` only.
+- `packages/embed` is an adapter package and imports other packages via public entrypoints.
 - `apps/web` imports from all packages, but only via public entrypoints.
 - Benchmark suite orchestration currently runs in `apps/web` through `BenchmarkPort` + `benchThunks`.
   Workers execute run-scoped `BENCH_START` requests and return `BENCH_PROGRESS` / `BENCH_RESULT`.
@@ -408,15 +510,18 @@ Enforcement:
 - ESLint `no-restricted-imports` and `boundaries` rules
 - dependency-cruiser via `dependency-cruiser.config.mjs` (on-demand validation/graphing)
 
-### 4.2 Extensions (planned, optional)
+### 4.2 Extensions and adapters
 
-- `packages/embed`: Web Component adapter (`<corgiban-embed>`) with Shadow DOM and scoped
+- `packages/embed`: active Web Component adapter (`<corgiban-embed>`) with Shadow DOM and scoped
   stylesheet injection; bundles React as a dependency for self-contained host embedding.
-- `packages/solver-kernels`: optional high-performance kernels (TS first; Rust + `wasm-pack`
-  after profiling), loaded lazily in workers.
+- `packages/solver-kernels`: active TS-first kernel package. WASM promotion remains optional and
+  profiling-gated; app-owned worker bootstraps may supply optional kernel URLs for best-effort
+  preload before solve/bench execution.
+- `/lab` route: active Level Lab surface for format parsing and worker-backed solve/bench checks.
+- Browser dev environments (Sandpack/WebContainers) remain future `/lab` Dev Tools adapters for
+  shareable repro sessions, editable examples, and browser workspaces; load them via dynamic
+  import and feature flags only.
 - `tools/`: reporting and developer tooling scripts (not runtime product logic).
-- Browser dev environments (`/lab`): Sandpack/WebContainers are optional Phase 7 adapters,
-  loaded via dynamic import and guarded by a feature flag (default OFF).
 
 ---
 
@@ -543,6 +648,8 @@ All invariants are validated in unit tests and optionally in dev builds.
 - benchmarks (potentially a pool of workers)
 - heavy computations (heuristics, deadlocks, visited sets)
 - runtime entrypoints are split by role (`solverWorker` and `benchmarkWorker`)
+- optional app-owned auxiliary workers (for example sprite-atlas pre-rendering) can be used when
+  supported and remain outside the versioned solver/benchmark protocol
 
 ---
 
@@ -619,6 +726,9 @@ Use schema validation (example: Zod) at both ends:
   falls back to `DEFAULT_PING_TIMEOUT_MS` (`5_000`), and timeout/error transitions worker health
   to `crashed` with worker termination; late `PONG` does not auto-recover health. Solver dispatch
   rejects while a ping is in flight so ping/solve traffic cannot interleave.
+- Progress throttling is solver-owned. Worker runtimes pass desired cadence through
+  `SolveContext` (`progressThrottleMs`, `progressExpandedInterval`) instead of layering a second
+  runtime throttle.
 - App-level `/play` solve orchestration applies settings-backed default budgets unless caller
   overrides (`timeBudgetMs` and `nodeBudget`, initialized to `30_000` and `2_000_000` with
   defensive fallback to solver constants when invalid values are encountered).
@@ -683,6 +793,9 @@ All algorithms implement the same interface:
 
 - No `Math.random()` in solver
 - Tie-breakers are stable (sorted actions)
+- Solver timing prefers `SolveContext.nowMs`; when callers omit it, `solve(...)` may use
+  `globalThis.performance.now()` if available. If no monotonic clock exists, the solver returns an
+  explicit error instead of falling back to `Date.now()`.
 - Benchmarks store solver options and algorithm version metadata
 
 ---
@@ -725,28 +838,48 @@ See ADR-0007 (`docs/adr/0007-indexeddb-persistence-migration-retention.md`).
 A dedicated route:
 
 - `/bench`
-  - suite builder (levels, algorithms, repetitions, budgets)
+  - suite builder (levels, algorithms, repetitions, warm-up repetitions, budgets)
   - run/cancel controls with progress and diagnostics panels
   - persisted results table (sortable)
+  - analytics/comparison panel (success rate + p50/p95 + baseline deltas)
   - export/import JSON for benchmark runs and level packs (File System Access API with fallback)
+  - export comparison snapshots (`corgiban-benchmark-comparison`, versioned)
   - debug perf panel sourced from `PerformanceObserver` entries
 
 ### 9.4 Benchmark export artifact semantics
 
 - Benchmark report export is a typed/versioned history artifact in the current baseline.
-- Export payload fields are:
+- Required report payload fields are:
   - `type: "corgiban-benchmark-report"`
   - `version`
   - `exportModel: "multi-suite-history"`
   - `results`
 - Exported `results` correspond to the currently retained benchmark history and may include multiple
   suite runs.
+- App-generated report exports currently also include `exportedAtIso` convenience metadata; strict
+  report parsing still keys off the required contract fields above.
 - Single-suite snapshot exports remain a future workflow decision.
+- Comparison snapshot export is a separate typed/versioned artifact for `/bench` analytics.
+- Comparison snapshot payload fields are:
+  - `type: "corgiban-benchmark-comparison"`
+  - `version: 2`
+  - `comparisonModel: "strict-suite-input-fingerprint"`
+  - `baselineSuiteRunId`
+  - `generatedAtIso`
+  - `suites`
+  - `comparisons`
+- Comparison snapshot export is enabled only when the selected baseline carries complete
+  comparable metadata.
+- Comparison deltas are computed only when measured-run comparable metadata matches the selected
+  baseline exactly. Fingerprints include level/repetition inputs, solver options, environment
+  metadata, and warm-up settings; non-comparable suites stay visible with explicit reasons and
+  null deltas.
+- See ADR-0016 (`docs/adr/0016-benchmark-report-contract-versioning.md`) and ADR-0020
+  (`docs/adr/0020-benchmark-comparison-snapshot-contract.md`).
 
 ### 9.5 Benchmark and level-pack import/version policy
 
-- Benchmark report payloads are typed/versioned contracts; level-pack versioned contracts are
-  deferred in the current baseline.
+- Benchmark report and level-pack payloads are typed/versioned contracts.
 - Benchmark reports require:
   - `type: "corgiban-benchmark-report"`
   - `version` (explicitly supported versions only)
@@ -756,10 +889,14 @@ A dedicated route:
   (`algorithmId`, `status`) in addition to metrics/environment structure checks.
 - Unsupported benchmark report versions/export models are rejected with explicit user-facing
   errors (no silent fallback).
-- Level-pack import is currently compatibility-first in `/bench`:
-  - accepts `levelIds: string[]` or `levels[].id` payloads
-  - filters to recognized built-in level ids
-  - strict typed/versioned level-pack contracts are deferred to a later phase
+- Level-pack imports require:
+  - `type: "corgiban-level-pack"`
+  - `version: 1`
+  - payload level references via `levelIds: string[]` or `levels[].id`
+- App-generated level-pack exports currently include both `levelIds` and `levels` plus
+  `exportedAtIso`; imports accept either id-bearing shape.
+- Level-pack imports filter to recognized built-in level ids and reject unsupported types/versions
+  with explicit user-facing errors.
 - See ADR-0016 (`docs/adr/0016-benchmark-report-contract-versioning.md`).
 
 ### 9.6 Persistence diagnostics model
@@ -768,6 +905,8 @@ A dedicated route:
   - storage persistence permission outcome (`granted | denied | unsupported`)
   - repository durability health (`durable | memory-fallback | unavailable`)
   - latest persistence error/notice surfaced to the user
+  - sticky degraded-mode semantics: once fallback occurs, `memory-fallback` remains active until
+    storage is recreated
 
 ---
 
@@ -782,14 +921,15 @@ A dedicated route:
 ### 10.2 Rendering pipeline
 
 - rendering draws on state or size changes (single draw per change); requestAnimationFrame is reserved for replay or future animations and can be reintroduced with a dirty flag if needed
-- sprite assets loaded once (asset manager)
+- sprite atlases are requested lazily per `cellSize`/DPR pair and cached
 - consistent coordinate system; DPR scaling supported
 - Rendering is split into `buildRenderPlan(state): RenderPlan` (pure, deterministic, unit-tested)
   and `draw(ctx, plan)` (thin imperative canvas adapter).
-- OffscreenCanvas is an optional rendering adapter for later phases (for pre-rendering/worker-side
-  rendering paths), with the main-thread canvas renderer retained as fallback.
+- OffscreenCanvas sprite-atlas pre-rendering runs in a dedicated worker when available; the
+  main-thread canvas draw path remains the fallback.
 
 See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
+See ADR-0024 (`docs/adr/0024-offscreen-sprite-atlas-worker-fallback.md`).
 
 ### 10.3 Optional overlays (future)
 
@@ -816,7 +956,7 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 - `/play` (default)
 - `/bench`
 - `/dev/ui-kit` (design system showcase)
-- `/lab` (optional developer tooling route; advanced browser-dev adapters are flag-gated)
+- `/lab` (Level Lab route with format parsing, route-local tool state, and worker-backed checks)
 - `/tests` (optional internal harness page for interactive debugging)
 
 ### 11.2 Component structure (initial)
@@ -843,6 +983,9 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
   - app adapter url import (Remix/Vite):
     `import solverWorkerUrl from "./solverWorker.client.ts?worker&url";`
     `new Worker(solverWorkerUrl, { type: "module", name: "corgiban-solver" })`
+- `apps/web` worker bootstraps may apply optional solver-kernel URLs from Vite env before loading
+  worker runtime modules; accepted env values are absolute URLs or app-root-relative paths, and the
+  documented host shape is `globalThis.__corgibanSolverKernelUrls`.
 
 ---
 
@@ -874,12 +1017,29 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
   - `SolverPort` for `/play` solve orchestration
   - `BenchmarkPort` for `/bench` run/cancel orchestration
   - `PersistencePort` for benchmark persistence and import/export workflows
+- `/play` and `/bench` route modules create stores with mutable no-op ports during render and swap
+  in browser-backed ports after commit so SSR/render stays pure and browser resources are not
+  created before the route mounts. This preserves one stable store instance per route; route
+  modules replace ports, not store identity. See ADR-0025.
+- `/lab` intentionally stays outside Redux thunk orchestration; it creates route-local
+  `SolverPort` / `BenchmarkPort` refs and coordinates one-click solve/bench flows directly inside
+  `LabPage`.
 - Port interfaces used by thunks:
   - `SolverPort`
   - `BenchmarkPort`
   - `PersistencePort`
 
-### 12.3 Redux serializability strategy
+### 12.3 Route-local tool surfaces
+
+- `/lab` owns authored input text, parsed metadata, preview `GameState`, and single-run
+  solve/bench status in local React state.
+- Parse/import transitions bump an authored revision token so stale worker results are ignored
+  after the level input changes.
+- Route unmount disposes direct worker ports instead of relying on shared-store lifecycle.
+- Promote `/lab` state into Redux only when a concrete cross-route workflow requires shared
+  ownership and the change is documented in an ADR.
+
+### 12.4 Redux serializability strategy
 
 - Keep Redux state/actions JSON-serializable by default.
 - Do not store typed arrays directly in slices; use serializable equivalents (`number[]`, ids,
@@ -899,7 +1059,8 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 - `core`: movement rules, push logic, win detection, undo/redo, parsing/encoding
 - `formats`: import/export parsing, normalization, and validation warnings
 - `solver`: reachability, hashing, visited behavior, algorithm correctness on small levels
-- `worker`: protocol validation, cancellation, throttling
+- `worker`: protocol validation, cancellation, kernel preload fallback behavior, and progress
+  emission semantics
 
 **UI tests**
 
@@ -909,7 +1070,7 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 
 **E2E smoke**
 
-- route smoke checks for `/`, `/play`, `/bench`, and `/dev/ui-kit`
+- route smoke checks for `/`, `/play`, `/bench`, `/lab`, and `/dev/ui-kit`
 - `/bench` benchmark run persistence across reload plus clear-results behavior
 - `/play` offline shell availability check after first load with required service worker readiness
 
@@ -932,12 +1093,13 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 ### 14.1 CI pipeline (GitHub Actions)
 
 - install (pnpm)
+- format check
 - typecheck (tsc -b)
 - lint
 - unit tests with coverage gates
+- install Playwright browser (Chromium)
+- Playwright smoke (`pnpm test:smoke`, production preview path, including the preview build)
 - encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
-- build (Remix)
-- Playwright smoke (`pnpm test:smoke`, production preview path)
 
 ### 14.2 Quality gates
 
@@ -1006,6 +1168,13 @@ Current accepted ADRs:
 - ADR-0016: Benchmark report contract and versioning policy
 - ADR-0017: PWA offline shell strategy (Workbox + dev registration toggle)
 - ADR-0018: Solver client ping liveness and timeout semantics
+- ADR-0019: Benchmark persistence recovery via sticky memory-fallback mode
+- ADR-0020: Benchmark comparison snapshot contract and strict suite-input comparability
+- ADR-0021: Solver kernel delivery and best-effort worker preload contract
+- ADR-0022: Solver-owned progress throttling and spectator-gated worker progress
+- ADR-0023: Level Lab route-local state ownership and direct port orchestration
+- ADR-0024: Offscreen sprite-atlas worker with main-thread fallback
+- ADR-0025: SSR-safe route store bootstrap via mutable ports
 
 ---
 

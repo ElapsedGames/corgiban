@@ -20,6 +20,7 @@ export {
   setSuiteLevelIds,
   setSuiteNodeBudget,
   setSuiteRepetitions,
+  setSuiteWarmupRepetitions,
   setSuiteTimeBudgetMs,
   toggleSuiteAlgorithmId,
   toggleSuiteLevelId,

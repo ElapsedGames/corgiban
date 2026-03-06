@@ -23,8 +23,8 @@ const { parseWorkerOutboundMessage } = jiti(
 const { validateOutboundMessage } = jiti(
   path.resolve(repoRoot, 'packages/worker/src/protocol/validation.ts'),
 );
-const { DEFAULT_PROGRESS_INTERVAL_MS } = jiti(
-  path.resolve(repoRoot, 'packages/worker/src/runtime/throttle.ts'),
+const { DEFAULT_SOLVER_PROGRESS_THROTTLE_MS } = jiti(
+  path.resolve(repoRoot, 'packages/solver/src/api/solverConstants.ts'),
 );
 
 const ITERATIONS = 250_000;
@@ -133,7 +133,7 @@ const structuralProfile = profile(
 const medianElapsedMs = median(simulatedBenchmarkElapsedSamplesMs);
 const solveProgressMessagesPerRun = Math.max(
   1,
-  Math.ceil(medianElapsedMs / DEFAULT_PROGRESS_INTERVAL_MS),
+  Math.ceil(medianElapsedMs / DEFAULT_SOLVER_PROGRESS_THROTTLE_MS),
 );
 const strictProgressValidationCostPerRunMs =
   strictProgressProfile.perCallMs * solveProgressMessagesPerRun;
@@ -166,7 +166,7 @@ Script: \`node tools/scripts/profile-worker-validation.mjs\`
 
 - Simulated benchmark elapsed samples (ms): ${simulatedBenchmarkElapsedSamplesMs.join(', ')}
 - Median benchmark elapsed (ms): ${toFixed(medianElapsedMs, 2)}
-- Progress throttle interval (ms): ${DEFAULT_PROGRESS_INTERVAL_MS}
+- Solver throttle interval (ms): ${DEFAULT_SOLVER_PROGRESS_THROTTLE_MS}
 - Estimated progress messages/run: ${solveProgressMessagesPerRun}
 - Strict SOLVE_PROGRESS validation cost/run (ms): ${toFixed(strictProgressValidationCostPerRunMs, 4)}
 - 2% threshold of median elapsed (ms): ${toFixed(thresholdMs, 4)}

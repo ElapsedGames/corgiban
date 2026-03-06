@@ -1,15 +1,11 @@
-import {
-  BENCHMARK_REPORT_EXPORT_MODEL,
-  BENCHMARK_REPORT_TYPE,
-  BENCHMARK_REPORT_VERSION,
-  isBenchmarkRunRecord,
-} from '@corgiban/benchmarks';
+import { parseBenchmarkReportJson } from '@corgiban/benchmarks';
 import { parseLevel } from '@corgiban/core';
 import { builtinLevels } from '@corgiban/levels';
-import { MAX_IMPORT_BYTES } from '@corgiban/shared';
 
 import { BenchmarkRunCancelledError, type BenchmarkRunRecord } from '../ports/benchmarkPort';
+import type { PersistencePort } from '../ports/persistencePort';
 import { formatLevelPackImportNotice, resolveLevelPackImport } from '../bench/levelPackImport';
+import { makeRunId } from '../runId';
 import type { AppThunk } from './store';
 import {
   benchErrorRecorded,
@@ -77,88 +73,36 @@ function isBenchSuiteActive(status: BenchRunStatus): boolean {
 
 function syncPersistenceDiagnostics(
   dispatch: (action: unknown) => void,
-  benchmarkStorage: {
-    getRepositoryHealth: () => 'durable' | 'memory-fallback' | 'unavailable';
-    getLastRepositoryError: () => string | null;
-  },
+  persistencePort: Pick<PersistencePort, 'getRepositoryHealth' | 'getLastRepositoryError'>,
 ): string | null {
-  dispatch(benchRepositoryHealthRecorded(benchmarkStorage.getRepositoryHealth()));
-  return benchmarkStorage.getLastRepositoryError();
+  dispatch(benchRepositoryHealthRecorded(persistencePort.getRepositoryHealth()));
+  return persistencePort.getLastRepositoryError();
 }
 
 async function reconcilePersistedResults(
   dispatch: (action: unknown) => void,
-  benchmarkStorage: {
-    loadResults: () => Promise<BenchmarkRunRecord[]>;
-    getRepositoryHealth: () => 'durable' | 'memory-fallback' | 'unavailable';
-    getLastRepositoryError: () => string | null;
-  },
+  persistencePort: Pick<
+    PersistencePort,
+    'loadResults' | 'getRepositoryHealth' | 'getLastRepositoryError'
+  >,
 ): Promise<string | null> {
-  const retainedResults = await benchmarkStorage.loadResults();
+  const retainedResults = await persistencePort.loadResults();
   dispatch(benchResultsReplaced(retainedResults));
-  return syncPersistenceDiagnostics(dispatch, benchmarkStorage);
+  return syncPersistenceDiagnostics(dispatch, persistencePort);
 }
 
 async function reconcilePersistedResultsSafely(
   dispatch: (action: unknown) => void,
-  benchmarkStorage: {
-    loadResults: () => Promise<BenchmarkRunRecord[]>;
-    getRepositoryHealth: () => 'durable' | 'memory-fallback' | 'unavailable';
-    getLastRepositoryError: () => string | null;
-  },
+  persistencePort: Pick<
+    PersistencePort,
+    'loadResults' | 'getRepositoryHealth' | 'getLastRepositoryError'
+  >,
 ): Promise<void> {
   try {
-    await reconcilePersistedResults(dispatch, benchmarkStorage);
+    await reconcilePersistedResults(dispatch, persistencePort);
   } catch {
-    syncPersistenceDiagnostics(dispatch, benchmarkStorage);
+    syncPersistenceDiagnostics(dispatch, persistencePort);
   }
-}
-
-function parseBenchmarkReport(jsonText: string): BenchmarkRunRecord[] {
-  const importBytes = new TextEncoder().encode(jsonText).byteLength;
-  if (importBytes > MAX_IMPORT_BYTES) {
-    const maxMb = (MAX_IMPORT_BYTES / 1024 / 1024).toFixed(1);
-    const importMb = (importBytes / 1024 / 1024).toFixed(1);
-    throw new Error(`Benchmark report is too large (${importMb} MB). Maximum is ${maxMb} MB.`);
-  }
-
-  const parsed = JSON.parse(jsonText) as unknown;
-
-  if (!parsed || typeof parsed !== 'object') {
-    throw new Error('Benchmark report must be a JSON object.');
-  }
-
-  const report = parsed as {
-    type?: unknown;
-    version?: unknown;
-    exportModel?: unknown;
-    results?: unknown;
-  };
-
-  if (report.type !== BENCHMARK_REPORT_TYPE) {
-    throw new Error('Unsupported benchmark report type.');
-  }
-
-  if (report.version !== BENCHMARK_REPORT_VERSION) {
-    throw new Error(`Unsupported benchmark report version. Expected ${BENCHMARK_REPORT_VERSION}.`);
-  }
-
-  if (report.exportModel !== BENCHMARK_REPORT_EXPORT_MODEL) {
-    throw new Error(
-      `Unsupported benchmark report export model. Expected "${BENCHMARK_REPORT_EXPORT_MODEL}".`,
-    );
-  }
-
-  if (!Array.isArray(report.results)) {
-    throw new Error('Benchmark report is missing results.');
-  }
-
-  const results = report.results.filter(isBenchmarkRunRecord);
-  if (results.length !== report.results.length) {
-    throw new Error('Benchmark report contains invalid result entries.');
-  }
-
-  return results;
 }
 
 function resolveLevelRuntime(levelId: string) {
@@ -170,20 +114,20 @@ function resolveLevelRuntime(levelId: string) {
 }
 
 export const initializeBench = (): AppThunk<Promise<void>> => {
-  return async (dispatch, getState, { benchmarkStorage }) => {
-    if (!benchmarkStorage) {
+  return async (dispatch, getState, { persistencePort }) => {
+    if (!persistencePort) {
       return;
     }
 
     try {
-      const initResult = await benchmarkStorage.init({ debug: getState().settings.debug });
+      const initResult = await persistencePort.init({ debug: getState().settings.debug });
       dispatch(benchPersistOutcomeRecorded(initResult.persistOutcome));
       dispatch(benchRepositoryHealthRecorded(initResult.repositoryHealth));
 
-      const persistedResults = await benchmarkStorage.loadResults();
+      const persistedResults = await persistencePort.loadResults();
       dispatch(benchResultsLoaded(persistedResults));
       dispatch(benchNoticeRecorded(null));
-      const repositoryError = syncPersistenceDiagnostics(dispatch, benchmarkStorage);
+      const repositoryError = syncPersistenceDiagnostics(dispatch, persistencePort);
       dispatch(benchErrorRecorded(repositoryError));
     } catch (error) {
       dispatch(benchErrorRecorded(toErrorMessage(error)));
@@ -192,7 +136,7 @@ export const initializeBench = (): AppThunk<Promise<void>> => {
 };
 
 export const runBenchSuite = (): AppThunk<Promise<void>> => {
-  return async (dispatch, getState, { benchmarkPort, benchmarkStorage }) => {
+  return async (dispatch, getState, { benchmarkPort, persistencePort }) => {
     if (!benchmarkPort) {
       return;
     }
@@ -225,7 +169,7 @@ export const runBenchSuite = (): AppThunk<Promise<void>> => {
       return;
     }
 
-    const suiteRunId = crypto.randomUUID();
+    const suiteRunId = makeRunId('bench-suite');
     const writeTasks: Promise<void>[] = [];
     let hasWriteError = false;
     let repositoryError: string | null = null;
@@ -239,14 +183,14 @@ export const runBenchSuite = (): AppThunk<Promise<void>> => {
         onResult: (result) => {
           dispatch(benchResultRecorded(result));
 
-          if (!benchmarkStorage) {
+          if (!persistencePort) {
             return;
           }
 
-          const writeTask = benchmarkStorage.saveResult(result).catch((error) => {
+          const writeTask = persistencePort.saveResult(result).catch((error) => {
             hasWriteError = true;
             dispatch(benchErrorRecorded(toErrorMessage(error)));
-            repositoryError = syncPersistenceDiagnostics(dispatch, benchmarkStorage);
+            repositoryError = syncPersistenceDiagnostics(dispatch, persistencePort);
           });
           writeTasks.push(writeTask);
         },
@@ -256,10 +200,10 @@ export const runBenchSuite = (): AppThunk<Promise<void>> => {
       });
 
       await Promise.all(writeTasks);
-      if (benchmarkStorage) {
-        const retainedResults = await benchmarkStorage.loadResults();
+      if (persistencePort) {
+        const retainedResults = await persistencePort.loadResults();
         dispatch(benchResultsReplaced(retainedResults));
-        repositoryError = syncPersistenceDiagnostics(dispatch, benchmarkStorage);
+        repositoryError = syncPersistenceDiagnostics(dispatch, persistencePort);
       }
       dispatch(benchRunCompleted({ suiteRunId }));
       if (!hasWriteError) {
@@ -292,23 +236,23 @@ export const cancelBenchRun = (): AppThunk => {
 };
 
 export const clearBenchResults = (): AppThunk<Promise<void>> => {
-  return async (dispatch, getState, { benchmarkStorage }) => {
+  return async (dispatch, getState, { persistencePort }) => {
     const status = getState().bench.status;
     if (isBenchSuiteActive(status)) {
       return;
     }
 
     try {
-      await benchmarkStorage?.clearResults();
+      await persistencePort?.clearResults();
       dispatch(benchResultsCleared());
-      const repositoryError = benchmarkStorage
-        ? syncPersistenceDiagnostics(dispatch, benchmarkStorage)
+      const repositoryError = persistencePort
+        ? syncPersistenceDiagnostics(dispatch, persistencePort)
         : null;
       dispatch(benchNoticeRecorded(null));
       dispatch(benchErrorRecorded(repositoryError));
     } catch (error) {
-      if (benchmarkStorage) {
-        await reconcilePersistedResultsSafely(dispatch, benchmarkStorage);
+      if (persistencePort) {
+        await reconcilePersistedResultsSafely(dispatch, persistencePort);
       }
       dispatch(benchErrorRecorded(toErrorMessage(error)));
     }
@@ -316,7 +260,7 @@ export const clearBenchResults = (): AppThunk<Promise<void>> => {
 };
 
 export const importBenchmarkReport = (jsonText: string): AppThunk<Promise<void>> => {
-  return async (dispatch, getState, { benchmarkStorage }) => {
+  return async (dispatch, getState, { persistencePort }) => {
     const status = getState().bench.status;
     if (isBenchSuiteActive(status)) {
       return;
@@ -325,20 +269,20 @@ export const importBenchmarkReport = (jsonText: string): AppThunk<Promise<void>>
     let attemptedPersistenceReplace = false;
 
     try {
-      const results = parseBenchmarkReport(jsonText);
+      const results = parseBenchmarkReportJson(jsonText);
       let repositoryError: string | null = null;
-      if (benchmarkStorage) {
+      if (persistencePort) {
         attemptedPersistenceReplace = true;
-        await benchmarkStorage.replaceResults(results);
-        repositoryError = await reconcilePersistedResults(dispatch, benchmarkStorage);
+        await persistencePort.replaceResults(results);
+        repositoryError = await reconcilePersistedResults(dispatch, persistencePort);
       } else {
         dispatch(benchResultsReplaced(results));
       }
       dispatch(benchNoticeRecorded(null));
       dispatch(benchErrorRecorded(repositoryError));
     } catch (error) {
-      if (benchmarkStorage && attemptedPersistenceReplace) {
-        await reconcilePersistedResultsSafely(dispatch, benchmarkStorage);
+      if (persistencePort && attemptedPersistenceReplace) {
+        await reconcilePersistedResultsSafely(dispatch, persistencePort);
       }
       dispatch(benchErrorRecorded(toErrorMessage(error)));
     }

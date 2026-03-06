@@ -11,15 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9.4.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -30,6 +28,9 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
+      - name: Known issues sync check
+        run: pnpm issue:check
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -39,14 +40,22 @@ jobs:
       - name: Test coverage
         run: pnpm test:coverage
 
-      - name: Build
-        run: pnpm build
-
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Smoke tests
-        run: pnpm exec playwright test
+        run: pnpm test:smoke
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Encoding check
         run: node tools/scripts/encoding-check.mjs

@@ -9,6 +9,7 @@ function createContextMock() {
     setTransform: vi.fn(),
     clearRect: vi.fn(),
     fillRect: vi.fn(),
+    drawImage: vi.fn(),
     beginPath: vi.fn(),
     arc: vi.fn(),
     stroke: vi.fn(),
@@ -81,5 +82,53 @@ describe('draw', () => {
         Math.abs((call[3] as number) - 14.4) < 1e-9,
     );
     expect(boxDrawCall).toBeDefined();
+  });
+
+  it('uses sprite atlas images for every cell type when an atlas is provided', () => {
+    const ctx = createContextMock();
+    const atlas = {
+      key: 'atlas-key',
+      sprites: {
+        floor: {} as ImageBitmap,
+        wall: {} as ImageBitmap,
+        target: {} as ImageBitmap,
+        box: {} as ImageBitmap,
+        boxOnTarget: {} as ImageBitmap,
+        player: {} as ImageBitmap,
+        playerOnTarget: {} as ImageBitmap,
+      },
+    };
+    const plan: RenderPlan = {
+      width: 4,
+      height: 2,
+      cellSize: 10,
+      dpr: 1,
+      pixelWidth: 40,
+      pixelHeight: 20,
+      cells: [
+        { index: 0, row: 0, col: 0, wall: true, target: false, box: false, player: false },
+        { index: 1, row: 0, col: 1, wall: false, target: true, box: false, player: true },
+        { index: 2, row: 0, col: 2, wall: false, target: false, box: false, player: true },
+        { index: 3, row: 0, col: 3, wall: false, target: true, box: true, player: false },
+        { index: 4, row: 1, col: 0, wall: false, target: false, box: true, player: false },
+        { index: 5, row: 1, col: 1, wall: false, target: true, box: false, player: false },
+        { index: 6, row: 1, col: 2, wall: false, target: false, box: false, player: false },
+      ],
+    };
+
+    draw(ctx, plan, atlas);
+
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(1, atlas.sprites.wall, 0, 0, 10, 10);
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(2, atlas.sprites.playerOnTarget, 10, 0, 10, 10);
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(3, atlas.sprites.player, 20, 0, 10, 10);
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(4, atlas.sprites.boxOnTarget, 30, 0, 10, 10);
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(5, atlas.sprites.box, 0, 10, 10, 10);
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(6, atlas.sprites.target, 10, 10, 10, 10);
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(7, atlas.sprites.floor, 20, 10, 10, 10);
+
+    expect(ctx.fillRect).toHaveBeenCalledTimes(1);
+    expect(ctx.arc).not.toHaveBeenCalled();
+    expect(ctx.fill).not.toHaveBeenCalled();
+    expect(ctx.stroke).toHaveBeenCalledTimes(8);
   });
 });

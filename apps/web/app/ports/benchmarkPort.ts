@@ -14,6 +14,7 @@ export type BenchmarkSuiteConfig = {
   levelIds: string[];
   algorithmIds: AlgorithmId[];
   repetitions: number;
+  warmupRepetitions?: number;
   timeBudgetMs: number;
   nodeBudget: number;
   algorithmOptions?: Partial<Record<AlgorithmId, SolverOptions>>;
@@ -29,7 +30,9 @@ export type BenchmarkProgress = {
 export type BenchmarkWorkerProgress = {
   suiteRunId: string;
   runId: string;
-  sequence: number;
+  planSequence: number;
+  measuredSequence: number | null;
+  warmup: boolean;
   levelId: string;
   algorithmId: AlgorithmId;
   repetition: number;

@@ -9,7 +9,7 @@ A) Determinism and purity
 
 - Game engine and solver logic must be deterministic and side-effect free.
 - No DOM/Web APIs in domain packages (core/solver). React imports are allowed only in adapter
-  surfaces (`apps/web`, and optional `packages/embed` when introduced).
+  surfaces (`apps/web` and `packages/embed`).
 
 B) Performance and threading
 
@@ -140,7 +140,6 @@ validation.ts
 runtime/
 benchmarkWorker.ts
 solverWorker.ts
-throttle.ts
 client/
 benchmarkClient.client.ts
 solverClient.client.ts
@@ -187,23 +186,23 @@ Principle: Each technology must be a well-bounded adapter. Do not let these depe
 
 Summary table:
 
-| Tech                                              | Placement in Corgiban                                                                                                                           | Product value                                                                    | Cost / risk                                                                                   | Recommendation                              |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Web Workers                                       | Solver runs; benchmark runner; optional worker pool                                                                                             | Keeps UI responsive; enables concurrency; makes benchmarks practical             | Requires protocol discipline + cancellation                                                   | Core requirement                            |
-| Web Components                                    | `packages/embed` exporting `<corgiban-embed>` with Shadow DOM + scoped stylesheet injection                                                     | Embeddable play surface that resists host CSS collisions                         | Requires isolated style artifact + lifecycle integration tests                                | Planned Phase 6                             |
-| Remix                                             | `apps/web` primary app shell from Phase 0                                                                                                       | SSR/streaming + server actions + routing in one framework                        | Requires Remix conventions from day one                                                       | Core requirement (Phase 0)                  |
-| Browser dev environments (WebContainers/Sandpack) | Level Lab `/lab` route; WebContainers/Sandpack added later behind "Dev Tools" section                                                           | Reproducibility; turns app into a tool                                           | WebContainers is a heavy dependency; Level Lab alone is low-cost                              | Level Lab: Phase 6; WebContainers: Phase 7+ |
-| WebAssembly                                       | `packages/solver-kernels` for hot loops; TS interface first, Rust + `wasm-pack` when promoted                                                   | Real perf wins on large suites                                                   | Toolchain/debug overhead + binary loading strategy complexity                                 | Phase 6, after profiling data from bench    |
-| Advanced browser APIs                             | IndexedDB, File System Access, PerformanceObserver + performance.mark/measure, navigator.storage.persist(), PWA/service worker, OffscreenCanvas | Durability, sharing, perf visibility, offline use, reduced main-thread rendering | Some APIs need fallbacks; cross-origin isolation only needed for SharedArrayBuffer (avoid it) | Phase 4-5; all six listed APIs are in scope |
+| Tech                                              | Placement in Corgiban                                                                                                                           | Product value                                                                    | Cost / risk                                                                                   | Recommendation                                                                                  |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Web Workers                                       | Solver runs; benchmark runner; optional worker pool                                                                                             | Keeps UI responsive; enables concurrency; makes benchmarks practical             | Requires protocol discipline + cancellation                                                   | Core requirement                                                                                |
+| Web Components                                    | `packages/embed` exporting `<corgiban-embed>` with Shadow DOM + scoped stylesheet injection                                                     | Embeddable play surface that resists host CSS collisions                         | Requires isolated style artifact + lifecycle integration tests                                | Implemented in Phase 6                                                                          |
+| Remix                                             | `apps/web` primary app shell from Phase 0                                                                                                       | SSR/streaming + server actions + routing in one framework                        | Requires Remix conventions from day one                                                       | Core requirement (Phase 0)                                                                      |
+| Browser dev environments (WebContainers/Sandpack) | Level Lab `/lab` route; browser-dev workspace added later behind a "Dev Tools" section                                                          | Shareable repro workflows, editable examples, and in-browser experimentation     | Heavy dependency, browser support variance, and workspace/template upkeep                     | Level Lab implemented; browser-dev workspace: Phase 10                                          |
+| WebAssembly                                       | `packages/solver-kernels` for hot loops; TS interface first, Rust + `wasm-pack` when promoted                                                   | Optional acceleration path for large suites                                      | Toolchain/debug overhead + binary loading strategy complexity                                 | TS baseline implemented; delivery/preload groundwork landed; runtime integration post-profiling |
+| Advanced browser APIs                             | IndexedDB, File System Access, PerformanceObserver + performance.mark/measure, navigator.storage.persist(), PWA/service worker, OffscreenCanvas | Durability, sharing, perf visibility, offline use, reduced main-thread rendering | Some APIs need fallbacks; cross-origin isolation only needed for SharedArrayBuffer (avoid it) | Phase 4-6; all six listed APIs are in scope                                                     |
 
 Concrete placements:
 
-1. Web Workers (must-have): worker pool for benchmarks capped at navigator.hardwareConcurrency; progress throttling; deterministic cancellation. Do NOT use SharedArrayBuffer/Atomics - postMessage protocol only (avoids COOP/COEP deployment constraints).
-2. Web Components (Phase 6): `packages/embed` with `<corgiban-embed>` attributes (level-id, level-data, readonly, show-solver, theme) and DOM events (corgiban:solved, corgiban:move, corgiban:benchmarkComplete). Default to Shadow DOM with scoped stylesheet injection. Bundle React as a dependency (not a peer dependency) so the embed remains self-contained on any host page. Write an ADR documenting custom-element lifecycle and cleanup.
+1. Web Workers (must-have): worker pool for benchmarks capped at navigator.hardwareConcurrency; solver-owned progress cadence with worker-requested cadence fields; deterministic cancellation. Do NOT use SharedArrayBuffer/Atomics - postMessage protocol only (avoids COOP/COEP deployment constraints).
+2. Web Components (Phase 6): `packages/embed` with `<corgiban-embed>` attributes (level-id, level-data, readonly, show-solver, theme) and DOM events (corgiban:error, corgiban:solved, corgiban:move, corgiban:benchmarkComplete). Embed level resolution is precedence-based: a known built-in `level-id` wins, `level-data` is used only when the id is missing or unknown, and unresolved inputs surface an explicit invalid state. Default to Shadow DOM with scoped stylesheet injection. Bundle React as a dependency (not a peer dependency) so the embed remains self-contained on any host page.
 3. Remix (Phase 0 baseline): `apps/web` is a Remix app from the start. Use Remix routing/data APIs as the primary app model while keeping domain packages unchanged and framework-agnostic.
-4. Level Lab (Phase 6): `/lab` route with level editor + preview, run solver/bench, export/import JSON. Add Sandpack/WebContainers integration later (Phase 7) behind a "Dev Tools" section via dynamic import and a feature flag; it must remain optional and not required for normal product usage.
-5. WASM kernels (Phase 6, post-profiling): implement TS version first behind the same interface; promote only benchmark-proven hotspots to Rust + `wasm-pack`. Load WASM lazily inside workers via `fetch` + `WebAssembly.instantiateStreaming` (fallback to `WebAssembly.instantiate`). Candidates: reachability flood fill, state hashing, assignment heuristic, bitset operations.
-6. Advanced APIs (Phase 4-5): IndexedDB (benchmark persistence via adapter) + File System Access API (export/import level packs and benchmark reports) + PerformanceObserver + performance.mark/measure (solver latency and render timing) + navigator.storage.persist() (durable IndexedDB on first benchmark run) + PWA/service worker (offline caching) + OffscreenCanvas (worker-side sprite pre-rendering, Phase 6). Do not use SharedArrayBuffer.
+4. Level Lab (Phase 6): `/lab` route with level editor + preview, run solver/bench, export/import JSON. Add Sandpack/WebContainers integration later (Phase 10) behind a "Dev Tools" section via dynamic import and a feature flag; keep it `/lab`-only, use it for reproducible examples and repro packs, and do not require it for normal product usage.
+5. WASM kernels (Phase 6, post-profiling): implement TS version first behind the same interface; promote only benchmark-proven hotspots to Rust + `wasm-pack`. Load WASM lazily inside workers via `fetch` + `WebAssembly.instantiateStreaming` (fallback to `WebAssembly.instantiate`). `apps/web` owns optional kernel URL wiring for worker bootstraps; workers preload best-effort and must retain the TS baseline as fallback. Phase 6 delivers the TS kernels plus delivery/preload groundwork; solve and bench execution still use the TS solver path until a later runtime-integration phase proves a measurable benefit. Candidates: reachability flood fill, state hashing, assignment heuristic, bitset operations.
+6. Advanced APIs (Phase 4-6): IndexedDB (benchmark persistence via adapter) + File System Access API (export/import level packs and benchmark reports) + PerformanceObserver + performance.mark/measure (solver latency and render timing) + navigator.storage.persist() (durable IndexedDB on first benchmark run) + PWA/service worker (offline caching) + OffscreenCanvas (worker-side sprite pre-rendering, Phase 6). Do not use SharedArrayBuffer.
 
 Support + fallback matrix (minimum):
 
@@ -218,10 +217,11 @@ Support + fallback matrix (minimum):
 - packages/core imports ONLY: packages/shared, packages/levels
 - packages/formats imports ONLY: packages/shared, packages/levels
 - packages/solver imports ONLY: packages/core, packages/shared
-- packages/worker imports ONLY: packages/solver, packages/core, packages/shared, packages/benchmarks
+- packages/solver-kernels imports ONLY: packages/solver, packages/core, packages/shared
+- packages/worker imports ONLY: packages/solver, packages/solver-kernels, packages/core, packages/shared, packages/benchmarks
 - packages/benchmarks imports ONLY: packages/solver, packages/core, packages/shared
 - apps/web imports packages ONLY through their public entrypoints (package root exports)
-- packages/embed (when introduced) is an adapter package; it may import React and package public
+- packages/embed is an adapter package; it may import React and package public
   entrypoints, and must not be imported by domain packages. Embed bundles React as a dependency
   (self-contained runtime), not as a peer dependency.
 
@@ -458,7 +458,10 @@ Protocol validation posture:
 
 Progress throttling:
 
-- Throttle progress posts to a reasonable rate (e.g., <= 10-20 msgs/sec).
+- Solver owns progress cadence; worker runtimes request cadence through
+  `progressThrottleMs` / `progressExpandedInterval` instead of applying a second throttle layer.
+- Keep emitted progress at a reasonable rate (for example <= 10-20 msgs/sec) for interactive
+  surfaces; benchmark worker progress remains spectator-only.
 
 Cancellation:
 
@@ -507,6 +510,7 @@ Routes/pages:
 
 - /play (default)
 - /bench
+- /lab
 - /dev/ui-kit (design system primitives reference - no separate Storybook)
 - Define routes with Remix route modules under apps/web/app/routes/.
 - Keep route modules thin; route-specific selectors/thunks/controllers live in adjacent feature modules.
@@ -591,13 +595,13 @@ Design system primitives (minimal, Tailwind-based):
 
 Benchmark model:
 
-- BenchmarkSuite (app): levelIds[], algorithmIds[], repetitions, budgets (time/node)
+- BenchmarkSuite (app): levelIds[], algorithmIds[], repetitions, warmupRepetitions, budgets (time/node)
 - Results captured with environment metadata (UA, cores, build version)
 
 Execution:
 
 - Run benchmarks in worker pool; default pool size: max(1, min(4, (navigator.hardwareConcurrency || 4) - 1)).
-- Warm-up capability exists in `packages/benchmarks` (`warmupRepetitions`), but `/bench` currently runs measured repetitions only; warm-up UI controls are deferred to Phase 6 (Task 11).
+- Warm-up controls are available in `/bench` (`warmupRepetitions`). Warm-up runs execute before measured runs and are excluded from stored measured-result history.
 - Each stored result includes the full solver options used (algorithmId, heuristic, budgets) so runs are strictly comparable.
 - Persist results locally using IndexedDB via an adapter (do not access persistence directly from UI components).
 - IndexedDB schema: define `BENCHMARK_DB_VERSION` and schema constants in packages/benchmarks; migration logic (onupgradeneeded) lives in apps/web/app persistence adapter with unit tests covering version upgrades. Retention: cap at 100 stored runs (configurable); provide "Clear storage" action in bench settings.
@@ -607,14 +611,16 @@ Execution:
 
 UI:
 
-- suite builder (levels, algorithms, repetitions, budgets)
+- suite builder (levels, algorithms, repetitions, warmupRepetitions, budgets)
 - run/cancel
 - diagnostics panel for status/progress/persistence outcome/errors
 - results table (sortable; virtualize if large)
+- analytics/comparison panel (success rate, p50/p95 elapsed time, baseline deltas)
 - export/import JSON for benchmark runs and level packs (File System Access API with fallback to anchor-download)
+- comparison snapshot export for strictly comparable suites
 - Benchmark report export semantics (Phase 4 baseline): export retained benchmark history with explicit `type`, `version`, and `exportModel` (`multi-suite-history`) plus strict run-record `results`.
 - Benchmark report schema policy: accept only explicitly supported `type`/`version`/`exportModel` combinations; reject unsupported versions/models and invalid records with user-visible errors. Record validation must enforce required solver options and enum-like fields for comparability.
-- Level-pack import baseline: accept `levelIds[]` or `levels[].id` payload shapes and filter to known built-in ids; strict typed/versioned level-pack contracts are deferred to Phase 6 (Task 11).
+- Level-pack import contract: require `type` + `version`, accept level references via `levelIds[]` or `levels[].id`, and filter to known built-in ids with explicit errors for unsupported payloads.
 - perf panel (visible when debug flag is set): shows PerformanceObserver entries for solver and bench timing
 
 # ==================================================================== 8) TESTING, LINTING, CI SCRIPTS (MUST BE INCLUDED)
@@ -691,7 +697,7 @@ Other documentation:
 - Ensure /docs/dev-tools-spec.md exists and defines boundary/tooling implementation details.
 - Ensure /docs/Engineering-Process-Playbook.md exists and defines process/governance flow.
 - Ensure root /LLM_GUIDE.md exists as canonical and root /AGENTS.md and /CLAUDE.md exist as short wrappers pointing to it.
-- Add short package READMEs where useful (core/solver/worker/benchmarks/web) describing public APIs and boundaries.
+- Maintain package README(s) for active workspace packages describing public APIs and boundaries.
 - Add ADRs only when introducing new cross-cutting patterns beyond what's specified here.
 
 Keep docs short and current.
@@ -786,42 +792,81 @@ Deferred notes:
 - Protocol-level `SOLVE_CANCEL` and `BENCH_CANCEL` remain out of protocol v2 and are unscheduled; revisit only in a future protocol-version ADR after current queue/dispose cancellation semantics are insufficient.
 - RenderPlan build is O(cells x boxes); no measured perf issue with current Sokoban sizes or the draw-on-change pipeline. Revisit only if profiling shows regressions.
 - Two sources of truth (GameState ref + Redux history) are intentional in Phase 2; revisit if replay or solver integration needs shared state outside /play.
-- Canvas distortion on small screens needs a responsive cellSize design; schedule a dedicated PR.
-- A11y gaps (Dialog focus trap, Tabs arrow navigation, Tooltip aria-describedby merge) are deferred while primitives are only used in /dev/ui-kit; fix before they move into user-facing routes.
-- Theme hardcoded dark class vs Redux theme state is deferred; SSR theme flash needs a dedicated follow-up.
+- Canvas distortion on small screens is tracked in `BUG-012`; current `/play` keeps fixed cell sizing until a responsive cell-size pass lands.
+- A11y gaps (Dialog focus trap, Tabs arrow navigation, Tooltip aria-describedby merge) are tracked in `DEBT-008`; address them before these primitives move into user-facing routes.
+- Root theme hardcodes dark mode while Redux theme state remains disconnected; this is tracked in `DEBT-009` and should be resolved alongside SSR-safe theme bootstrapping.
 - Core engine linear scans and allocations are deferred until profiling indicates a need.
 - Process: keep PR scope manageable; split when Phase 2 and Phase 3 changes start to mix.
 
 Phase 6 - Adapters, tooling, and performance
-Decision dependencies: ADR-0006 (embed Shadow DOM and styling delivery strategy), ADR-0010 (format interop policy), and ADR-0016 (benchmark export/import contract policy).
+Decision dependencies: ADR-0006 (embed Shadow DOM and styling delivery strategy), ADR-0010 (format interop policy), ADR-0016 (benchmark export/import contract policy), ADR-0019 (benchmark persistence recovery semantics), ADR-0020 (benchmark comparison snapshot contract), ADR-0021 (solver-kernel delivery/preload contract), ADR-0022 (solver progress throttle ownership), ADR-0023 (Level Lab route-local state ownership), ADR-0024 (Offscreen sprite-atlas worker fallback), and ADR-0025 (SSR-safe route-store bootstrap).
+Status: Baseline landed, not closure-ready. Tasks 1-13 are implemented, but tracked follow-up issues still block calling Phase 6 complete: BUG-003, BUG-005, BUG-006, BUG-007, BUG-009, and BUG-010. Phase 6.1 owns those cleanup and contract fixes before scope expansion.
 
-1. Level Lab page (/lab): level editor (text input for row encoding) + preview/play area + one-click solver/bench run + export/import JSON
-2. formats package: XSB/SOK/SLC import/export with full SOK 0.17 grammar, normalization rules, and variant detection; integrate with Level Lab and import/export flows
-3. Embed adapter (`packages/embed`): `<corgiban-embed>` custom element mounting a minimal React subtree with Shadow DOM + scoped stylesheet injection. Bundle React as a dependency (not peer). Follow ADR-0006 lifecycle/cleanup constraints and add integration tests covering attribute changes, DOM events, and unmount
-4. OffscreenCanvas: move sprite pre-rendering into a worker using OffscreenCanvas; keep main-thread renderer as fallback for browsers that don't support it
-5. WASM kernels (`packages/solver-kernels`): implement reachability flood fill, state hashing, and assignment heuristic in TS first; promote bottlenecks to Rust + `wasm-pack` kernels loaded lazily in workers (`instantiateStreaming` + fallback)
-6. Race Mode (deferred):
-   - Add SolverPersonality type and built-in personality bundles in packages/solver.
-   - Extend solverSlice to hold runId -> { personality, progress, result, replayState } for multi-runner support.
-   - Race Mode UI on /play with multiple corgis and progress metrics.
-   - Worker pool runs concurrent solver runs; pool size capped at max(1, min(4, hardwareConcurrency - 1)).
-   - Race result screen shows winner by elapsedMs and plays back each solution.
-   - Depends on worker pool, bestPathSoFar in SOLVE_PROGRESS, and SolverPersonality type.
-7. Profile and reduce solve-progress overhead by consolidating throttling strategy across solver and worker: choose one primary throttle layer, avoid per-expansion progress churn, and verify effective progress cadence under load.
-8. Benchmark analytics follow-up: add aggregate views (for example success rate and p50/p95 elapsed time) for persisted benchmark runs.
-9. Benchmark comparison UX follow-up: add multi-suite comparison workflows (baseline selection, diff tables/charts, and exportable comparison snapshots).
-10. Benchmark/report import hardening (deferred from Phase 4): enforce a versioned benchmark report parser with strict record validation (required solver `options`, validated enum-like fields, explicit unsupported-version errors) and define compatibility behavior for future schema versions.
-11. Level pack import contract hardening + warm-up UX follow-up (deferred from Phase 4): require versioned level-pack payloads (`type` + `version`) and add `/bench` warm-up controls (`warmupRepetitions`) with clear separation of warm-up vs measured runs in UI copy and exported metadata.
-12. Benchmark persistence durability semantics follow-up (deferred from Phase 5): define and implement repository-recovery behavior after `memory-fallback` (for example sticky degraded mode, write-back replay queue, or explicit reset policy), then make the selected durability semantics explicit in `/bench` diagnostics copy and docs.
-13. Offline verification fidelity follow-up (deferred from Phase 5): extend validation beyond iframe-based same-origin checks to include a documented strategy for top-level offline reload/navigation proof (automated when feasible, otherwise explicit manual proof steps captured in-repo).
-14. Smoke orchestration consistency follow-up (deferred from Phase 5): align CI and local smoke execution to a single source of truth (either CI calls `pnpm test:smoke` or the script delegates to CI-owned build/test split) and document the contract in contributing docs.
+1. [done] Level Lab page (/lab): level editor (text input for row encoding) + keyboard-first preview/play area + one-click solver/bench run + export/import JSON
+2. [done] formats package: XSB/SOK/SLC import/export with full SOK 0.17 grammar, normalization rules, and variant detection; integrate with Level Lab and import/export flows
+3. [done] Embed adapter (`packages/embed`): `<corgiban-embed>` custom element mounting a minimal React subtree with Shadow DOM + scoped stylesheet injection. Bundle React as a dependency (not peer). Follow ADR-0006 lifecycle/cleanup constraints and add integration tests covering attribute changes, DOM events, unmount, and the precedence contract where known built-in `level-id` values override `level-data`, `level-data` handles missing/unknown ids, and unresolved inputs fail closed.
+4. [done] OffscreenCanvas: move sprite pre-rendering into a dedicated app-owned worker using OffscreenCanvas; keep main-thread renderer as fallback for browsers that don't support it and keep this optimization out of the solver/benchmark worker protocol
+5. [done] WASM kernels (`packages/solver-kernels`): implement reachability flood fill, state hashing, and assignment heuristic in TS first, and land app-owned URL wiring plus best-effort worker preload scaffolding for future promoted Rust + `wasm-pack` kernels (`instantiateStreaming` + fallback). Solve and bench execution remain on the TS solver path in this phase.
+6. [done] Profile and reduce solve-progress overhead by consolidating throttling strategy across solver and worker: choose one primary throttle layer, avoid per-expansion progress churn, and verify effective progress cadence under load.
+7. [done] Benchmark analytics follow-up: add aggregate views (for example success rate and p50/p95 elapsed time) for persisted benchmark runs.
+8. [done] Benchmark comparison UX follow-up: add multi-suite comparison workflows (baseline selection, diff tables/charts, and exportable comparison snapshots) with strict suite-input comparability based on stored solver/environment/warm-up metadata.
+9. [done] Benchmark/report import hardening (deferred from Phase 4): enforce a versioned benchmark report parser with strict record validation (required solver `options`, validated enum-like fields, explicit unsupported-version errors) and define compatibility behavior for future schema versions.
+10. [done] Level pack import contract hardening + warm-up UX follow-up (deferred from Phase 4): require versioned level-pack payloads (`type` + `version`) and add `/bench` warm-up controls (`warmupRepetitions`) with clear separation of warm-up vs measured runs in UI copy and exported metadata.
+11. [done] Benchmark persistence durability semantics follow-up (deferred from Phase 5): define and implement repository-recovery behavior after `memory-fallback` (for example sticky degraded mode, write-back replay queue, or explicit reset policy), then make the selected durability semantics explicit in `/bench` diagnostics copy and docs.
+12. [done] Offline verification fidelity follow-up (deferred from Phase 5): extend validation beyond iframe-based same-origin checks to include a documented strategy for top-level offline reload/navigation proof (automated when feasible, otherwise explicit manual proof steps captured in-repo).
+13. [done] Smoke orchestration consistency follow-up (deferred from Phase 5): align CI and local smoke execution to a single source of truth (either CI calls `pnpm test:smoke` or the script delegates to CI-owned build/test split) and document the contract in contributing docs.
 
-Phase 7 - Optional browser-dev adapters
+Deferred notes:
 
-1. Add Sandpack/WebContainers integration for `/lab` Dev Tools only:
-   - loaded via dynamic import
-   - gated behind an explicit feature flag (default OFF)
-   - not required for normal play/solve/bench product flows
+- Route-responsibility follow-up: `/play` should converge on primary gameplay, while `/lab` should retain authoring/debug workflows such as format conversion, worker checks, and preview diagnostics. Phase 7 owns this clarification; avoid expanding route overlap further before that pass lands.
+- `/lab` intentionally keeps authored text, preview state, and one-click worker status in route-local React state + direct ports (ADR-0023). Revisit only if Phase 7 handoff flows require shared store ownership.
+- `/play` and `/bench` now keep one stable route-scoped store instance and swap mutable no-op ports
+  for browser-backed ports after commit (ADR-0025). Future shared-store work must preserve that
+  SSR-safe browser-resource ownership model or supersede it explicitly.
+
+Phase 7 - UX and route-responsibility pass (planned)
+Decision dependencies: capture an ADR if route ownership, store ownership, or cross-route workflow contracts change materially.
+
+1. Define explicit route charters, entry points, and non-goals for `/play`, `/lab`, and `/bench`:
+   - `/play`: primary gameplay, undo/restart/history, replay, lightweight solver help, and quick open/import actions
+   - `/lab`: authoring/debugging, raw format editing/conversion, validation, preview diagnostics, and single-level solve/bench sanity checks
+   - `/bench`: benchmark suite creation, persistence, analytics/comparison, exports/imports, and durability diagnostics
+2. Remove or demote overlapping controls so each advanced workflow has a clear home:
+   - batch/suite operations belong in `/bench`
+   - raw format conversion and parser diagnostics belong in `/lab`
+   - normal play, replay, and friendly solver assist belong in `/play`
+3. Add explicit cross-route handoff flows instead of duplicating full toolsets:
+   - open the current level in `/play`
+   - open the current level or imported text in `/lab`
+   - send a level or pack from `/lab` to `/bench`
+   - jump from benchmark results back to `/play` or `/lab`
+4. Rework route navigation and page information architecture around primary jobs rather than implementation detail:
+   - clearer route labels and help text
+   - route-local sections ordered by frequency and user intent
+   - advanced/debug controls visually secondary to the main task
+5. Simplify `/play` for first-time and repeat play:
+   - friendlier solver recommendation copy and defaults
+   - advanced solver controls behind disclosure panels
+   - restart/undo/replay controls more prominent than debug metadata
+6. Rework `/lab` around an authoring flow:
+   - input/edit -> parse/validate -> preview/play -> worker checks -> export/share
+   - parser warnings/errors easier to scan and map back to the source text
+   - import/export and format conversion promoted to first-class actions
+7. Rework `/bench` around benchmark workflow clarity:
+   - suite setup, warm-up, active run status, analytics, comparisons, and history clearly separated
+   - diagnostics remain available but secondary to benchmark outcomes
+   - saved suites/baselines become the starting point for comparison workflows
+8. Improve route-level UX states across the app:
+   - empty/loading/error/success states
+   - worker crashed/retry states
+   - persistence degraded/offline messaging
+   - keyboard-shortcut discoverability and responsive/mobile ergonomics
+9. Add usability-oriented tests for at least one primary happy path per route plus cross-route handoff flows.
+10. Finish the best-practices tooling scaffold in `tools/` so `pnpm best-practices` produces a real report (tracked in `DEBT-007`):
+
+- implement the remaining `scanFiles`, `analyzeFiles`, and CLI/report wiring called for in `docs/dev-tools-spec.md`
+- replace opaque `P` / `W` / `F` issue labels in human-facing output with descriptive severity/size wording
+- make the generated report explicitly define the meaning of each reported size/severity bucket instead of assuming shorthand knowledge
 
 Phase 8 - Solver optimization and advanced search (planned)
 Decision dependency: ADR-0009 (solver-optimized state representation and hashing).
@@ -839,6 +884,86 @@ Decision dependency: ADR-0009 (solver-optimized state representation and hashing
 11. Reduce BFS timing overhead by sampling `nowMs()` at a coarse expansion interval (for example every 256 or 1024 nodes) while preserving budget and progress correctness.
 12. Optimize `expandSolution` box updates by replacing per-push linear `indexOf` lookup with an indexed structure (reverse index map or equivalent), with regression coverage for long solutions.
 
+Phase 9 - UI, visual, and sprite polish pass (planned)
+Decision dependencies: capture an ADR if the renderer asset pipeline, theme system, or animation strategy changes materially.
+
+1. Establish a cohesive visual direction across the app:
+   - typography, color tokens, spacing scale, panel hierarchy, and icon treatment
+   - route-specific emphasis without breaking the shared design system
+2. Introduce a sprite or illustrated asset pipeline for the board:
+   - walls, floors, goals, boxes, player/corgi, and box-on-goal states
+   - crisp scaling on desktop/mobile and a safe fallback while assets load or if sprites are disabled
+3. Improve board readability and game feel:
+   - stronger target visibility
+   - clearer wall depth/edge definition
+   - more distinct player facing/idle/push states
+   - better solved-state celebration and feedback
+4. Polish motion and transitions:
+   - move/push animation tuning
+   - replay transitions
+   - solver/benchmark status transitions
+   - restrained page and panel reveal motion
+5. Rework the friendliness and scanability of the major route surfaces:
+   - `/play` HUD, board framing, controls, and side panels
+   - `/lab` editor/preview/workflow split
+   - `/bench` analytics, comparison views, and history presentation
+6. Strengthen responsive/mobile behavior:
+   - touch-friendly targets
+   - compact panel variants
+   - landscape board handling
+   - no overflow traps on small screens
+7. Make accessibility part of the polish pass:
+   - reduced-motion support
+   - contrast audits
+   - stronger focus states
+   - keyboard order and descriptive status text for visual-only cues
+8. Add visual-regression/smoke coverage and a manual review checklist for assets, layout stability, and reduced-motion fallbacks.
+
+Phase 10 - Browser-dev tools workspace (planned)
+Decision dependencies: capture an ADR if the workspace template, package distribution story, or `/lab` public tooling contract changes materially.
+
+1. Add a dedicated `/lab` Dev Tools workspace surface that is part of the roadmap but still loaded on demand:
+   - dynamic import only
+   - explicit feature flag (default OFF until approved)
+   - browser capability checks with a clear unsupported fallback
+2. Define a versioned "Repro Session" payload generated from the current `/lab` state:
+   - level text plus normalized format
+   - selected solver algorithm/options
+   - selected benchmark options
+   - parser warnings/errors and derived metadata
+   - import/export/share support for that payload
+3. Add editable, runnable examples that target public package entrypoints only:
+   - parse a level
+   - run a single solve
+   - run a small benchmark
+   - render an embed/example surface
+4. Use Sandpack for lightweight example editing and preview when a full Node-like environment is unnecessary.
+5. Use WebContainers for a generated minimal workspace seeded from the current Repro Session:
+   - editable files
+   - install/start lifecycle
+   - terminal and console panes
+   - reset/restart/stop controls
+6. Add one-click actions from `/lab` into the workspace:
+   - open current level as a fixture
+   - open parser repro
+   - open solver repro
+   - open benchmark repro
+7. Define operational limits and cleanup behavior:
+   - `/lab`-only
+   - never part of base app startup
+   - resource limits, timeout handling, and explicit teardown when the workspace closes
+   - not required for normal play/solve/bench product flows
+8. Add coverage for flag OFF/ON behavior, unsupported-browser fallback, Repro Session generation, and basic workspace boot smoke.
+
+Phase 11 - Race Mode and multi-runner play (planned)
+
+1. Add `SolverPersonality` type and built-in personality bundles in `packages/solver`.
+2. Extend `solverSlice` to hold `runId -> { personality, progress, result, replayState }` for multi-runner support.
+3. Add Race Mode UI on `/play` with multiple corgis and progress metrics.
+4. Run concurrent solver runs via worker pool; cap pool size at `max(1, min(4, hardwareConcurrency - 1))`.
+5. Add race result screen showing winner by `elapsedMs` and replaying each solution.
+6. Integration dependency: worker pool support, `bestPathSoFar` in `SOLVE_PROGRESS`, and `SolverPersonality` typing.
+
 # ==================================================================== 11) ACCEPTANCE CRITERIA (REQUIRED)
 
 - `pnpm typecheck` passes (tsc project references)
@@ -850,7 +975,11 @@ Decision dependency: ADR-0009 (solver-optimized state representation and hashing
   - /play solver panel shows algorithm recommendation (for example, "Recommended: bfsPush (7 boxes)") and allows override
   - /play solver panel can start/cancel a solve; progress updates; result can be applied/animated
   - /play solver panel shows Retry button when worker is crashed; clicking it recreates the worker
+  - /lab route loads level editor controls, supports parsing CORG/XSB/SOK/SLC input, offers keyboard preview controls, and can run one-click worker solve/bench checks
   - /bench route loads and can run a small benchmark suite; results persist in IndexedDB across page reloads
+  - /bench supports warm-up repetitions and excludes warm-up runs from measured persisted results
+  - /bench analytics panel surfaces success rate and p50/p95 elapsed-time comparisons across suites
+  - /bench comparison snapshot export stays disabled when the selected baseline lacks comparable metadata; enabled exports include non-comparable suites with explicit reasons and null deltas
   - /bench export produces a valid JSON file; import round-trips correctly
   - navigator.storage.persist() is requested on adapter init when supported; outcome is stored in bench diagnostics (console logging only in dev/debug)
   - bench diagnostics distinguish repository health (`durable | memory-fallback | unavailable`) independently from `navigator.storage.persist()` outcome

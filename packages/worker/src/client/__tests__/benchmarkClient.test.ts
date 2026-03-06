@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { BenchProgressMessage, BenchResultMessage } from '../../protocol/protocol';
 import { createBenchmarkClient } from '../benchmarkClient.client';
@@ -19,13 +19,9 @@ function createDeferred<T>() {
 }
 
 async function waitForRunCount(worker: MockBenchmarkWorkerClient, expectedCount: number) {
-  for (let attempts = 0; attempts < 20; attempts += 1) {
-    if (worker.runs.length >= expectedCount) {
-      return;
-    }
-    await Promise.resolve();
-  }
-  throw new Error(`Expected ${expectedCount} runs, found ${worker.runs.length}.`);
+  await vi.waitFor(() => {
+    expect(worker.runs.length).toBeGreaterThanOrEqual(expectedCount);
+  });
 }
 
 type CapturedRun = {
@@ -103,26 +99,19 @@ function createWorkerHarness() {
 }
 
 async function waitForWorkerMessage(worker: MockWorker, expectedCount: number) {
-  for (let attempts = 0; attempts < 20; attempts += 1) {
-    if (worker.postedMessages.length >= expectedCount) {
-      return;
-    }
-    await Promise.resolve();
-  }
-  throw new Error(
-    `Expected ${expectedCount} posted messages, found ${worker.postedMessages.length}.`,
-  );
+  await vi.waitFor(() => {
+    expect(worker.postedMessages.length).toBeGreaterThanOrEqual(expectedCount);
+  });
 }
 
-async function waitForWorkerCreated(harness: { workers: MockWorker[] }): Promise<MockWorker> {
-  for (let attempts = 0; attempts < 20; attempts += 1) {
-    const worker = harness.workers.at(-1);
-    if (worker) {
-      return worker;
-    }
-    await Promise.resolve();
-  }
-  throw new Error('Expected worker.');
+async function waitForWorkerCreated(
+  harness: { workers: MockWorker[] },
+  index: number = -1,
+): Promise<MockWorker> {
+  await vi.waitFor(() => {
+    expect(harness.workers.at(index)).toBeDefined();
+  });
+  return harness.workers.at(index)!;
 }
 
 function createWorkerClientFactory() {
@@ -938,14 +927,14 @@ describe('createBenchmarkClient internal worker client path', () => {
     expect(worker.terminated).toBe(true);
   });
 
-  it('rejects run from SOLVE_ERROR and worker crash events', async () => {
-    const harnessA = createWorkerHarness();
-    const clientA = createBenchmarkClient({
-      createWorker: harnessA.createWorker,
+  it('rejects run when benchmark worker emits SOLVE_ERROR with details', async () => {
+    const harness = createWorkerHarness();
+    const client = createBenchmarkClient({
+      createWorker: harness.createWorker,
       poolSize: 1,
     });
 
-    const suiteA = clientA.runSuite({
+    const suite = client.runSuite({
       runs: [
         {
           runId: 'run-error',
@@ -955,23 +944,25 @@ describe('createBenchmarkClient internal worker client path', () => {
       ],
     });
 
-    const workerA = await waitForWorkerCreated(harnessA);
-    await waitForWorkerMessage(workerA, 1);
-    workerA.emitMessage({
+    const worker = await waitForWorkerCreated(harness);
+    await waitForWorkerMessage(worker, 1);
+    worker.emitMessage({
       type: 'SOLVE_ERROR',
       runId: 'run-error',
       protocolVersion: 2,
       message: 'benchmark failed',
       details: 'worker detail',
     });
-    await expect(suiteA).rejects.toThrow('benchmark failed worker detail');
+    await expect(suite).rejects.toThrow('benchmark failed worker detail');
+  });
 
-    const harnessB = createWorkerHarness();
-    const clientB = createBenchmarkClient({
-      createWorker: harnessB.createWorker,
+  it('rejects run when benchmark worker crashes with an error message', async () => {
+    const harness = createWorkerHarness();
+    const client = createBenchmarkClient({
+      createWorker: harness.createWorker,
       poolSize: 1,
     });
-    const suiteB = clientB.runSuite({
+    const suite = client.runSuite({
       runs: [
         {
           runId: 'run-crash',
@@ -980,12 +971,40 @@ describe('createBenchmarkClient internal worker client path', () => {
         },
       ],
     });
-    const workerB = await waitForWorkerCreated(harnessB);
-    await waitForWorkerMessage(workerB, 1);
-    workerB.emitError('benchmark worker crashed');
+    const worker = await waitForWorkerCreated(harness);
+    await waitForWorkerMessage(worker, 1);
+    worker.emitError('benchmark worker crashed');
 
-    await expect(suiteB).rejects.toThrow('benchmark worker crashed');
-    expect(workerB.terminated).toBe(true);
+    await expect(suite).rejects.toThrow('benchmark worker crashed');
+    expect(worker.terminated).toBe(true);
+  });
+
+  it('rejects SOLVE_ERROR messages without optional details using the base message', async () => {
+    const harness = createWorkerHarness();
+    const client = createBenchmarkClient({
+      createWorker: harness.createWorker,
+      poolSize: 1,
+    });
+    const suite = client.runSuite({
+      runs: [
+        {
+          runId: 'run-error-no-details',
+          levelRuntime: sampleLevelRuntime,
+          algorithmId: 'bfsPush',
+        },
+      ],
+    });
+    const worker = await waitForWorkerCreated(harness);
+    await waitForWorkerMessage(worker, 1);
+
+    worker.emitMessage({
+      type: 'SOLVE_ERROR',
+      runId: 'run-error-no-details',
+      protocolVersion: 2,
+      message: 'benchmark failed',
+    });
+
+    await expect(suite).rejects.toThrow('benchmark failed');
   });
 
   it('uses a fallback error when worker crash events have no details', async () => {
@@ -1058,6 +1077,51 @@ describe('createBenchmarkClient internal worker client path', () => {
 
     await expect(suite).rejects.toThrow('message channel');
     expect(worker.terminated).toBe(true);
+  });
+
+  it('creates a fresh worker for a later suite after an invalid outbound message resets the client', async () => {
+    const harness = createWorkerHarness();
+    const client = createBenchmarkClient({
+      createWorker: harness.createWorker,
+      poolSize: 1,
+    });
+
+    const failedSuite = client.runSuite({
+      runs: [
+        {
+          runId: 'run-invalid-first',
+          levelRuntime: sampleLevelRuntime,
+          algorithmId: 'bfsPush',
+        },
+      ],
+    });
+
+    const firstWorker = await waitForWorkerCreated(harness);
+    await waitForWorkerMessage(firstWorker, 1);
+    firstWorker.emitMessage({
+      type: 'BENCH_PROGRESS',
+      runId: 'run-invalid-first',
+      protocolVersion: 2,
+    });
+
+    await expect(failedSuite).rejects.toThrow('Invalid outbound protocol message');
+    expect(firstWorker.terminated).toBe(true);
+
+    const recoveredSuite = client.runSuite({
+      runs: [
+        {
+          runId: 'run-after-reset',
+          levelRuntime: sampleLevelRuntime,
+          algorithmId: 'bfsPush',
+        },
+      ],
+    });
+
+    const recoveredWorker = await waitForWorkerCreated(harness, 1);
+    await waitForWorkerMessage(recoveredWorker, 1);
+    recoveredWorker.emitMessage(buildResult('run-after-reset'));
+
+    await expect(recoveredSuite).resolves.toEqual([buildResult('run-after-reset')]);
   });
 
   it('rejects invalid BENCH_START requests before posting to worker', async () => {

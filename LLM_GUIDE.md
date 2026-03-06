@@ -40,11 +40,15 @@ When starting any task, read these in order:
 1. `docs/Architecture.md` -- system boundaries, packages, protocols
 2. `docs/adr/*` -- decisions and constraints (if present)
 3. Package-level README(s):
+   - `packages/shared/README.md`
    - `packages/core/README.md`
    - `packages/levels/README.md`
+   - `packages/formats/README.md`
    - `packages/solver/README.md`
+   - `packages/solver-kernels/README.md`
    - `packages/worker/README.md`
    - `packages/benchmarks/README.md`
+   - `packages/embed/README.md`
    - `apps/web/README.md`
 
 If documentation is missing, create the smallest doc needed (see Documentation routing).
@@ -81,8 +85,9 @@ If documentation is missing, create the smallest doc needed (see Documentation r
 
 - `SharedArrayBuffer` and `Atomics` are banned in all authored repo code (production, tests, and `tools/`).
 - `packages/core` and `packages/solver` must not use `Date`/`Date.now` directly.
-- If wall-clock time is needed, pass a clock source explicitly at boundaries (for example a
-  `nowMs` callback in solver context) rather than coupling core/solver to ambient globals.
+- Solver timing should prefer an explicit clock source at boundaries (for example a `nowMs`
+  callback in solver context). `solve(...)` may fall back to `globalThis.performance.now()` when
+  callers omit `nowMs`, but must return an explicit error when no monotonic clock is available.
 - Typed arrays returned by `packages/core` and `packages/solver` are treated as immutable snapshots. Consumers must not mutate them.
 
 ---
@@ -152,10 +157,11 @@ Rule: Adapters must not import storage/persistence directly. Adapters call workf
 - `packages/core` imports only `packages/shared` and `packages/levels`.
 - `packages/formats` imports only `packages/shared` and `packages/levels`.
 - `packages/solver` imports only `core` and `shared`.
-- `packages/worker` imports only `solver`, `core`, `shared`, and `benchmarks`.
+- `packages/solver-kernels` imports only `solver`, `core`, and `shared`.
+- `packages/worker` imports only `solver`, `solver-kernels`, `core`, `shared`, and `benchmarks`.
 - `packages/benchmarks` imports only `solver`, `core`, and `shared`.
+- `packages/embed` is an adapter package and imports workspace packages via public entrypoints.
 - `apps/web` imports packages through their public entrypoints only.
-- Extend this boundary list explicitly when optional packages such as `embed` and `solver-kernels` are introduced.
 
 Enforce using:
 
@@ -258,6 +264,8 @@ Validate both directions:
 - high-frequency progress validation may use a documented light mode, but structural
   messages (`SOLVE_START`, `BENCH_START`, `SOLVE_RESULT`, `BENCH_RESULT`, `SOLVE_ERROR`,
   `PING`, `PONG`) remain strict-schema validated
+- progress throttling is solver-owned; worker runtimes request cadence through solver context and
+  must not layer a second runtime throttle
 - `BENCH_PROGRESS` streaming is opt-in (`enableSpectatorStream`); do not emit high-frequency
   benchmark progress when no consumer is attached
 
@@ -281,17 +289,31 @@ Validate both directions:
   - Remix/Vite app adapter (asset-url worker module):
     `import solverWorkerUrl from "./solverWorker.client.ts?worker&url";`
     `new Worker(solverWorkerUrl, { type: "module", name: "corgiban-solver" })`
-- `packages/embed` (when introduced) defaults to Shadow DOM with scoped stylesheet injection and
+- `packages/embed` defaults to Shadow DOM with scoped stylesheet injection and
   bundles React as a dependency (not a peer dependency).
-- `packages/solver-kernels` (when introduced) stays TS-first; WASM promotion uses Rust +
+- `packages/solver-kernels` stays TS-first; WASM promotion uses Rust +
   `wasm-pack`, lazy-loaded in workers via `fetch` + `WebAssembly.instantiateStreaming` with
   fallback to `WebAssembly.instantiate`.
+- `apps/web` owns optional solver-kernel URL wiring for worker bootstraps.
+  `configureSolverKernelUrls.client.ts` may seed `globalThis.__corgibanSolverKernelUrls` from
+  `VITE_SOLVER_KERNEL_REACHABILITY_URL`, `VITE_SOLVER_KERNEL_HASHING_URL`, and
+  `VITE_SOLVER_KERNEL_ASSIGNMENT_URL`; accepted values are absolute URLs or app-root-relative
+  paths only, are normalized to absolute URLs before bootstrap, worker-side kernel preload remains
+  best-effort, and the TS kernel path stays the required fallback.
 - Optional `/play` validation-path toggle:
   `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` enables solver-client outbound
   `light-progress` validation for `SOLVE_PROGRESS`; default remains strict validation.
 - Optional PWA dev toggle:
   `VITE_ENABLE_PWA_DEV=1` enables service worker registration in dev builds for offline smoke
   validation; production builds register by default.
+- `/play` and `/bench` use route-scoped Redux stores with injected ports.
+- Route-scoped stores that depend on browser resources should be created with mutable no-op ports
+  during render/SSR and replace those ports with browser-backed implementations after commit;
+  preserve one stable route-store instance across hydration and do not create workers or
+  persistence adapters during route render.
+- `/lab` keeps authored text, preview state, and one-click solve/bench status in route-local
+  React state + direct port refs; do not promote that tool-state into Redux until a concrete
+  cross-route workflow requires it and an ADR documents the change.
 - Keep Redux state/actions JSON-serializable; keep typed-array runtime caches outside Redux.
 
 ---
@@ -331,6 +353,8 @@ Most bug fixes must include:
 - Run typecheck and lint
 - Run `pnpm test:smoke` when touching route shell, PWA/offline behavior, or `/bench` persistence
   workflows.
+- When offline smoke behavior or top-level reload proof changes, update
+  `docs/verification/offline-top-level-proof.md` alongside the tests/docs.
 - Pre-commit hooks (simple-git-hooks) run `pnpm format:check`,
   `node tools/scripts/run-affected-tests.mjs`, and `node tools/scripts/encoding-check.mjs`
   on staged files (lint/typecheck remain required via local verification + CI).
@@ -367,6 +391,7 @@ Add an ADR under `docs/adr/` when:
 - changing solver action model or state representation
 - changing worker protocol semantics/versioning
 - changing persistence model (benchmark DB schema)
+- changing versioned benchmark/export artifact contracts (reports, comparison snapshots)
 - changing state management approach
 
 Keep ADRs small:
@@ -387,6 +412,12 @@ Each PR should include:
 - How to test (commands)
 - Files touched (if non-obvious)
 - Follow-ups (optional)
+
+When deferring a non-trivial bug, review finding, or cleanup:
+
+- track it in `.tracker/issues/*.md`
+- regenerate `KNOWN_ISSUES.md` with `pnpm issue:generate`
+- do not leave it only as an untracked TODO/comment or in PR prose
 
 Prefer PRs that:
 
@@ -445,6 +476,7 @@ the archive includes the current worktree.
 
 - cancellation checks remain frequent enough
 - progress reporting remains throttled and stable
+- progress cadence stays single-sourced in solver helpers/context, not duplicated in worker runtime
 - regression tests added for any pruning/deadlock change
 - keep `IMPLEMENTED_ALGORITHM_IDS`, `chooseAlgorithm`, and UI availability in sync
 - no DOM/Web APIs used
@@ -454,6 +486,7 @@ the archive includes the current worktree.
 - schemas updated on both sides
 - protocol versioning respected
 - client and worker tests added or updated
+- progress cadence remains solver-owned; runtime changes request cadence through solver context
 - solver-client liveness remains deterministic (`ping(timeoutMs?)` idle-only, bounded timeout,
   explicit `crashed` transition on timeout/error)
 - for validation-path changes, run `node tools/scripts/profile-worker-validation.mjs` and
@@ -465,12 +498,18 @@ the archive includes the current worktree.
 - results remain comparable across runs (metadata captured)
 - benchmark report payloads are typed/versioned with explicit `exportModel`; current baseline model is `multi-suite-history`
 - benchmark report imports reject unsupported versions/models and invalid records with explicit errors
-- level-pack imports currently support compatibility shapes (`levelIds` / `levels[].id`); strict type/version level-pack contracts are Phase 6 hardening work
+- benchmark comparison exports rely on explicit comparable metadata (solver options, environment,
+  warm-up settings) and compute deltas only when suite fingerprints match exactly
+- level-pack imports require explicit `type`/`version` and validate accepted level-reference shapes
+  (`levelIds` / `levels[].id`) with explicit errors for unsupported contracts
 - time/node budgets enforced
+- warm-up repetitions are explicitly modeled and excluded from measured benchmark result storage
 - browser capability checks are explicit (`navigator.storage.persist`, File System Access APIs)
 - unsupported browser APIs use documented fallback paths, not hard errors
 - diagnostics capture storage persistence outcome, repository durability health
   (`durable | memory-fallback | unavailable`), and surfaced persistence errors/notices
+- if persistence enters `memory-fallback`, degraded mode remains sticky for the active storage
+  instance until reset/recreation
 - perf instrumentation uses `performance.mark/measure` with observer-driven diagnostics in debug flows
 
 ---

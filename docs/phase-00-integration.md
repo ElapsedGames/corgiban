@@ -75,8 +75,8 @@ Evidence:
 
 Tools best-practices report status:
 
-- `tools/src/` contains stub implementations of `analyzeFiles`, `reportFormatter`, `scanFiles`, and `bestPracticesReport`. Full implementation is deferred past Phase 0.
-- See `docs/dev-tools-spec.md` for the full spec. `pnpm best-practices` will run, but output is empty until the implementation is completed.
+- `tools/src/` best-practices report scaffolding remains incomplete and is tracked in `DEBT-007`.
+- See `docs/dev-tools-spec.md` for the full spec. `pnpm best-practices` currently runs, but it does not produce the intended report output yet.
 
 ---
 

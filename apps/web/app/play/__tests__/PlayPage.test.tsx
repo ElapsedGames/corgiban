@@ -62,6 +62,7 @@ describe('PlayPage', () => {
     expect(html).toContain('Corgiban');
     expect(html).toContain('Current level');
     expect(testState.solverPanelProps).not.toBeNull();
+    expect(testState.sidePanelProps?.canGoToPreviousLevel).toBe(false);
 
     const onSelectAlgorithm = testState.solverPanelProps?.onSelectAlgorithm as
       | ((algorithmId: string) => void)
@@ -258,6 +259,33 @@ describe('PlayPage', () => {
         : (builtinLevels[0]?.id ?? initialLevelId);
 
     expect(store.getState().game.levelId).toBe(expectedNextLevelId);
+    expect(store.getState().game.stats.moves).toBe(0);
+    expect(store.getState().game.stats.pushes).toBe(0);
+  });
+
+  it('enables previous-level navigation after leaving the first level and returns to it', () => {
+    const store = createAppStore();
+    const firstLevelId = store.getState().game.levelId;
+    const secondLevelId = builtinLevels[1]?.id;
+
+    if (!secondLevelId) {
+      renderPage(store);
+      expect(testState.sidePanelProps?.canGoToPreviousLevel).toBe(false);
+      return;
+    }
+
+    store.dispatch(nextLevel({ levelId: secondLevelId }));
+    store.dispatch(move({ direction: 'L', changed: true, pushed: false }));
+    renderPage(store);
+
+    expect(testState.sidePanelProps?.canGoToPreviousLevel).toBe(true);
+
+    const onPreviousLevel = testState.sidePanelProps?.onPreviousLevel as (() => void) | undefined;
+    expect(onPreviousLevel).toBeTypeOf('function');
+
+    onPreviousLevel?.();
+
+    expect(store.getState().game.levelId).toBe(firstLevelId);
     expect(store.getState().game.stats.moves).toBe(0);
     expect(store.getState().game.stats.pushes).toBe(0);
   });

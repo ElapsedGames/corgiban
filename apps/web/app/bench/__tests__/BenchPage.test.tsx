@@ -139,6 +139,9 @@ describe('BenchPage', () => {
     expect(html).toContain('Suite Builder');
     expect(html).toContain('Results');
     expect(html).toContain('Diagnostics');
+    expect(html).toContain(
+      'Run solver benchmarks across multiple levels and review execution outcomes separately from persistence durability.',
+    );
     expect(html).toContain('Import / Export');
     expect(html).toContain('Performance');
   });

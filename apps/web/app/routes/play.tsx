@@ -1,30 +1,44 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { isRouteErrorResponse, useRouteError } from '@remix-run/react';
 import { Provider } from 'react-redux';
 
 import type { AppStore } from '../state';
 import { createAppStore } from '../state';
-import { createSolverPort } from '../ports/solverPort.client';
-import { createNoopSolverPort } from '../ports/solverPort';
 import { PlayPage } from '../play/PlayPage';
+import { createNoopSolverPort } from '../ports/solverPort';
+import { createSolverPort } from '../ports/solverPort.client';
+import { createMutableSolverPort, type MutableSolverPort } from '../state/mutableDependencies';
+
+const useRouteStoreEffect = typeof document === 'undefined' ? useEffect : useLayoutEffect;
+
+type PlayRouteStoreOwner = {
+  solverPort: MutableSolverPort;
+  store: AppStore;
+};
+
+function createPlayRouteStoreOwner(): PlayRouteStoreOwner {
+  const solverPort = createMutableSolverPort();
+  return {
+    solverPort,
+    store: createAppStore({ solverPort }),
+  };
+}
 
 export default function PlayRoute() {
-  const storeRef = useRef<AppStore>();
-  if (!storeRef.current) {
-    const solverPort =
-      typeof document === 'undefined' ? createNoopSolverPort() : createSolverPort();
-    storeRef.current = createAppStore({ solverPort });
-  }
+  const [storeOwner] = useState(createPlayRouteStoreOwner);
 
-  useEffect(() => {
+  useRouteStoreEffect(() => {
+    if (typeof document !== 'undefined') {
+      storeOwner.solverPort.replace(createSolverPort());
+    }
+
     return () => {
-      storeRef.current?.dispose();
-      storeRef.current = undefined;
+      storeOwner.solverPort.replace(createNoopSolverPort());
     };
-  }, []);
+  }, [storeOwner]);
 
   return (
-    <Provider store={storeRef.current}>
+    <Provider store={storeOwner.store}>
       <PlayPage />
     </Provider>
   );

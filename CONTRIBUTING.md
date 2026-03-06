@@ -34,9 +34,15 @@ pnpm format          # Prettier (auto-format)
 pnpm format:check    # Prettier (check formatting)
 pnpm test            # Vitest workspace (unit tests)
 pnpm test:coverage   # Vitest with enforced coverage thresholds
-pnpm test:smoke      # Playwright smoke tests (routes, /play, /bench persistence, offline shell)
+pnpm test:smoke      # Playwright smoke tests (routes incl. /lab, /play, /bench persistence, offline shell)
 pnpm dev             # start Remix dev server
 pnpm build           # build Remix app
+pnpm issue:new --type bug --severity medium --area ui --title "Describe the problem"
+pnpm issue:close --id BUG-001 --fixed-by "Your Name" --resolution "Short closure note"
+pnpm issue:generate  # regenerate KNOWN_ISSUES.md after issue edits
+pnpm issue:check     # verify KNOWN_ISSUES.md is in sync
+pnpm graph:deps      # optional dependency graph -> docs/_generated/dep-graph.svg
+pnpm best-practices  # optional generated size/time-usage report -> docs/_generated/analysis/
 node tools/scripts/profile-worker-validation.mjs  # optional: protocol validation profiling report
 ```
 
@@ -52,10 +58,21 @@ Dev server note: use `pnpm dev -- --clearScreen=false` (single argument). Passin
 
 Validation profiling note: `node tools/scripts/profile-worker-validation.mjs` writes
 `docs/_generated/analysis/phase-04-protocol-validation-profile.md`.
+Optional architecture tooling:
+
+- `pnpm graph:deps` refreshes `docs/_generated/dep-graph.svg`.
+- `pnpm best-practices` refreshes `docs/_generated/analysis/best_practices_report.md`.
 
 Optional runtime toggle: set `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` when running `/play` to
 exercise solver-client `light-progress` outbound validation for `SOLVE_PROGRESS` (default is strict).
 For manual PWA/offline checks outside Playwright, run dev with `VITE_ENABLE_PWA_DEV=1`.
+Optional solver-kernel preload wiring: set any of
+`VITE_SOLVER_KERNEL_REACHABILITY_URL`, `VITE_SOLVER_KERNEL_HASHING_URL`, or
+`VITE_SOLVER_KERNEL_ASSIGNMENT_URL` to point worker bootstraps at optional WASM kernels. Use
+absolute URLs or app-root-relative paths only; the client bootstrap normalizes accepted values to
+absolute URLs before worker startup. Failed kernel loads fall back to the TS baseline path and do
+not block solve/bench execution.
+Top-level offline reload proof steps are documented in `docs/verification/offline-top-level-proof.md`.
 
 ## Creating a clean source zip
 
@@ -86,8 +103,18 @@ Affected test selection strategy (deterministic):
 - Runs `pnpm test` if any staged file is under `apps/`, `packages/`, or `tools/`, or is a root config file with a code extension
 - Skips tests when only docs or markdown files are staged
 
-CI gates every PR on: format:check, typecheck, lint, tests+coverage, build + Playwright smoke,
-boundary checks, and encoding policy checks.
+CI gates every PR on: format:check, typecheck, lint, tests+coverage, `pnpm test:smoke`,
+boundary checks, encoding policy checks, and `pnpm issue:check` for tracker dashboard sync.
+
+## Local issue tracker
+
+GitHub issues are disabled, so repo work is tracked locally:
+
+- `.tracker/issues/*.md` is the source of truth for open, deferred, and fixed work items.
+- `KNOWN_ISSUES.md` is generated from those issue files; do not hand-edit it.
+- File a new tracked item with `pnpm issue:new`.
+- Close a tracked item with `pnpm issue:close`, then regenerate the dashboard with `pnpm issue:generate`.
+- If a PR defers a non-trivial bug or cleanup, track it in `.tracker/issues/*.md` instead of leaving it only in TODOs or PR notes.
 
 ## Commit messages
 

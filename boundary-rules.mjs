@@ -7,10 +7,13 @@
 // Dependency direction (most isolated -> most dependent):
 //   shared     ->  (nothing)
 //   levels     ->  shared
+//   formats    ->  shared, levels
 //   core       ->  shared, levels
 //   solver     ->  shared, core
+//   solver-kernels -> shared, core, solver
 //   benchmarks ->  shared, core, solver
-//   worker     ->  shared, core, solver, benchmarks
+//   worker     ->  shared, core, solver, solver-kernels, benchmarks
+//   embed      ->  adapter package (public workspace entrypoints)
 //   apps/web   ->  all packages (via public entrypoints only)
 //
 // Note: worker -> benchmarks is intentionally allowed (the worker executes
@@ -23,17 +26,31 @@
 //   3. Update tsconfig.json project references for the new package.
 //   4. Update docs/Architecture.md section 4.1.
 
-export const PACKAGES = ['shared', 'levels', 'core', 'solver', 'worker', 'benchmarks', 'web'];
+export const PACKAGES = [
+  'shared',
+  'levels',
+  'formats',
+  'core',
+  'solver',
+  'solver-kernels',
+  'worker',
+  'benchmarks',
+  'embed',
+  'web',
+];
 
 export const DIRECTION_RULES = [
   {
     from: 'packages/shared/src/**',
     disallow: [
+      'packages/formats/**',
       'packages/core/**',
       'packages/solver/**',
+      'packages/solver-kernels/**',
       'packages/worker/**',
       'packages/benchmarks/**',
       'packages/levels/**',
+      'packages/embed/**',
       'apps/**',
     ],
     forbidSpecifiers: [
@@ -47,17 +64,41 @@ export const DIRECTION_RULES = [
   {
     from: 'packages/levels/src/**',
     disallow: [
+      'packages/formats/**',
       'packages/core/**',
       'packages/solver/**',
+      'packages/solver-kernels/**',
       'packages/worker/**',
       'packages/benchmarks/**',
+      'packages/embed/**',
+      'apps/**',
+    ],
+    forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit'],
+  },
+  {
+    from: 'packages/formats/src/**',
+    disallow: [
+      'packages/core/**',
+      'packages/solver/**',
+      'packages/solver-kernels/**',
+      'packages/worker/**',
+      'packages/benchmarks/**',
+      'packages/embed/**',
       'apps/**',
     ],
     forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit'],
   },
   {
     from: 'packages/core/src/**',
-    disallow: ['packages/solver/**', 'packages/worker/**', 'packages/benchmarks/**', 'apps/**'],
+    disallow: [
+      'packages/formats/**',
+      'packages/solver/**',
+      'packages/solver-kernels/**',
+      'packages/worker/**',
+      'packages/benchmarks/**',
+      'packages/embed/**',
+      'apps/**',
+    ],
     forbidSpecifiers: [
       'react',
       'react-dom',
@@ -68,7 +109,33 @@ export const DIRECTION_RULES = [
   },
   {
     from: 'packages/solver/src/**',
-    disallow: ['packages/worker/**', 'packages/benchmarks/**', 'packages/levels/**', 'apps/**'],
+    disallow: [
+      'packages/formats/**',
+      'packages/worker/**',
+      'packages/benchmarks/**',
+      'packages/levels/**',
+      'packages/solver-kernels/**',
+      'packages/embed/**',
+      'apps/**',
+    ],
+    forbidSpecifiers: [
+      'react',
+      'react-dom',
+      '@reduxjs/toolkit',
+      'react-router',
+      'react-router-dom',
+    ],
+  },
+  {
+    from: 'packages/solver-kernels/src/**',
+    disallow: [
+      'packages/levels/**',
+      'packages/formats/**',
+      'packages/worker/**',
+      'packages/benchmarks/**',
+      'packages/embed/**',
+      'apps/**',
+    ],
     forbidSpecifiers: [
       'react',
       'react-dom',
@@ -79,7 +146,7 @@ export const DIRECTION_RULES = [
   },
   {
     from: 'packages/worker/src/**',
-    disallow: ['packages/levels/**', 'apps/**'],
+    disallow: ['packages/levels/**', 'packages/formats/**', 'packages/embed/**', 'apps/**'],
     forbidSpecifiers: [
       'react',
       'react-dom',
@@ -90,8 +157,20 @@ export const DIRECTION_RULES = [
   },
   {
     from: 'packages/benchmarks/src/**',
-    disallow: ['packages/levels/**', 'packages/worker/**', 'apps/**'],
+    disallow: [
+      'packages/levels/**',
+      'packages/formats/**',
+      'packages/worker/**',
+      'packages/solver-kernels/**',
+      'packages/embed/**',
+      'apps/**',
+    ],
     forbidSpecifiers: ['react', 'react-dom', 'react-router', 'react-router-dom'],
+  },
+  {
+    from: 'packages/embed/src/**',
+    disallow: ['apps/**'],
+    forbidSpecifiers: [],
   },
 ];
 

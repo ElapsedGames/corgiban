@@ -1,0 +1,19 @@
+{
+  "name": "@corgiban/embed",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@corgiban/core": "workspace:*",
+    "@corgiban/levels": "workspace:*",
+    "@corgiban/shared": "workspace:*",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0"
+  }
+}

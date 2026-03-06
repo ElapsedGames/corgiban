@@ -3,6 +3,8 @@ import type { AlgorithmId } from '@corgiban/solver';
 import type { BenchmarkRunRecord, BenchmarkSuiteConfig } from '../ports/benchmarkPort';
 import type { BenchDiagnosticsState, BenchPerfEntry, BenchRunStatus } from '../state/benchSlice';
 import { BenchDiagnosticsPanel } from './BenchDiagnosticsPanel';
+import { BenchmarkAnalyticsPanel } from './BenchmarkAnalyticsPanel';
+import type { BenchmarkComparisonSnapshot } from './benchmarkAnalytics';
 import { BenchmarkExportImportControls } from './BenchmarkExportImportControls';
 import { BenchmarkPerfPanel } from './BenchmarkPerfPanel';
 import {
@@ -29,6 +31,7 @@ export type BenchPageProps = {
   onToggleLevel: (levelId: string) => void;
   onToggleAlgorithm: (algorithmId: AlgorithmId) => void;
   onSetRepetitions: (value: number) => void;
+  onSetWarmupRepetitions?: (value: number) => void;
   onSetTimeBudgetMs: (value: number) => void;
   onSetNodeBudget: (value: number) => void;
   onRun: () => void;
@@ -39,6 +42,7 @@ export type BenchPageProps = {
   onExportLevelPack: () => void;
   onImportLevelPack: () => void;
   onClearResults: () => void;
+  onExportComparisonSnapshot?: (snapshot: BenchmarkComparisonSnapshot) => void;
 };
 
 export function BenchPage({
@@ -54,6 +58,7 @@ export function BenchPage({
   onToggleLevel,
   onToggleAlgorithm,
   onSetRepetitions,
+  onSetWarmupRepetitions,
   onSetTimeBudgetMs,
   onSetNodeBudget,
   onRun,
@@ -64,6 +69,7 @@ export function BenchPage({
   onExportLevelPack,
   onImportLevelPack,
   onClearResults,
+  onExportComparisonSnapshot,
 }: BenchPageProps) {
   const isSuiteActive = status === 'running' || status === 'cancelling';
 
@@ -73,7 +79,8 @@ export function BenchPage({
         <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-muted)]">Bench</p>
         <h1 className="page-title">Benchmark Suite</h1>
         <p className="page-subtitle">
-          Run solver benchmarks across multiple levels with persisted results and diagnostics.
+          Run solver benchmarks across multiple levels and review execution outcomes separately from
+          persistence durability.
         </p>
       </header>
 
@@ -87,6 +94,7 @@ export function BenchPage({
             onToggleLevel={onToggleLevel}
             onToggleAlgorithm={onToggleAlgorithm}
             onSetRepetitions={onSetRepetitions}
+            onSetWarmupRepetitions={onSetWarmupRepetitions}
             onSetTimeBudgetMs={onSetTimeBudgetMs}
             onSetNodeBudget={onSetNodeBudget}
             onRun={onRun}
@@ -94,6 +102,11 @@ export function BenchPage({
           />
 
           <BenchmarkResultsTable results={results} />
+
+          <BenchmarkAnalyticsPanel
+            results={results}
+            onExportSnapshot={onExportComparisonSnapshot ?? (() => undefined)}
+          />
 
           <BenchmarkExportImportControls
             disableExportReport={results.length === 0}

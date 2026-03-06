@@ -1,4 +1,4 @@
-import { solve } from '@corgiban/solver';
+import { DEFAULT_SOLVER_PROGRESS_THROTTLE_MS, solve } from '@corgiban/solver';
 
 import type {
   SolveErrorMessage,
@@ -10,7 +10,11 @@ import type {
 } from '../protocol/protocol';
 import { PROTOCOL_VERSION } from '../protocol/protocol';
 import { assertOutboundMessage, validateInboundMessage } from '../protocol/validation';
-import { createProgressThrottle } from './throttle';
+import { createRuntimeNowMs } from './clock';
+import { preloadSolverKernels } from './kernelLoader';
+
+const SOLVER_PROGRESS_MIN_INTERVAL_MS = DEFAULT_SOLVER_PROGRESS_THROTTLE_MS;
+const SOLVER_PROGRESS_MIN_EXPANDED_DELTA = Number.MAX_SAFE_INTEGER;
 
 type WorkerMessageEventLike = {
   data: unknown;
@@ -25,16 +29,13 @@ type WorkerScopeLike = {
 };
 
 const workerScope = globalThis as unknown as WorkerScopeLike;
+const nowMs = createRuntimeNowMs(workerScope);
 
 type ActiveSolveRun = {
   runId: string;
 };
 
 let activeRun: ActiveSolveRun | null = null;
-
-function nowMs(): number {
-  return workerScope.performance?.now() ?? 0;
-}
 
 function getRunIdCandidate(payload: unknown): string {
   if (payload && typeof payload === 'object' && 'runId' in payload) {
@@ -93,9 +94,14 @@ function toProgressMessage(
 
 function runSolve(message: SolveStartMessage): void {
   activeRun = { runId: message.runId };
+  void preloadSolverKernels();
 
   const streamBestPath = message.options?.enableSpectatorStream === true;
-  const throttle = createProgressThrottle();
+  const solveContext = {
+    ...(nowMs ? { nowMs } : {}),
+    progressThrottleMs: SOLVER_PROGRESS_MIN_INTERVAL_MS,
+    progressExpandedInterval: SOLVER_PROGRESS_MIN_EXPANDED_DELTA,
+  };
 
   try {
     const result = solve(
@@ -107,17 +113,10 @@ function runSolve(message: SolveStartMessage): void {
           if (activeRun?.runId !== message.runId) {
             return;
           }
-          if (!throttle.shouldEmit(progress)) {
-            return;
-          }
           postMessageValidated(toProgressMessage(message.runId, progress, streamBestPath));
         },
       },
-      {
-        nowMs,
-        progressThrottleMs: 0,
-        progressExpandedInterval: 1,
-      },
+      solveContext,
     );
 
     if (activeRun?.runId !== message.runId) {

@@ -58,6 +58,19 @@ function getNextLevelId(levelId: string) {
   return levelOrder[nextIndex];
 }
 
+function getPreviousLevelId(levelId: string) {
+  if (levelOrder.length === 0) {
+    return levelId;
+  }
+
+  const index = levelOrder.indexOf(levelId);
+  if (index <= 0) {
+    return levelOrder[0];
+  }
+
+  return levelOrder[index - 1];
+}
+
 function buildState(levelState: ReturnType<typeof parseLevel>, history: Direction[]): GameState {
   const base = createGame(levelState);
   if (history.length === 0) {
@@ -88,6 +101,11 @@ export function PlayPage() {
   const replaySpeed = useSelector((state: RootState) => state.settings.solverReplaySpeed);
 
   const levelDefinition = useMemo(() => getLevelById(levelId), [levelId]);
+  const currentLevelIndex = useMemo(
+    () => levelOrder.indexOf(levelDefinition.id),
+    [levelDefinition.id],
+  );
+  const canGoToPreviousLevel = currentLevelIndex > 0;
   const levelRuntime = useMemo(() => parseLevel(levelDefinition), [levelDefinition]);
   const moveDirections = useMemo(() => history.map((moveEntry) => moveEntry.direction), [history]);
   const gameState = useMemo(
@@ -164,6 +182,18 @@ export function PlayPage() {
     dispatch(restart());
     gameStateRef.current = createGame(levelRuntime);
   }, [dispatch, levelRuntime, stopReplay]);
+
+  const handlePreviousLevel = useCallback(() => {
+    if (!canGoToPreviousLevel) {
+      return;
+    }
+
+    stopReplay();
+    const previousId = getPreviousLevelId(levelDefinition.id);
+    dispatch(nextLevel({ levelId: previousId }));
+    const previousDefinition = getLevelById(previousId);
+    gameStateRef.current = createGame(parseLevel(previousDefinition));
+  }, [canGoToPreviousLevel, dispatch, levelDefinition.id, stopReplay]);
 
   const handleNextLevel = useCallback(() => {
     stopReplay();
@@ -311,6 +341,8 @@ export function PlayPage() {
           stats={stats}
           moves={history}
           isSolved={solved}
+          canGoToPreviousLevel={canGoToPreviousLevel}
+          onPreviousLevel={handlePreviousLevel}
           onRestart={handleRestart}
           onUndo={handleUndo}
           onNextLevel={handleNextLevel}

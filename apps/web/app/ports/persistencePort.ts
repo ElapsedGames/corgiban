@@ -1,5 +1,7 @@
 import type { BenchmarkRunRecord } from '@corgiban/benchmarks';
 
+export { createNoopPersistencePort } from '../infra/persistence/persistenceMemory';
+
 export type PersistOutcome = 'granted' | 'denied' | 'unsupported';
 export type RepositoryHealth = 'durable' | 'memory-fallback' | 'unavailable';
 

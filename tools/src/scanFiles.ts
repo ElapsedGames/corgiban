@@ -5,5 +5,6 @@ export type ScanOptions = {
 };
 
 export async function scanFiles(_options: ScanOptions): Promise<string[]> {
+  // tracked: DEBT-007
   return [];
 }

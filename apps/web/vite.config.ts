@@ -50,6 +50,11 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_APP_BUILD_ID': JSON.stringify(appBuildId),
   },
+  resolve: {
+    // Keep a single React dispatcher in dev. Without this, Remix/Vite can load
+    // both versioned and unversioned optimized React chunks and trip invalid hook calls.
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+  },
   plugins: [
     suppressWellKnownProbes(),
     VitePWA({

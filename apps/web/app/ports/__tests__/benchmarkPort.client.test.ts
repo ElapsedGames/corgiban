@@ -268,6 +268,21 @@ describe('createBenchmarkPort (client)', () => {
       timeBudgetMs: 1_500,
       nodeBudget: 3_500,
     });
+    expect(results[0]?.comparableMetadata).toEqual({
+      solver: {
+        algorithmId: 'bfsPush',
+        enableSpectatorStream: false,
+        timeBudgetMs: 1_500,
+        nodeBudget: 3_500,
+      },
+      environment: {
+        userAgent: 'BenchTest',
+        hardwareConcurrency: 8,
+        appVersion: expect.any(String),
+      },
+      warmupEnabled: false,
+      warmupRepetitions: 0,
+    });
 
     port.dispose();
   });
@@ -352,7 +367,9 @@ describe('createBenchmarkPort (client)', () => {
     expect(onWorkerProgress).toHaveBeenCalledWith({
       suiteRunId: 'bench-worker-progress',
       runId: 'bench-worker-progress-1',
-      sequence: 1,
+      planSequence: 1,
+      measuredSequence: 1,
+      warmup: false,
       levelId: 'classic-001',
       algorithmId: 'bfsPush',
       repetition: 1,
@@ -369,6 +386,21 @@ describe('createBenchmarkPort (client)', () => {
       enableSpectatorStream: true,
       timeBudgetMs: 1_500,
       nodeBudget: 3_500,
+    });
+    expect(results[0]?.comparableMetadata).toEqual({
+      solver: {
+        algorithmId: 'bfsPush',
+        enableSpectatorStream: true,
+        timeBudgetMs: 1_500,
+        nodeBudget: 3_500,
+      },
+      environment: {
+        userAgent: 'BenchTest',
+        hardwareConcurrency: 8,
+        appVersion: expect.any(String),
+      },
+      warmupEnabled: false,
+      warmupRepetitions: 0,
     });
 
     port.dispose();

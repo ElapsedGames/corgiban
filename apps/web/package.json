@@ -13,6 +13,7 @@
   "dependencies": {
     "@corgiban/benchmarks": "workspace:*",
     "@corgiban/core": "workspace:*",
+    "@corgiban/formats": "workspace:*",
     "@corgiban/levels": "workspace:*",
     "@corgiban/shared": "workspace:*",
     "@corgiban/solver": "workspace:*",

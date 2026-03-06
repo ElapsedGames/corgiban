@@ -8,6 +8,7 @@ export type FileRecord = {
 };
 
 export function analyzeFile(absolutePath: string, _root: string): FileRecord {
+  // tracked: DEBT-007
   return {
     path: absolutePath,
     lines: 0,

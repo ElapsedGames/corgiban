@@ -7,7 +7,8 @@ import {
 } from '@corgiban/benchmarks';
 import { builtinLevels } from '@corgiban/levels';
 
-import type { BenchmarkStorage } from '../../infra/persistence/benchmarkStorage.client';
+import type { PersistencePort } from '../../ports/persistencePort';
+import { LEVEL_PACK_TYPE, LEVEL_PACK_VERSION } from '../../bench/levelPackImport';
 import type { BenchmarkPort, BenchmarkRunRecord } from '../../ports/benchmarkPort';
 import { createNoopSolverPort } from '../../ports/solverPort';
 import { benchResultsReplaced } from '../benchSlice';
@@ -62,7 +63,7 @@ function createBenchmarkPortMock(): BenchmarkPort {
   };
 }
 
-function createBenchmarkStorageMock(): BenchmarkStorage {
+function createBenchmarkStorageMock(): PersistencePort {
   return {
     init: vi.fn(async () => ({
       persistOutcome: 'granted' as const,
@@ -87,6 +88,14 @@ function createReportPayload(results: BenchmarkRunRecord[]): string {
   });
 }
 
+function createLevelPackPayload(levelIds: string[]): string {
+  return JSON.stringify({
+    type: LEVEL_PACK_TYPE,
+    version: LEVEL_PACK_VERSION,
+    levelIds,
+  });
+}
+
 describe('benchThunks edge cases', () => {
   it('records load error when initializeBench loadResults rejects with a string', async () => {
     const benchmarkPort = createBenchmarkPortMock();
@@ -96,7 +105,7 @@ describe('benchThunks edge cases', () => {
     const store = createAppStore({
       solverPort: createNoopSolverPort(),
       benchmarkPort,
-      benchmarkStorage,
+      persistencePort: benchmarkStorage,
     });
 
     await store.dispatch(initializeBench());
@@ -113,7 +122,7 @@ describe('benchThunks edge cases', () => {
     const store = createAppStore({
       solverPort: createNoopSolverPort(),
       benchmarkPort,
-      benchmarkStorage,
+      persistencePort: benchmarkStorage,
     });
 
     await store.dispatch(runBenchSuite());
@@ -132,7 +141,7 @@ describe('benchThunks edge cases', () => {
     const store = createAppStore({
       solverPort: createNoopSolverPort(),
       benchmarkPort,
-      benchmarkStorage,
+      persistencePort: benchmarkStorage,
     });
 
     await store.dispatch(runBenchSuite());
@@ -146,7 +155,7 @@ describe('benchThunks edge cases', () => {
     const store = createAppStore({
       solverPort: createNoopSolverPort(),
       benchmarkPort,
-      benchmarkStorage: undefined,
+      persistencePort: undefined,
     });
     store.dispatch(benchResultsReplaced([createResult({ id: 'keep-me' })]));
 
@@ -162,7 +171,7 @@ describe('benchThunks edge cases', () => {
     const store = createAppStore({
       solverPort: createNoopSolverPort(),
       benchmarkPort,
-      benchmarkStorage: undefined,
+      persistencePort: undefined,
     });
 
     const imported = createResult({ id: 'imported-without-storage' });
@@ -181,7 +190,7 @@ describe('benchThunks edge cases', () => {
     const store = createAppStore({
       solverPort: createNoopSolverPort(),
       benchmarkPort,
-      benchmarkStorage,
+      persistencePort: benchmarkStorage,
     });
 
     await expect(store.dispatch(importBenchmarkReport('{not-json'))).resolves.toBeUndefined();
@@ -197,12 +206,12 @@ describe('benchThunks edge cases', () => {
     const store = createAppStore({
       solverPort: createNoopSolverPort(),
       benchmarkPort,
-      benchmarkStorage,
+      persistencePort: benchmarkStorage,
     });
     const beforeLevelIds = [...store.getState().bench.suite.levelIds];
 
     await expect(
-      store.dispatch(importLevelPackSelection(JSON.stringify({ levelIds: ['custom-only'] }))),
+      store.dispatch(importLevelPackSelection(createLevelPackPayload(['custom-only']))),
     ).resolves.toBeUndefined();
 
     expect(store.getState().bench.suite.levelIds).toEqual(beforeLevelIds);
@@ -219,15 +228,13 @@ describe('benchThunks edge cases', () => {
     const store = createAppStore({
       solverPort: createNoopSolverPort(),
       benchmarkPort,
-      benchmarkStorage,
+      persistencePort: benchmarkStorage,
     });
 
     await expect(
       store.dispatch(
         importLevelPackSelection(
-          JSON.stringify({
-            levelIds: [builtinLevels[0]?.id, 'custom-level'],
-          }),
+          createLevelPackPayload([builtinLevels[0]?.id ?? 'classic-001', 'custom-level']),
         ),
       ),
     ).resolves.toBeUndefined();
@@ -249,7 +256,7 @@ describe('benchThunks edge cases', () => {
     const store = createAppStore({
       solverPort: createNoopSolverPort(),
       benchmarkPort,
-      benchmarkStorage,
+      persistencePort: benchmarkStorage,
     });
     const existing = createResult({ id: 'existing-before-clear' });
     store.dispatch(benchResultsReplaced([existing]));
@@ -270,7 +277,7 @@ describe('benchThunks edge cases', () => {
     const store = createAppStore({
       solverPort: createNoopSolverPort(),
       benchmarkPort,
-      benchmarkStorage,
+      persistencePort: benchmarkStorage,
     });
     const previous = createResult({ id: 'previous-before-import' });
     const imported = createResult({ id: 'import-attempt' });

@@ -40,6 +40,12 @@ type ActiveSuite = {
   client: BenchmarkClient;
 };
 
+type BenchmarkEnvironmentSnapshot = {
+  userAgent: string;
+  hardwareConcurrency: number;
+  appVersion: string;
+};
+
 function resolveDefaultAppVersion(): string {
   const injectedBuildId = import.meta.env?.VITE_APP_BUILD_ID;
   if (typeof injectedBuildId === 'string' && injectedBuildId.trim().length > 0) {
@@ -74,7 +80,7 @@ export function resolveBenchmarkConcurrency(navigatorLike?: BenchmarkPortNavigat
 }
 
 function buildRunPlans(suiteRunId: string, suite: BenchmarkSuiteConfig): RunPlan[] {
-  if (suite.levelIds.length === 0 || suite.algorithmIds.length === 0 || suite.repetitions <= 0) {
+  if (suite.levelIds.length === 0 || suite.algorithmIds.length === 0) {
     return [];
   }
 
@@ -85,7 +91,7 @@ function buildRunPlans(suiteRunId: string, suite: BenchmarkSuiteConfig): RunPlan
       options: suite.algorithmOptions?.[algorithmId],
     })),
     repetitions: suite.repetitions,
-    warmupRepetitions: 0,
+    warmupRepetitions: suite.warmupRepetitions,
     timeBudgetMs: suite.timeBudgetMs,
     nodeBudget: suite.nodeBudget,
   };
@@ -94,7 +100,23 @@ function buildRunPlans(suiteRunId: string, suite: BenchmarkSuiteConfig): RunPlan
     suiteRunId,
     suite: benchmarkSuite,
     createRunId: (plan) => `${plan.suiteRunId}-${plan.sequence}`,
-  }).filter((plan) => !plan.warmup);
+  });
+}
+
+function buildMeasuredSequenceByRunId(plans: RunPlan[]): Map<string, number> {
+  const measuredSequenceByRunId = new Map<string, number>();
+  let measuredSequence = 0;
+
+  plans.forEach((plan) => {
+    if (plan.warmup) {
+      return;
+    }
+
+    measuredSequence += 1;
+    measuredSequenceByRunId.set(plan.runId, measuredSequence);
+  });
+
+  return measuredSequenceByRunId;
 }
 
 function toRunRequestOptions(options: RunPlan['options'], streamWorkerProgress: boolean) {
@@ -111,6 +133,7 @@ function toRunRequestOptions(options: RunPlan['options'], streamWorkerProgress: 
 function toWorkerProgress(
   suiteRunId: string,
   plan: RunPlan,
+  measuredSequence: number | null,
   progress: {
     expanded: number;
     generated: number;
@@ -124,7 +147,9 @@ function toWorkerProgress(
   return {
     suiteRunId,
     runId: plan.runId,
-    sequence: plan.sequence,
+    planSequence: plan.sequence,
+    measuredSequence,
+    warmup: plan.warmup,
     levelId: plan.levelId,
     algorithmId: plan.algorithmId,
     repetition: plan.repetition,
@@ -169,7 +194,7 @@ function markSolveResponse(performanceApi: BenchmarkPortPerformanceApi | undefin
 function createEnvironmentSnapshot(
   navigatorLike: BenchmarkPortNavigator | undefined,
   appVersion: string,
-) {
+): BenchmarkEnvironmentSnapshot {
   const hardwareConcurrency =
     typeof navigatorLike?.hardwareConcurrency === 'number' && navigatorLike.hardwareConcurrency > 0
       ? navigatorLike.hardwareConcurrency
@@ -179,6 +204,31 @@ function createEnvironmentSnapshot(
     userAgent: navigatorLike?.userAgent ?? 'unknown',
     hardwareConcurrency,
     appVersion,
+  };
+}
+
+function buildComparableMetadata(
+  plan: RunPlan,
+  options: RunPlan['options'],
+  environment: BenchmarkEnvironmentSnapshot,
+  warmupRepetitions: number,
+) {
+  return {
+    solver: {
+      algorithmId: plan.algorithmId,
+      ...(options.heuristicId !== undefined ? { heuristicId: options.heuristicId } : {}),
+      ...(options.heuristicWeight !== undefined
+        ? { heuristicWeight: options.heuristicWeight }
+        : {}),
+      ...(options.timeBudgetMs !== undefined ? { timeBudgetMs: options.timeBudgetMs } : {}),
+      ...(options.nodeBudget !== undefined ? { nodeBudget: options.nodeBudget } : {}),
+      ...(options.enableSpectatorStream !== undefined
+        ? { enableSpectatorStream: options.enableSpectatorStream }
+        : {}),
+    },
+    environment,
+    warmupEnabled: warmupRepetitions > 0,
+    warmupRepetitions,
   };
 }
 
@@ -222,24 +272,24 @@ export function createBenchmarkPort(options: CreateBenchmarkPortOptions = {}): B
       };
       activeSuite = suiteRef;
 
-      const plans = buildRunPlans(request.suiteRunId, request.suite);
-      const totalRuns = plans.length;
-
-      if (totalRuns === 0) {
-        client.dispose();
-        clearActiveSuite(request.suiteRunId);
-        return [];
-      }
-
-      const environment = createEnvironmentSnapshot(navigatorLike, appVersion);
-      const planMetas = new Map(plans.map((p) => [p.runId, p]));
-      const streamWorkerProgress = typeof request.onWorkerProgress === 'function';
-      const runStartTimes = new Map<string, number>();
-      const dispatchMarked = new Set<string>();
-      const resultsBySequence = new Map<number, BenchmarkRunRecord>();
-      let completedRuns = 0;
-
       try {
+        const plans = buildRunPlans(request.suiteRunId, request.suite);
+        const warmupRepetitions = Math.max(0, Math.floor(request.suite.warmupRepetitions ?? 0));
+        const totalRuns = plans.filter((plan) => !plan.warmup).length;
+
+        if (totalRuns === 0) {
+          return [];
+        }
+
+        const environment = createEnvironmentSnapshot(navigatorLike, appVersion);
+        const planMetas = new Map(plans.map((p) => [p.runId, p]));
+        const measuredSequenceByRunId = buildMeasuredSequenceByRunId(plans);
+        const streamWorkerProgress = typeof request.onWorkerProgress === 'function';
+        const runStartTimes = new Map<string, number>();
+        const dispatchMarked = new Set<string>();
+        const resultsBySequence = new Map<number, BenchmarkRunRecord>();
+        let completedRuns = 0;
+
         const runRequests: BenchmarkClientRunRequest[] = plans.map((plan) => ({
           runId: plan.runId,
           levelRuntime: request.levelResolver(plan.levelId),
@@ -279,21 +329,37 @@ export function createBenchmarkPort(options: CreateBenchmarkPortOptions = {}): B
                 dispatchMarked.add(runRequest.runId);
               }
               markSolveResponse(performanceApi, runRequest.runId);
+              if (plan.warmup) {
+                return;
+              }
+
+              const resultSequence = measuredSequenceByRunId.get(runRequest.runId);
+              if (!resultSequence) {
+                return;
+              }
+              const recordOptions = runRequest.options ?? plan.options;
 
               const baseRecord = {
-                id: `${request.suiteRunId}:${plan.sequence}`,
+                id: `${request.suiteRunId}:${resultSequence}`,
                 suiteRunId: request.suiteRunId,
                 runId: runRequest.runId,
-                sequence: plan.sequence,
+                sequence: resultSequence,
                 levelId: plan.levelId,
                 algorithmId: plan.algorithmId,
                 repetition: plan.repetition,
-                options: runRequest.options ?? plan.options,
+                warmup: false,
+                options: recordOptions,
                 status: resultMsg.status,
                 metrics: resultMsg.metrics,
                 startedAtMs,
                 finishedAtMs,
                 environment,
+                comparableMetadata: buildComparableMetadata(
+                  plan,
+                  recordOptions,
+                  environment,
+                  warmupRepetitions,
+                ),
               };
 
               const record: BenchmarkRunRecord =
@@ -312,7 +378,7 @@ export function createBenchmarkPort(options: CreateBenchmarkPortOptions = {}): B
                         : {}),
                     };
 
-              resultsBySequence.set(plan.sequence, record);
+              resultsBySequence.set(resultSequence, record);
               completedRuns += 1;
 
               request.onResult?.(record);
@@ -333,7 +399,14 @@ export function createBenchmarkPort(options: CreateBenchmarkPortOptions = {}): B
                 return;
               }
 
-              request.onWorkerProgress?.(toWorkerProgress(request.suiteRunId, plan, progressMsg));
+              request.onWorkerProgress?.(
+                toWorkerProgress(
+                  request.suiteRunId,
+                  plan,
+                  measuredSequenceByRunId.get(runRequest.runId) ?? null,
+                  progressMsg,
+                ),
+              );
             },
           },
         });

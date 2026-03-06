@@ -1,5 +1,6 @@
 import type { AlgorithmInput, SolverAlgorithm } from '../api/algorithm';
 import type { Push, SolveResult, SolverMetrics, SolverProgress } from '../api/solverTypes';
+import { CLOCK_UNAVAILABLE_ERROR_MESSAGE, resolveNowMs } from '../api/clock';
 import { createProgressReporter } from '../infra/progress';
 import type { CancelToken } from '../infra/cancelToken';
 import { VisitedSet } from '../infra/visited';
@@ -33,24 +34,6 @@ function isSolved(compiled: AlgorithmInput['compiled'], boxes: Uint16Array): boo
   return true;
 }
 
-function findBoxIndex(boxes: Uint16Array, cellId: number): number {
-  let low = 0;
-  let high = boxes.length - 1;
-  while (low <= high) {
-    const mid = (low + high) >>> 1;
-    const value = boxes[mid];
-    if (value === cellId) {
-      return mid;
-    }
-    if (value < cellId) {
-      low = mid + 1;
-    } else {
-      high = mid - 1;
-    }
-  }
-  return -1;
-}
-
 function buildMetrics(
   elapsedMs: number,
   expanded: number,
@@ -77,11 +60,7 @@ function buildProgress(
   depth: number,
   frontier: number,
   elapsedMs: number,
-  bestPathSoFar?: string,
 ): SolverProgress {
-  if (bestPathSoFar) {
-    return { expanded, generated, depth, frontier, elapsedMs, bestPathSoFar };
-  }
   return { expanded, generated, depth, frontier, elapsedMs };
 }
 
@@ -91,7 +70,14 @@ function shouldCancel(token: CancelToken | undefined): boolean {
 
 export function solveBfsPush(input: AlgorithmInput): SolveResult {
   const { level, compiled, zobrist, options, hooks, context } = input;
-  const nowMs = context.nowMs ?? (() => 0);
+  const nowMs = resolveNowMs(context);
+  if (!nowMs) {
+    return {
+      status: 'error',
+      metrics: buildMetrics(0, 0, 0, 0, 0, 0, 0),
+      errorMessage: CLOCK_UNAVAILABLE_ERROR_MESSAGE,
+    };
+  }
   const startMs = nowMs();
 
   const reporter = createProgressReporter(hooks?.onProgress, {
@@ -152,10 +138,7 @@ export function solveBfsPush(input: AlgorithmInput): SolveResult {
       let cursor = head - 1;
       while (cursor > 0) {
         const current = queue[cursor];
-        if (!current.push) {
-          break;
-        }
-        solutionPushes.push(current.push);
+        solutionPushes.push(current.push!);
         cursor = current.parent;
       }
       solutionPushes.reverse();
@@ -164,9 +147,6 @@ export function solveBfsPush(input: AlgorithmInput): SolveResult {
       const solutionMoves = directionsToString(directions);
       const finalElapsed = nowMs() - startMs;
       const solvedFrontier = queue.length - head;
-      if (solvedFrontier > maxFrontier) {
-        maxFrontier = solvedFrontier;
-      }
       const metrics = buildMetrics(
         finalElapsed,
         expanded,
@@ -206,11 +186,7 @@ export function solveBfsPush(input: AlgorithmInput): SolveResult {
         }
 
         const updatedBoxes = node.state.boxes.slice();
-        const slot = findBoxIndex(updatedBoxes, boxCellId);
-        if (slot < 0) {
-          continue;
-        }
-        updatedBoxes[slot] = pushTo;
+        updatedBoxes[boxIndex] = pushTo;
         updatedBoxes.sort();
 
         const childState = createSolverState(compiled, boxCellId, updatedBoxes, zobrist);

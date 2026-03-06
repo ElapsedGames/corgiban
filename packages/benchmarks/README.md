@@ -7,6 +7,7 @@ Benchmark domain contracts and deterministic runner orchestration.
 - Benchmark suite/run/result model types and comparable metadata
 - IndexedDB schema ownership constants (`BENCHMARK_DB_*`, `DEFAULT_BENCHMARK_RETENTION_LIMIT`)
 - Deterministic benchmark runner sequencing (warmup + measured repetitions)
+- Versioned benchmark report parsing (`parseBenchmarkReportJson`) and strict run-record validation
 
 Persistence adapters (IndexedDB, browser APIs) do not live in this package; they live in `apps/web`.
 
@@ -25,11 +26,18 @@ Exports come from `src/index.ts`:
 - Runtime/version:
   - `benchmarksVersion`
 - Model types:
+  - `BenchmarkAlgorithmConfig`
   - `BenchmarkSuite`
+  - `BenchmarkRunExecutionRequest`
+  - `BenchmarkRunOutcome`
+  - `BenchmarkRunPlan`
   - `BenchmarkRunRecord`
   - `BenchmarkSuiteRunRequest`
   - `BenchmarkRunnerProgress`
-  - related metadata/config/request types
+  - `BenchmarkRunnerExecute`
+  - `BenchmarkComparableMetadata`
+  - `BenchmarkEnvironmentSnapshot`
+  - `BenchmarkSolverOptionMetadata`
 - Schema constants and guards:
   - `BENCHMARK_DB_NAME`
   - `BENCHMARK_DB_VERSION`
@@ -41,6 +49,15 @@ Exports come from `src/index.ts`:
   - `BENCHMARK_REPORT_EXPORT_MODEL`
   - `DEFAULT_BENCHMARK_RETENTION_LIMIT`
   - `isBenchmarkRunRecord(...)`
+  - `parseBenchmarkReportJson(...)`
+- Report payload type:
+  - `BenchmarkReportPayload`
+- Comparison types:
+  - `BenchmarkComparableRunInput`
+  - `BenchmarkSuiteComparisonInfo`
+- Comparison helpers:
+  - `toComparableRunInput(...)`
+  - `buildSuiteComparisonInfo(...)`
 - Runner APIs:
   - `buildBenchmarkRunPlans(...)`
   - `buildComparableMetadata(...)`
@@ -56,6 +73,20 @@ Report contract baseline:
 - `BENCHMARK_REPORT_VERSION = 2`
 - `BENCHMARK_REPORT_EXPORT_MODEL = "multi-suite-history"`
 - report imports/exports are expected to validate each `results` entry with `isBenchmarkRunRecord(...)`
+- `parseBenchmarkReportJson(...)` enforces size limits, supported version/model checks, and strict
+  run-record validation with explicit errors
+- App adapters may attach extra top-level metadata such as `exportedAtIso`; the parser keys off
+  the required contract fields above and ignores extra top-level metadata.
+
+Comparison contract baseline:
+
+- `toComparableRunInput(...)` and `buildSuiteComparisonInfo(...)` derive exact suite-input
+  fingerprints from measured run metadata.
+- Fingerprints include level/repetition inputs, solver options, environment metadata, and warm-up
+  settings.
+- Comparison helpers expect measured `BenchmarkRunRecord` data; warm-up runs are excluded before
+  persistence/comparison in the app layer.
+- Consumers should treat fingerprint mismatches as non-comparable, not synthesize delta metrics.
 
 ## Usage example
 

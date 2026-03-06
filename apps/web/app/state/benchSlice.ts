@@ -104,6 +104,7 @@ const initialState: BenchSliceState = {
     levelIds: defaultLevelIds,
     algorithmIds: [DEFAULT_ALGORITHM_ID],
     repetitions: 1,
+    warmupRepetitions: 0,
     timeBudgetMs: DEFAULT_SOLVER_TIME_BUDGET_MS,
     nodeBudget: DEFAULT_NODE_BUDGET,
   },
@@ -156,6 +157,13 @@ export const benchSlice = createSlice({
     },
     setSuiteRepetitions(state, action: { payload: number }) {
       state.suite.repetitions = toPositiveInt(action.payload, state.suite.repetitions);
+    },
+    setSuiteWarmupRepetitions(state, action: { payload: number }) {
+      if (!Number.isFinite(action.payload) || action.payload < 0) {
+        return;
+      }
+
+      state.suite.warmupRepetitions = Math.floor(action.payload);
     },
     setSuiteTimeBudgetMs(state, action: { payload: number }) {
       state.suite.timeBudgetMs = toPositiveInt(action.payload, state.suite.timeBudgetMs);
@@ -297,6 +305,7 @@ export const {
   setSuiteLevelIds,
   setSuiteNodeBudget,
   setSuiteRepetitions,
+  setSuiteWarmupRepetitions,
   setSuiteTimeBudgetMs,
   toggleSuiteAlgorithmId,
   toggleSuiteLevelId,

@@ -1,6 +1,7 @@
 import type { LevelRuntime } from '@corgiban/core';
 
 import type { SolveContext } from './algorithm';
+import { CLOCK_UNAVAILABLE_ERROR_MESSAGE, resolveNowMs, safeElapsedMs } from './clock';
 import { getAlgorithm } from './registry';
 import type {
   AlgorithmId,
@@ -49,14 +50,6 @@ function buildErrorResult(
   };
 }
 
-function defaultNowMs(): () => number {
-  const perf = globalThis.performance;
-  if (perf && typeof perf.now === 'function') {
-    return () => perf.now();
-  }
-  return () => 0;
-}
-
 export function solve(
   level: LevelRuntime,
   algorithmId: AlgorithmId,
@@ -64,17 +57,22 @@ export function solve(
   hooks?: SolverHooks,
   context: SolveContext = {},
 ): SolveResult {
-  const nowMs = context.nowMs ?? defaultNowMs();
-  const startMs = nowMs();
+  const nowMs = resolveNowMs(context);
+  if (!nowMs) {
+    return buildErrorResult(0, CLOCK_UNAVAILABLE_ERROR_MESSAGE);
+  }
+
+  let startMs = 0;
 
   try {
+    startMs = nowMs();
     const normalizedOptions = normalizeSolverOptions(algorithmId, options);
     const compiled = compileLevel(level);
     const zobrist = createZobristTable(compiled.cellCount);
     const algorithm = getAlgorithm(algorithmId);
 
     if (!algorithm) {
-      const elapsedMs = nowMs() - startMs;
+      const elapsedMs = safeElapsedMs(nowMs, startMs);
       return buildErrorResult(
         elapsedMs,
         `Algorithm "${algorithmId}" is not registered in the solver registry.`,
@@ -90,7 +88,7 @@ export function solve(
       context: { ...context, nowMs },
     });
   } catch (error) {
-    const elapsedMs = nowMs() - startMs;
+    const elapsedMs = safeElapsedMs(nowMs, startMs);
     return buildErrorResult(
       elapsedMs,
       `Solver run failed for algorithm "${algorithmId}".`,

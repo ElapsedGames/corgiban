@@ -18,7 +18,11 @@
     "zip:source": "node tools/scripts/make-source-zip.mjs",
     "prepare": "simple-git-hooks",
     "graph:deps": "pnpm exec depcruise --config dependency-cruiser.config.mjs packages/ apps/ --output-type dot | dot -T svg > docs/_generated/dep-graph.svg",
-    "best-practices": "tsx tools/src/bestPracticesReport.ts --out-dir docs/_generated/analysis"
+    "best-practices": "tsx tools/src/bestPracticesReport.ts --out-dir docs/_generated/analysis",
+    "issue:new": "node tools/scripts/new-issue.mjs",
+    "issue:close": "node tools/scripts/close-issue.mjs",
+    "issue:generate": "node tools/scripts/generate-known-issues.mjs",
+    "issue:check": "node tools/scripts/generate-known-issues.mjs --check"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm format:check && node tools/scripts/run-affected-tests.mjs && node tools/scripts/encoding-check.mjs"
@@ -33,6 +37,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-boundaries": "^3.1.0",
     "jiti": "^2.6.1",
+    "jsdom": "^28.1.0",
     "prettier": "^3.2.5",
     "simple-git-hooks": "^2.11.1",
     "tsx": "^4.7.0",

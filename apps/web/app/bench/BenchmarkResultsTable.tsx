@@ -2,7 +2,13 @@ import { useMemo, useState } from 'react';
 
 import type { BenchmarkRunRecord } from '../ports/benchmarkPort';
 
-export type SortKey = 'finishedAtMs' | 'algorithmId' | 'levelId' | 'status' | 'elapsedMs';
+export type SortKey =
+  | 'finishedAtMs'
+  | 'suiteRunId'
+  | 'algorithmId'
+  | 'levelId'
+  | 'status'
+  | 'elapsedMs';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -105,6 +111,11 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
                   </button>
                 </th>
                 <th className="px-2 py-2">
+                  <button type="button" onClick={() => setSort('suiteRunId')}>
+                    Suite
+                  </button>
+                </th>
+                <th className="px-2 py-2">
                   <button type="button" onClick={() => setSort('levelId')}>
                     Level
                   </button>
@@ -132,7 +143,10 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
               {sortedResults.map((result) => (
                 <tr key={result.id} className="border-b border-[color:var(--color-border)]/60">
                   <td className="px-2 py-2">{formatBenchmarkTimestamp(result.finishedAtMs)}</td>
-                  <td className="px-2 py-2">{result.levelId}</td>
+                  <td className="px-2 py-2">{result.suiteRunId}</td>
+                  <td className="px-2 py-2" data-testid="benchmark-result-level">
+                    {result.levelId}
+                  </td>
                   <td className="px-2 py-2">{result.algorithmId}</td>
                   <td className="px-2 py-2 text-right">{result.metrics.elapsedMs}</td>
                   <td className="px-2 py-2 text-right">{result.metrics.expanded}</td>

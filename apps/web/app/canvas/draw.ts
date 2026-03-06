@@ -1,4 +1,5 @@
 import type { RenderPlan } from './renderPlan';
+import type { SpriteAtlas } from './spriteAtlas.types';
 
 const palette = {
   background: '#0b1120',
@@ -11,7 +12,33 @@ const palette = {
   grid: 'rgba(148, 163, 184, 0.15)',
 };
 
-export function draw(ctx: CanvasRenderingContext2D, plan: RenderPlan): void {
+function spriteKeyForCell(cell: RenderPlan['cells'][number]): keyof SpriteAtlas['sprites'] {
+  if (cell.wall) {
+    return 'wall';
+  }
+  if (cell.player && cell.target) {
+    return 'playerOnTarget';
+  }
+  if (cell.player) {
+    return 'player';
+  }
+  if (cell.box && cell.target) {
+    return 'boxOnTarget';
+  }
+  if (cell.box) {
+    return 'box';
+  }
+  if (cell.target) {
+    return 'target';
+  }
+  return 'floor';
+}
+
+export function draw(
+  ctx: CanvasRenderingContext2D,
+  plan: RenderPlan,
+  atlas?: SpriteAtlas | null,
+): void {
   const { cellSize, dpr, width, height, cells } = plan;
   const logicalWidth = width * cellSize;
   const logicalHeight = height * cellSize;
@@ -25,6 +52,13 @@ export function draw(ctx: CanvasRenderingContext2D, plan: RenderPlan): void {
   for (const cell of cells) {
     const x = cell.col * cellSize;
     const y = cell.row * cellSize;
+
+    if (atlas) {
+      const key = spriteKeyForCell(cell);
+      const sprite = atlas.sprites[key];
+      ctx.drawImage(sprite, x, y, cellSize, cellSize);
+      continue;
+    }
 
     if (cell.wall) {
       ctx.fillStyle = palette.wall;

@@ -24,7 +24,8 @@ export async function readBenchRunCount(page: Page): Promise<number> {
 export async function configureFastSingleLevelSuite(page: Page): Promise<void> {
   await uncheckIfChecked(page.getByRole('checkbox', { name: /Classic 2 \(classic-002\)/ }));
   await uncheckIfChecked(page.getByRole('checkbox', { name: /Classic 3 \(classic-003\)/ }));
-  await page.getByLabel('Repetitions').fill('1');
+  await page.getByLabel('Repetitions', { exact: true }).fill('1');
+  await page.getByLabel('Warm-up Repetitions', { exact: true }).fill('0');
   await page.getByLabel('Time Budget (ms)').fill('100');
   await page.getByLabel('Node Budget').fill('5000');
 }

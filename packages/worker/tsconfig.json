@@ -9,6 +9,7 @@
     { "path": "../shared" },
     { "path": "../core" },
     { "path": "../solver" },
+    { "path": "../solver-kernels" },
     { "path": "../benchmarks" }
   ]
 }

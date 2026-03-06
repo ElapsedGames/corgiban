@@ -18,6 +18,9 @@ export default function Index() {
           <Link className="font-semibold text-[color:var(--color-accent)]" to="/bench">
             Go to /bench
           </Link>
+          <Link className="font-semibold text-[color:var(--color-accent)]" to="/lab">
+            Go to /lab
+          </Link>
           <Link className="font-semibold text-[color:var(--color-accent)]" to="/dev/ui-kit">
             Go to /dev/ui-kit
           </Link>

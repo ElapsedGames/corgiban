@@ -8,8 +8,10 @@
     "./runtime/benchmarkWorker": "./src/runtime/benchmarkWorker.ts"
   },
   "dependencies": {
+    "@corgiban/benchmarks": "workspace:*",
     "@corgiban/core": "workspace:*",
     "@corgiban/shared": "workspace:*",
+    "@corgiban/solver-kernels": "workspace:*",
     "@corgiban/solver": "workspace:*",
     "zod": "^3.24.1"
   }

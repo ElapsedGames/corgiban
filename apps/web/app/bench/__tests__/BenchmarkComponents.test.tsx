@@ -1,14 +1,20 @@
+// @vitest-environment jsdom
+
 import type { ReactElement } from 'react';
-import { isValidElement } from 'react';
+import { act, isValidElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BenchDiagnosticsPanel } from '../BenchDiagnosticsPanel';
 import { BenchmarkExportImportControls } from '../BenchmarkExportImportControls';
 import { BenchmarkPerfPanel } from '../BenchmarkPerfPanel';
 import { BenchmarkSuiteBuilder } from '../BenchmarkSuiteBuilder';
 import { Button } from '../../ui/Button';
-import { Input } from '../../ui/Input';
+
+Object.assign(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }, {
+  IS_REACT_ACT_ENVIRONMENT: true,
+});
 
 function collectByType(node: unknown, targetType: unknown, matches: ReactElement[] = []) {
   if (!node) {
@@ -38,6 +44,7 @@ function createSuiteBuilderProps() {
       levelIds: ['classic-001'],
       algorithmIds: ['bfsPush' as const],
       repetitions: 2,
+      warmupRepetitions: 1,
       timeBudgetMs: 1000,
       nodeBudget: 500,
     },
@@ -53,12 +60,68 @@ function createSuiteBuilderProps() {
     onToggleLevel: vi.fn(),
     onToggleAlgorithm: vi.fn(),
     onSetRepetitions: vi.fn(),
+    onSetWarmupRepetitions: vi.fn(),
     onSetTimeBudgetMs: vi.fn(),
     onSetNodeBudget: vi.fn(),
     onRun: vi.fn(),
     onCancel: vi.fn(),
   };
 }
+
+const mountedRoots: Root[] = [];
+
+async function renderIntoDocument(element: ReactElement) {
+  const container = document.createElement('div');
+  document.body.append(container);
+
+  const root = createRoot(container);
+  mountedRoots.push(root);
+
+  await act(async () => {
+    root.render(element);
+  });
+
+  return { container };
+}
+
+function getInputByLabelText(container: HTMLElement, labelText: string): HTMLInputElement {
+  const label = [...container.querySelectorAll('label')].find((candidate) =>
+    candidate.textContent?.includes(labelText),
+  );
+  expect(label).toBeTruthy();
+
+  const control = label?.control ?? label?.querySelector('input, textarea, select');
+  expect(control instanceof HTMLInputElement).toBe(true);
+
+  return control as HTMLInputElement;
+}
+
+function getButtonByText(container: HTMLElement, buttonText: string): HTMLButtonElement {
+  const button = [...container.querySelectorAll('button')].find(
+    (candidate) => candidate.textContent?.trim() === buttonText,
+  );
+  expect(button).toBeTruthy();
+  return button as HTMLButtonElement;
+}
+
+function setInputValue(input: HTMLInputElement, value: string) {
+  const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  expect(valueSetter).toBeTypeOf('function');
+
+  valueSetter?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+afterEach(async () => {
+  while (mountedRoots.length > 0) {
+    const root = mountedRoots.pop();
+    await act(async () => {
+      root?.unmount();
+    });
+  }
+
+  document.body.innerHTML = '';
+});
 
 describe('BenchDiagnosticsPanel', () => {
   it.each([
@@ -83,6 +146,11 @@ describe('BenchDiagnosticsPanel', () => {
     );
 
     expect(html).toContain(label);
+    expect(html).toContain('Execution status');
+    expect(html).toContain('Execution progress');
+    expect(html).toContain('Latest execution result');
+    expect(html).toContain('Storage persistence');
+    expect(html).toContain('Persistence durability');
     expect(html).toContain('2/5');
     expect(html).toContain('result-2');
     expect(html).toContain('granted');
@@ -124,6 +192,28 @@ describe('BenchDiagnosticsPanel', () => {
 
     expect(html).toContain('Imported 2 levels. 1 unrecognized ID was skipped.');
   });
+
+  it('explains sticky memory fallback separately from execution completion', () => {
+    const html = renderToStaticMarkup(
+      <BenchDiagnosticsPanel
+        status="completed"
+        progress={{ totalRuns: 2, completedRuns: 2, latestResultId: 'result-2' }}
+        diagnostics={{
+          persistOutcome: 'granted',
+          repositoryHealth: 'memory-fallback',
+          lastError: null,
+          lastNotice: null,
+        }}
+      />,
+    );
+
+    expect(html).toContain('Completed');
+    expect(html).toContain('memory-fallback (sticky until reload)');
+    expect(html).toContain(
+      'Sticky memory-fallback means execution can still complete while durable persistence is degraded.',
+    );
+    expect(html).toContain('Results stay in memory for the current page session until reload.');
+  });
 });
 
 describe('BenchmarkPerfPanel', () => {
@@ -136,7 +226,7 @@ describe('BenchmarkPerfPanel', () => {
     expect(renderToStaticMarkup(element)).toContain('No performance measures captured yet.');
   });
 
-  it('renders newest entries first and wires clear callback', () => {
+  it('renders newest entries first and wires clear callback', async () => {
     const onClear = vi.fn();
     const entries = [
       {
@@ -153,17 +243,24 @@ describe('BenchmarkPerfPanel', () => {
       },
     ];
 
-    const element = BenchmarkPerfPanel({ entries, onClear });
-    const html = renderToStaticMarkup(element);
-    expect(html.indexOf('bench:solve-roundtrip:new')).toBeLessThan(
-      html.indexOf('bench:solve-roundtrip:old'),
+    const { container } = await renderIntoDocument(
+      <BenchmarkPerfPanel entries={entries} onClear={onClear} />,
     );
-    expect(html).toContain('2.40');
-    expect(html).toContain('20.00');
 
-    const buttons = collectByType(element, 'button');
-    expect(buttons[0]?.props.disabled).toBe(false);
-    buttons[0]?.props.onClick?.();
+    const rowNames = [...container.querySelectorAll('tbody tr td:first-child')].map((cell) =>
+      cell.textContent?.trim(),
+    );
+    expect(rowNames).toEqual(['bench:solve-roundtrip:new', 'bench:solve-roundtrip:old']);
+    expect(container.textContent).toContain('2.40');
+    expect(container.textContent).toContain('20.00');
+
+    const clearButton = getButtonByText(container, 'Clear');
+    expect(clearButton.disabled).toBe(false);
+
+    await act(async () => {
+      clearButton.click();
+    });
+
     expect(onClear).toHaveBeenCalledTimes(1);
   });
 });
@@ -187,28 +284,37 @@ describe('BenchmarkSuiteBuilder', () => {
     expect(props.onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('wires checkbox and numeric-input handlers', () => {
+  it('wires checkbox and numeric-input handlers', async () => {
     const props = createSuiteBuilderProps();
-    const element = BenchmarkSuiteBuilder(props);
+    const { container } = await renderIntoDocument(<BenchmarkSuiteBuilder {...props} />);
 
-    const nativeInputs = collectByType(element, 'input');
-    const levelInputs = nativeInputs.filter((input) => input.props.type === 'checkbox');
-    expect(levelInputs).toHaveLength(4);
+    const classicLevelInput = getInputByLabelText(container, 'Classic 001');
+    const bfsPushInput = getInputByLabelText(container, 'BFS Push');
+    const idaStarInput = getInputByLabelText(container, 'IDA* Push');
 
-    levelInputs[0]?.props.onChange?.();
-    levelInputs[2]?.props.onChange?.();
+    await act(async () => {
+      classicLevelInput.click();
+      bfsPushInput.click();
+    });
+
     expect(props.onToggleLevel).toHaveBeenCalledWith('classic-001');
     expect(props.onToggleAlgorithm).toHaveBeenCalledWith('bfsPush');
-    expect(levelInputs[3]?.props.disabled).toBe(true);
+    expect(idaStarInput.disabled).toBe(true);
 
-    const budgetInputs = collectByType(element, Input);
-    expect(budgetInputs).toHaveLength(3);
+    const repetitionsInput = getInputByLabelText(container, 'Repetitions');
+    const warmupRepetitionsInput = getInputByLabelText(container, 'Warm-up Repetitions');
+    const timeBudgetInput = getInputByLabelText(container, 'Time Budget (ms)');
+    const nodeBudgetInput = getInputByLabelText(container, 'Node Budget');
 
-    budgetInputs[0]?.props.onChange?.({ target: { value: '4' } });
-    budgetInputs[1]?.props.onChange?.({ target: { value: '2500' } });
-    budgetInputs[2]?.props.onChange?.({ target: { value: '12000' } });
+    await act(async () => {
+      setInputValue(repetitionsInput, '4');
+      setInputValue(warmupRepetitionsInput, '3');
+      setInputValue(timeBudgetInput, '2500');
+      setInputValue(nodeBudgetInput, '12000');
+    });
 
     expect(props.onSetRepetitions).toHaveBeenCalledWith(4);
+    expect(props.onSetWarmupRepetitions).toHaveBeenCalledWith(3);
     expect(props.onSetTimeBudgetMs).toHaveBeenCalledWith(2500);
     expect(props.onSetNodeBudget).toHaveBeenCalledWith(12000);
   });

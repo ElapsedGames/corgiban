@@ -4,6 +4,11 @@ import { solve } from '../solve';
 import type { AlgorithmId, SolveResult } from '../solverTypes';
 import * as registry from '../registry';
 
+function expectErrorResult(result: SolveResult): Extract<SolveResult, { status: 'error' }> {
+  expect(result.status).toBe('error');
+  return result as Extract<SolveResult, { status: 'error' }>;
+}
+
 describe('solve', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -46,13 +51,11 @@ describe('solve', () => {
       { nowMs: () => 0 },
     );
 
-    expect(result.status).toBe('error');
-    expect(result.metrics.expanded).toBe(0);
-    expect(result.metrics.generated).toBe(0);
-    if (result.status !== 'error') {
-      return;
-    }
-    expect(result.errorMessage).toContain('not registered');
+    const errorResult = expectErrorResult(result);
+
+    expect(errorResult.metrics.expanded).toBe(0);
+    expect(errorResult.metrics.generated).toBe(0);
+    expect(errorResult.errorMessage).toContain('not registered');
   });
 
   it('captures algorithm exceptions as error results', () => {
@@ -116,11 +119,11 @@ describe('solve', () => {
       'unknown' as AlgorithmId,
     );
 
-    expect(result.status).toBe('error');
+    expectErrorResult(result);
     expect(nowMock).toHaveBeenCalled();
   });
 
-  it('falls back to a constant zero clock when performance.now is unavailable', () => {
+  it('returns an explicit error when no default clock source is available', () => {
     vi.stubGlobal('performance', undefined);
 
     const result = solve(
@@ -135,8 +138,10 @@ describe('solve', () => {
       'unknown' as AlgorithmId,
     );
 
-    expect(result.status).toBe('error');
-    expect(result.metrics.elapsedMs).toBe(0);
+    const errorResult = expectErrorResult(result);
+
+    expect(errorResult.errorMessage).toContain('clock source unavailable');
+    expect(errorResult.metrics.elapsedMs).toBe(0);
   });
 
   it('captures string exceptions as errorDetails', () => {
@@ -164,11 +169,9 @@ describe('solve', () => {
 
     spy.mockRestore();
 
-    expect(result.status).toBe('error');
-    if (result.status !== 'error') {
-      return;
-    }
-    expect(result.errorDetails).toBe('string boom');
+    const errorResult = expectErrorResult(result);
+
+    expect(errorResult.errorDetails).toBe('string boom');
   });
 
   it('omits errorDetails when algorithm throws a non-Error object', () => {
@@ -196,10 +199,8 @@ describe('solve', () => {
 
     spy.mockRestore();
 
-    expect(result.status).toBe('error');
-    if (result.status !== 'error') {
-      return;
-    }
-    expect(result.errorDetails).toBeUndefined();
+    const errorResult = expectErrorResult(result);
+
+    expect(errorResult.errorDetails).toBeUndefined();
   });
 });

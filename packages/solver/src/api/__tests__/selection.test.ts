@@ -75,39 +75,41 @@ describe('selection', () => {
     expect(chooseAlgorithm(features)).toBe('bfsPush');
   });
 
-  it('falls back to bfsPush at the lower boundary (boxCount: 4) until astarPush is implemented', () => {
-    const features: LevelFeatures = {
-      width: 4,
-      height: 4,
-      boxCount: 4,
-      walkableCount: 10,
-      reachableCount: 8,
-    };
-
-    expect(chooseAlgorithm(features)).toBe('bfsPush');
-  });
-
-  it('falls back to bfsPush at the upper boundary (boxCount: 6) until astarPush is implemented', () => {
-    const features: LevelFeatures = {
-      width: 5,
-      height: 5,
-      boxCount: 6,
-      walkableCount: 12,
-      reachableCount: 10,
-    };
-
-    expect(chooseAlgorithm(features)).toBe('bfsPush');
-  });
-
-  it('falls back to bfsPush for large box counts while future algorithms are unavailable', () => {
-    const features: LevelFeatures = {
-      width: 8,
-      height: 8,
-      boxCount: 12,
-      walkableCount: 40,
-      reachableCount: 32,
-    };
-
-    expect(chooseAlgorithm(features)).toBe('bfsPush');
-  });
+  it.each([
+    {
+      label: 'lower A* boundary',
+      features: {
+        width: 4,
+        height: 4,
+        boxCount: 4,
+        walkableCount: 10,
+        reachableCount: 8,
+      },
+    },
+    {
+      label: 'upper A* boundary',
+      features: {
+        width: 5,
+        height: 5,
+        boxCount: 6,
+        walkableCount: 12,
+        reachableCount: 10,
+      },
+    },
+    {
+      label: 'large-box fallback range',
+      features: {
+        width: 8,
+        height: 8,
+        boxCount: 12,
+        walkableCount: 40,
+        reachableCount: 32,
+      },
+    },
+  ])(
+    'falls back to bfsPush for the $label until non-BFS algorithms are implemented',
+    ({ features }) => {
+      expect(chooseAlgorithm(features)).toBe('bfsPush');
+    },
+  );
 });

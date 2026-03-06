@@ -52,6 +52,7 @@ describe('PlayPage empty-level fallback behavior', () => {
     expect(html).toContain('Unknown');
     expect(emptyLevelState.sidePanelProps?.levelId).toBe('level-unknown');
     expect(emptyLevelState.sidePanelProps?.levelName).toBe('Unknown');
+    expect(emptyLevelState.sidePanelProps?.canGoToPreviousLevel).toBe(false);
   });
 
   it('keeps the current level id when next-level is requested with an empty level catalog', () => {
@@ -60,6 +61,18 @@ describe('PlayPage empty-level fallback behavior', () => {
     expect(onNextLevel).toBeTypeOf('function');
 
     onNextLevel?.();
+
+    expect(store.getState().game.levelId).toBe('level-unknown');
+  });
+
+  it('keeps the current level id when previous-level is requested with an empty level catalog', () => {
+    const { store } = renderPage();
+    const onPreviousLevel = emptyLevelState.sidePanelProps?.onPreviousLevel as
+      | (() => void)
+      | undefined;
+    expect(onPreviousLevel).toBeTypeOf('function');
+
+    onPreviousLevel?.();
 
     expect(store.getState().game.levelId).toBe('level-unknown');
   });

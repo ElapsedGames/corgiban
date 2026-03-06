@@ -1,4 +1,4 @@
-import { solve } from '@corgiban/solver';
+import { DEFAULT_SOLVER_PROGRESS_THROTTLE_MS, solve } from '@corgiban/solver';
 
 import type {
   BenchProgressMessage,
@@ -10,7 +10,8 @@ import type {
 } from '../protocol/protocol';
 import { PROTOCOL_VERSION } from '../protocol/protocol';
 import { assertOutboundMessage, validateInboundMessage } from '../protocol/validation';
-import { createProgressThrottle } from './throttle';
+import { createRuntimeNowMs } from './clock';
+import { preloadSolverKernels } from './kernelLoader';
 
 type WorkerMessageEventLike = {
   data: unknown;
@@ -25,18 +26,15 @@ type WorkerScopeLike = {
 };
 
 const workerScope = globalThis as unknown as WorkerScopeLike;
+const nowMs = createRuntimeNowMs(workerScope);
 
 type ActiveBenchmarkRun = {
   runId: string;
 };
 
 let activeRun: ActiveBenchmarkRun | null = null;
-const BENCH_SPECTATOR_PROGRESS_MIN_INTERVAL_MS = 100;
+const BENCH_SPECTATOR_PROGRESS_MIN_INTERVAL_MS = DEFAULT_SOLVER_PROGRESS_THROTTLE_MS;
 const BENCH_SPECTATOR_PROGRESS_MIN_EXPANDED_DELTA = Number.MAX_SAFE_INTEGER;
-
-function nowMs(): number {
-  return workerScope.performance?.now() ?? 0;
-}
 
 function getRunIdCandidate(payload: unknown): string {
   if (payload && typeof payload === 'object' && 'runId' in payload) {
@@ -96,15 +94,17 @@ function toBenchProgressMessage(
 
 function runBenchmark(message: BenchStartMessage): void {
   activeRun = { runId: message.runId };
+  void preloadSolverKernels();
   const streamBestPath = message.options?.enableSpectatorStream === true;
-  const throttle = createProgressThrottle(
-    streamBestPath
-      ? {
-          minIntervalMs: BENCH_SPECTATOR_PROGRESS_MIN_INTERVAL_MS,
-          minExpandedDelta: BENCH_SPECTATOR_PROGRESS_MIN_EXPANDED_DELTA,
-        }
-      : undefined,
-  );
+  const solveContext = streamBestPath
+    ? {
+        ...(nowMs ? { nowMs } : {}),
+        progressThrottleMs: BENCH_SPECTATOR_PROGRESS_MIN_INTERVAL_MS,
+        progressExpandedInterval: BENCH_SPECTATOR_PROGRESS_MIN_EXPANDED_DELTA,
+      }
+    : nowMs
+      ? { nowMs }
+      : {};
 
   // Only emit BENCH_PROGRESS when spectator streaming is explicitly requested.
   // Without a consumer, emitting every node expansion wastes protocol overhead.
@@ -119,14 +119,11 @@ function runBenchmark(message: BenchStartMessage): void {
               if (activeRun?.runId !== message.runId) {
                 return;
               }
-              if (!throttle.shouldEmit(progress)) {
-                return;
-              }
               postMessageValidated(toBenchProgressMessage(message, progress, true));
             },
           }
         : undefined,
-      streamBestPath ? { nowMs, progressThrottleMs: 0, progressExpandedInterval: 1 } : { nowMs },
+      solveContext,
     );
 
     if (activeRun?.runId !== message.runId) {

@@ -4,6 +4,8 @@ import type { GameState } from '@corgiban/core';
 
 import { buildRenderPlan } from './buildRenderPlan';
 import { draw } from './draw';
+import { getSpriteAtlas, releaseSpriteAtlas, retainSpriteAtlas } from './spriteAtlas.client';
+import type { SpriteAtlas } from './spriteAtlas.types';
 
 export type GameCanvasProps = {
   state: GameState;
@@ -48,6 +50,7 @@ export function renderCanvasFrame(
   state: GameState,
   cellSize: number,
   dpr: number,
+  atlas?: SpriteAtlas | null,
 ): void {
   if (!canvas) {
     return;
@@ -68,12 +71,14 @@ export function renderCanvasFrame(
   }
 
   ctx.imageSmoothingEnabled = false;
-  draw(ctx as CanvasRenderingContext2D, plan);
+  draw(ctx as CanvasRenderingContext2D, plan, atlas);
 }
 
 export function GameCanvas({ state, cellSize = 32, className }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [dpr, setDpr] = useState(1);
+  const [atlas, setAtlas] = useState<SpriteAtlas | null>(null);
+  const activeAtlasKey = `${cellSize}:${dpr}`;
 
   useEffect(() => {
     return subscribeDevicePixelRatio(
@@ -83,8 +88,37 @@ export function GameCanvas({ state, cellSize = 32, className }: GameCanvasProps)
   }, []);
 
   useEffect(() => {
-    renderCanvasFrame(canvasRef.current as unknown as CanvasLike, state, cellSize, dpr);
-  }, [cellSize, dpr, state]);
+    let cancelled = false;
+    let retainedAtlas: SpriteAtlas | null = null;
+
+    void getSpriteAtlas(cellSize, dpr).then((nextAtlas) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (nextAtlas) {
+        retainSpriteAtlas(nextAtlas);
+        retainedAtlas = nextAtlas;
+      }
+
+      setAtlas(nextAtlas);
+    });
+    return () => {
+      cancelled = true;
+      releaseSpriteAtlas(retainedAtlas);
+    };
+  }, [cellSize, dpr]);
+
+  useEffect(() => {
+    const activeAtlas = atlas?.key === activeAtlasKey ? atlas : null;
+    renderCanvasFrame(
+      canvasRef.current as unknown as CanvasLike,
+      state,
+      cellSize,
+      dpr,
+      activeAtlas,
+    );
+  }, [activeAtlasKey, atlas, cellSize, dpr, state]);
 
   return <canvas ref={canvasRef} className={className} role="img" aria-label="Game board" />;
 }

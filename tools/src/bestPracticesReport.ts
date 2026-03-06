@@ -17,13 +17,14 @@ function parseOutDir(argv: string[]): string | null {
 export async function run(argv: string[] = process.argv.slice(2)): Promise<void> {
   const outDir = parseOutDir(argv);
   const suffix = outDir ? ` (requested out dir: ${outDir})` : '';
-  console.log(`best-practices report is stubbed; output not implemented yet.${suffix}`);
+  // tracked: DEBT-007
+  console.log(`best-practices report generation is unavailable.${suffix}`);
 }
 
 const entry = process.argv[1];
 if (entry && import.meta.url === pathToFileURL(entry).href) {
   run().catch((error) => {
-    console.error('best-practices stub failed:', error);
+    console.error('best-practices report command failed:', error);
     process.exitCode = 1;
   });
 }

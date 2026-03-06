@@ -46,6 +46,7 @@ describe('solverWorker runtime', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -222,7 +223,7 @@ describe('solverWorker runtime', () => {
     });
   });
 
-  it('throttles progress in the worker runtime', async () => {
+  it('passes throttling context to solver and forwards progress callbacks', async () => {
     solveMock.mockImplementation((_levelRuntime, _algorithmId, _options, hooks) => {
       hooks?.onProgress?.({
         expanded: 1,
@@ -279,7 +280,16 @@ describe('solverWorker runtime', () => {
     const progressMessages = harness.messages.filter(
       (message) => (message as { type?: string }).type === 'SOLVE_PROGRESS',
     );
-    expect(progressMessages).toHaveLength(1);
+    expect(progressMessages).toHaveLength(3);
+
+    const solveContext = solveMock.mock.calls[0]?.[4] as
+      | {
+          progressThrottleMs?: number;
+          progressExpandedInterval?: number;
+        }
+      | undefined;
+    expect(solveContext?.progressThrottleMs).toBe(100);
+    expect(solveContext?.progressExpandedInterval).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   it('streams progress without best path when spectator stream is disabled', async () => {
@@ -585,13 +595,13 @@ describe('solverWorker runtime', () => {
     });
   });
 
-  it('falls back to 0 when performance.now is unavailable', async () => {
+  it('does not inject a non-monotonic clock when performance.now is unavailable', async () => {
     vi.stubGlobal('performance', undefined as never);
 
     solveMock.mockImplementation((_levelRuntime, _algorithmId, _options, _hooks, context) => {
-      expect(context?.nowMs?.()).toBe(0);
+      expect(context?.nowMs).toBeUndefined();
       return {
-        status: 'unsolved',
+        status: 'error',
         metrics: {
           elapsedMs: 0,
           expanded: 0,
@@ -601,6 +611,8 @@ describe('solverWorker runtime', () => {
           pushCount: 0,
           moveCount: 0,
         },
+        errorMessage:
+          'Solver clock source unavailable. Pass context.nowMs when performance.now is unavailable.',
       };
     });
 
@@ -625,7 +637,9 @@ describe('solverWorker runtime', () => {
       type: 'SOLVE_RESULT',
       runId: 'run-7',
       protocolVersion: 2,
-      status: 'unsolved',
+      status: 'error',
+      errorMessage:
+        'Solver clock source unavailable. Pass context.nowMs when performance.now is unavailable.',
     });
   });
 });

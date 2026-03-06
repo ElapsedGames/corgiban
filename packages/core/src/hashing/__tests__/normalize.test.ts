@@ -3,10 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { normalize } from '../normalize';
 
 describe('normalize', () => {
-  it('builds a deterministic key with sorted boxes', () => {
+  it('returns the canonical key for unsorted boxes', () => {
     const state = { playerIndex: 3, boxes: Uint32Array.from([9, 1, 5]) };
 
     expect(normalize(state)).toBe('p:3|b:1,5,9');
+  });
+
+  it('returns the canonical key for already-sorted boxes', () => {
     expect(normalize({ playerIndex: 3, boxes: Uint32Array.from([1, 5, 9]) })).toBe('p:3|b:1,5,9');
   });
 

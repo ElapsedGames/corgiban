@@ -1,4 +1,8 @@
 import type { SolverProgress } from '../api/solverTypes';
+import {
+  DEFAULT_SOLVER_PROGRESS_EXPANDED_INTERVAL,
+  DEFAULT_SOLVER_PROGRESS_THROTTLE_MS,
+} from '../api/solverConstants';
 
 export type ProgressThrottleOptions = {
   throttleMs?: number;
@@ -10,17 +14,14 @@ export type ProgressReporter = {
   flush: (progress: SolverProgress) => void;
 };
 
-export const DEFAULT_PROGRESS_THROTTLE_MS = 100;
-export const DEFAULT_PROGRESS_EXPANDED_INTERVAL = 100;
-
 export function createProgressReporter(
   onProgress: ((progress: SolverProgress) => void) | undefined,
   options?: ProgressThrottleOptions,
 ): ProgressReporter {
-  const throttleMs = Math.max(0, options?.throttleMs ?? DEFAULT_PROGRESS_THROTTLE_MS);
+  const throttleMs = Math.max(0, options?.throttleMs ?? DEFAULT_SOLVER_PROGRESS_THROTTLE_MS);
   const minExpandedDelta = Math.max(
     0,
-    options?.minExpandedDelta ?? DEFAULT_PROGRESS_EXPANDED_INTERVAL,
+    options?.minExpandedDelta ?? DEFAULT_SOLVER_PROGRESS_EXPANDED_INTERVAL,
   );
   let hasReported = false;
   let lastReportedMs = 0;

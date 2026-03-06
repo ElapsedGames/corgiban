@@ -25,19 +25,32 @@ between the two tools. Adding a new package or rule means editing only boundary-
 
 boundary-rules.mjs defines and exports:
 
-export const PACKAGES = ['shared', 'levels', 'formats', 'core', 'solver', 'worker', 'benchmarks', 'web'];
-// When Phase 6/7 packages are introduced (`embed`, `solver-kernels`),
-// extend PACKAGES and DIRECTION_RULES in the same change that adds those packages.
+export const PACKAGES = [
+'shared',
+'levels',
+'formats',
+'core',
+'solver',
+'solver-kernels',
+'worker',
+'benchmarks',
+'embed',
+'web',
+];
+// When new packages are introduced (for example a future `/lab` browser-dev tooling package),
+// extend PACKAGES and DIRECTION_RULES in the same change.
 
 export const DIRECTION_RULES = [
 // { from: <glob pattern>, disallow: [<glob pattern>, ...], forbidSpecifiers: [...] }
-{ from: 'packages/shared/src/**', disallow: ['packages/core/**', 'packages/solver/**', 'packages/worker/**', 'packages/benchmarks/**', 'packages/levels/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit', 'react-router', 'react-router-dom'] },
-{ from: 'packages/levels/src/**', disallow: ['packages/core/**', 'packages/solver/**', 'packages/worker/**', 'packages/benchmarks/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit'] },
-{ from: 'packages/formats/src/**', disallow: ['packages/core/**', 'packages/solver/**', 'packages/worker/**', 'packages/benchmarks/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit'] },
-{ from: 'packages/core/src/**', disallow: ['packages/solver/**', 'packages/worker/**', 'packages/benchmarks/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit', 'react-router', 'react-router-dom'] },
-{ from: 'packages/solver/src/**', disallow: ['packages/worker/**', 'packages/benchmarks/**', 'packages/levels/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit', 'react-router', 'react-router-dom'] },
-{ from: 'packages/worker/src/**', disallow: ['packages/levels/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', 'react-router', 'react-router-dom', '@reduxjs/toolkit'] },
-{ from: 'packages/benchmarks/src/**', disallow: ['packages/levels/**', 'packages/worker/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', 'react-router', 'react-router-dom'] },
+{ from: 'packages/shared/src/**', disallow: ['packages/formats/**', 'packages/core/**', 'packages/solver/**', 'packages/solver-kernels/**', 'packages/worker/**', 'packages/benchmarks/**', 'packages/levels/**', 'packages/embed/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit', 'react-router', 'react-router-dom'] },
+{ from: 'packages/levels/src/**', disallow: ['packages/formats/**', 'packages/core/**', 'packages/solver/**', 'packages/solver-kernels/**', 'packages/worker/**', 'packages/benchmarks/**', 'packages/embed/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit'] },
+{ from: 'packages/formats/src/**', disallow: ['packages/core/**', 'packages/solver/**', 'packages/solver-kernels/**', 'packages/worker/**', 'packages/benchmarks/**', 'packages/embed/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit'] },
+{ from: 'packages/core/src/**', disallow: ['packages/formats/**', 'packages/solver/**', 'packages/solver-kernels/**', 'packages/worker/**', 'packages/benchmarks/**', 'packages/embed/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit', 'react-router', 'react-router-dom'] },
+{ from: 'packages/solver/src/**', disallow: ['packages/formats/**', 'packages/worker/**', 'packages/benchmarks/**', 'packages/levels/**', 'packages/solver-kernels/**', 'packages/embed/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit', 'react-router', 'react-router-dom'] },
+{ from: 'packages/solver-kernels/src/**', disallow: ['packages/levels/**', 'packages/formats/**', 'packages/worker/**', 'packages/benchmarks/**', 'packages/embed/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', '@reduxjs/toolkit', 'react-router', 'react-router-dom'] },
+{ from: 'packages/worker/src/**', disallow: ['packages/levels/**', 'packages/formats/**', 'packages/embed/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', 'react-router', 'react-router-dom', '@reduxjs/toolkit'] },
+{ from: 'packages/benchmarks/src/**', disallow: ['packages/levels/**', 'packages/formats/**', 'packages/worker/**', 'packages/solver-kernels/**', 'packages/embed/**', 'apps/**'], forbidSpecifiers: ['react', 'react-dom', 'react-router', 'react-router-dom'] },
+{ from: 'packages/embed/src/**', disallow: ['apps/**'], forbidSpecifiers: [] },
 ];
 
 // Boundary intent:
@@ -101,7 +114,8 @@ Assume `apps/web` runs Remix in Vite mode for resolver/bundling behavior.
    c) Date/Date.now restriction for deterministic packages (packages/core/**, packages/solver/**):
    Both direct and globalThis forms must be caught: - no-restricted-globals (scoped override): ['Date'] - no-restricted-syntax:
    "MemberExpression[object.name='globalThis'][property.name='Date']"
-   Allowlist: packages/shared/src/time.ts (use ESLint override to exclude this file).
+   Current baseline: no allowlist. If a shared time helper is introduced later, document the file
+   explicitly and exclude it with a targeted ESLint override.
 
    All of this runs as part of pnpm lint. No new CI scripts required.
 
@@ -148,8 +162,9 @@ Create tools/package.json:
 Create tools/tsconfig.json:
 
 - Extend root tsconfig.base.json.
-- Include src/\*_/_.ts. Target: Node (moduleResolution: bundler or node16). Strict on. No emit.
-- Include tools/tsconfig.json in root tsc -b project references so pnpm typecheck covers it.
+- Include src/\*_/_.ts. Target: Node. Strict on. Use the repo-wide declaration-only emit policy
+  with `outDir: dist-types`.
+- Keep tools typechecked via `pnpm typecheck`, which runs `tsc -b ./tsconfig.json ./tools/tsconfig.json`.
 
 Create tools/vitest.config.ts:
 
@@ -188,7 +203,7 @@ export async function scanFiles(options: ScanOptions): Promise<string[]>
 // '**/coverage/**', '**/docs/_generated/**']
 
 analyzeFiles.ts (pure):
-export type SizeStatus = 'P' | 'W' | 'F'; // P<=500, W=501-800, F>800
+export type SizeStatus = 'P' | 'W' | 'F'; // internal compact codes only: P<=500, W=501-800, F>800
 
 export type FileRecord = {
 path: string; // repo-root-relative, POSIX
@@ -200,7 +215,7 @@ hasTimeUsage: boolean; // true if file is in core/solver scope and contains Date
 export function analyzeFile(absolutePath: string, root: string): FileRecord
 // Reads file, counts lines, checks sizeStatus, checks time usage if in core/solver scope.
 // Time-usage check: packages/core/src/** and packages/solver/src/** only.
-// Allowlist: packages/shared/src/time.ts (never flagged).
+// No allowlist in the current repo baseline.
 // Sync function; files are small enough that sync I/O is acceptable here.
 
 export function analyzeAll(paths: string[], root: string): FileRecord[]
@@ -211,9 +226,12 @@ export function formatReport(records: FileRecord[], generatedAt: Date): string
 // Returns the full markdown string for best_practices_report.md.
 // Sections:
 // - Header: "Generated: <ISO timestamp>"
-// - File size summary: count + list of W files (501-800), count + list of F files (>800)
+// - File size summary: count + list of warning-sized files (501-800), count + list of fail-sized files (>800)
+// - Include a short legend/definition block so human-facing output does not rely on raw P/W/F shorthand alone
 // - Time-usage summary (informational): list of core/solver files where hasTimeUsage=true
 // labeled as informational; enforcement is via ESLint
+// Reporting note: internal codes may stay compact in code/tests, but generated issue/report output must
+// use descriptive wording and spell out what each bucket means.
 
 bestPracticesReport.ts (CLI entry, thin):
 
@@ -239,6 +257,7 @@ CI gate (GitHub Actions, every PR):
 - pnpm typecheck (project references + exports field catches deep imports)
 - pnpm lint (eslint-plugin-boundaries, no-restricted-globals, no-restricted-syntax)
 - pnpm test:coverage
+- pnpm test:smoke
 - encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
   graph:deps and best-practices run on-demand only.
 
@@ -262,7 +281,7 @@ analyzeFiles.test.ts:
 - analyzeFile with a file > 800 lines -> sizeStatus: 'F'
 - analyzeFile on a packages/core/src/ file containing Date.now( -> hasTimeUsage: true
 - analyzeFile on a packages/core/src/ file without any Date reference -> hasTimeUsage: false
-- analyzeFile on packages/shared/src/time.ts containing Date.now( -> hasTimeUsage: false (allowlist)
+- if a future allowlisted shared time helper is introduced, add a dedicated regression test for it
 - analyzeFile on apps/web/app/ file containing Date.now( -> hasTimeUsage: false (not in scope)
 - analyzeAll returns records sorted by path
 

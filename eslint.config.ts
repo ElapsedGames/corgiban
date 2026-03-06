@@ -15,10 +15,13 @@ const webTypes = ['web', 'web-ui', 'web-routes', 'web-canvas', 'web-persistence'
 const elements = [
   { type: 'shared', pattern: 'packages/shared/src/**' },
   { type: 'levels', pattern: 'packages/levels/src/**' },
+  { type: 'formats', pattern: 'packages/formats/src/**' },
   { type: 'core', pattern: 'packages/core/src/**' },
   { type: 'solver', pattern: 'packages/solver/src/**' },
+  { type: 'solver-kernels', pattern: 'packages/solver-kernels/src/**' },
   { type: 'worker', pattern: 'packages/worker/src/**' },
   { type: 'benchmarks', pattern: 'packages/benchmarks/src/**' },
+  { type: 'embed', pattern: 'packages/embed/src/**' },
   { type: 'web-persistence', pattern: 'apps/web/app/infra/persistence/**' },
   { type: 'web-ui', pattern: 'apps/web/app/ui/**' },
   { type: 'web-routes', pattern: 'apps/web/app/routes/**' },

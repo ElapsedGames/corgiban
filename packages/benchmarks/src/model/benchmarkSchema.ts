@@ -4,6 +4,7 @@ import {
   MAX_HEURISTIC_WEIGHT,
   MIN_HEURISTIC_WEIGHT,
 } from '@corgiban/solver';
+import { MAX_IMPORT_BYTES } from '@corgiban/shared';
 
 import type { BenchmarkRunRecord } from './benchmarkTypes';
 
@@ -273,4 +274,63 @@ export function isBenchmarkRunRecord(value: unknown): value is BenchmarkRunRecor
     (value.status !== 'error' || hasString(value.errorMessage)) &&
     isBenchmarkEnvironment(value.environment)
   );
+}
+
+export type BenchmarkReportPayload = {
+  type: typeof BENCHMARK_REPORT_TYPE;
+  version: typeof BENCHMARK_REPORT_VERSION;
+  exportModel: typeof BENCHMARK_REPORT_EXPORT_MODEL;
+  results: BenchmarkRunRecord[];
+};
+
+export function parseBenchmarkReportJson(jsonText: string): BenchmarkRunRecord[] {
+  const importBytes = new TextEncoder().encode(jsonText).byteLength;
+  if (importBytes > MAX_IMPORT_BYTES) {
+    const maxMb = (MAX_IMPORT_BYTES / 1024 / 1024).toFixed(1);
+    const importMb = (importBytes / 1024 / 1024).toFixed(1);
+    throw new Error(`Benchmark report is too large (${importMb} MB). Maximum is ${maxMb} MB.`);
+  }
+
+  const parsed = JSON.parse(jsonText) as unknown;
+  if (!isObjectRecord(parsed)) {
+    throw new Error('Benchmark report must be a JSON object.');
+  }
+
+  const report = parsed as {
+    type?: unknown;
+    version?: unknown;
+    exportModel?: unknown;
+    results?: unknown;
+  };
+
+  if (report.type !== BENCHMARK_REPORT_TYPE) {
+    throw new Error('Unsupported benchmark report type.');
+  }
+
+  if (report.version !== BENCHMARK_REPORT_VERSION) {
+    if (typeof report.version === 'number' && report.version > BENCHMARK_REPORT_VERSION) {
+      throw new Error(
+        `Unsupported benchmark report version ${report.version}. This app supports up to ${BENCHMARK_REPORT_VERSION}.`,
+      );
+    }
+
+    throw new Error(`Unsupported benchmark report version. Expected ${BENCHMARK_REPORT_VERSION}.`);
+  }
+
+  if (report.exportModel !== BENCHMARK_REPORT_EXPORT_MODEL) {
+    throw new Error(
+      `Unsupported benchmark report export model. Expected \"${BENCHMARK_REPORT_EXPORT_MODEL}\".`,
+    );
+  }
+
+  if (!Array.isArray(report.results)) {
+    throw new Error('Benchmark report is missing results.');
+  }
+
+  const results = report.results.filter(isBenchmarkRunRecord);
+  if (results.length !== report.results.length) {
+    throw new Error('Benchmark report contains invalid result entries.');
+  }
+
+  return results;
 }

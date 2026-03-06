@@ -1160,6 +1160,7 @@ describe('createSolverClient', () => {
       });
 
     await expect(client.ping()).rejects.toThrow('invalid ping payload');
+    expect(validationSpy).toHaveBeenCalledTimes(1);
     expect(harness.workers).toHaveLength(0);
 
     validationSpy.mockRestore();

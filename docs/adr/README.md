@@ -10,6 +10,7 @@ Write an ADR when you introduce or change any of these:
 - Package boundaries or dependency direction
 - Worker protocol versions or message semantics
 - Persistence schema changes (IndexedDB stores, migrations)
+- Versioned benchmark/export artifact contracts (reports, comparison snapshots)
 - Routing and app-shell decisions (Remix patterns, client-only boundaries)
 - Solver state model, hashing scheme, or algorithm contracts
 - New optional subsystems (embed, lab, kernels/WASM) or feature-flag strategy
@@ -42,6 +43,20 @@ If an ADR is superseded, link bidirectionally:
 - Keep alternatives brief, but list the important ones considered
 - Prefer "how this constrains future work" over lengthy narrative
 
+## Reviewer pointers
+
+- ADR-0013 (`0013-solver-cancellation-worker-reset.md`) is the source of truth for `/play`
+  hard-reset cancellation semantics. The absence of `SOLVE_CANCEL` in protocol v2 is intentional.
+- Benchmark cancellation is a separate contract in ADR-0014
+  (`0014-benchmark-worker-cancellation-semantics.md`); do not assume `/play` and `/bench` use the
+  same cancellation path.
+- ADR-0025 (`0025-route-store-ssr-safe-port-bootstrap.md`) is the source of truth for `/play` and
+  `/bench` route-store bootstrap. Browser-backed ports attach after commit; they are not created
+  during route render.
+- Not every review-sensitive contract has a standalone ADR. The explicit monotonic-clock failure
+  path is documented in `LLM_GUIDE.md`, `docs/Architecture.md`, `packages/solver/README.md`, and
+  `docs/review-notes.md`.
+
 ## Current ADRs
 
 - `0001-remix-first-app-shell-vite-mode.md`
@@ -62,3 +77,10 @@ If an ADR is superseded, link bidirectionally:
 - `0016-benchmark-report-contract-versioning.md`
 - `0017-pwa-offline-workbox-strategy.md`
 - `0018-solver-client-ping-liveness-timeout.md`
+- `0019-benchmark-persistence-sticky-memory-fallback.md`
+- `0020-benchmark-comparison-snapshot-contract.md`
+- `0021-solver-kernel-delivery-preload-contract.md`
+- `0022-solver-progress-throttle-ownership.md`
+- `0023-lab-route-local-state-ownership.md`
+- `0024-offscreen-sprite-atlas-worker-fallback.md`
+- `0025-route-store-ssr-safe-port-bootstrap.md`

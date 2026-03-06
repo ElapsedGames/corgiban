@@ -333,26 +333,19 @@ describe('benchmarkStorage.client', () => {
       finishedAtMs: 120,
       startedAtMs: 119,
     });
-    await expect(storage.replaceResults([replaceResult])).rejects.toThrow('replace failed');
+    await expect(storage.replaceResults([replaceResult])).resolves.toBeUndefined();
     expect(await storage.loadResults()).toEqual([replaceResult]);
 
-    await expect(storage.clearResults()).rejects.toThrow('clear failed');
+    await expect(storage.clearResults()).resolves.toBeUndefined();
     expect(await storage.loadResults()).toEqual([]);
     expect(storage.getRepositoryHealth()).toBe('memory-fallback');
-    expect(storage.getLastRepositoryError()).toBe('load failed');
+    expect(storage.getLastRepositoryError()).toBe('save failed');
 
     expect(logger.warn).toHaveBeenCalledWith(
       '[bench] Failed to persist benchmark result.',
       expect.any(Error),
     );
-    expect(logger.warn).toHaveBeenCalledWith(
-      '[bench] Failed to replace benchmark results in repository.',
-      expect.any(Error),
-    );
-    expect(logger.warn).toHaveBeenCalledWith(
-      '[bench] Failed to clear benchmark results in repository.',
-      expect.any(Error),
-    );
+    expect(logger.warn).toHaveBeenCalledTimes(1);
     storage.dispose();
   });
 
@@ -449,6 +442,312 @@ describe('benchmarkStorage.client', () => {
 
     expect(repository.deleteRuns).toHaveBeenCalledWith(['a']);
     await expect(storage.loadResults()).resolves.toEqual([resultB, resultC]);
+    storage.dispose();
+  });
+
+  it('keeps loaded retained results in memory when init retention delete fails', async () => {
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+    };
+    const resultA = createResult({ id: 'a', finishedAtMs: 10, startedAtMs: 1 });
+    const resultB = createResult({ id: 'b', finishedAtMs: 20, startedAtMs: 2 });
+    const resultC = createResult({ id: 'c', finishedAtMs: 30, startedAtMs: 3 });
+
+    const repository: BenchmarkRepository = {
+      loadRuns: vi.fn(async () => [resultA, resultB, resultC]),
+      saveRun: vi.fn(async () => undefined),
+      replaceRuns: vi.fn(async () => undefined),
+      clearRuns: vi.fn(async () => undefined),
+      deleteRuns: vi.fn(async () => {
+        throw new Error('delete failed');
+      }),
+      dispose: vi.fn(),
+    };
+
+    const storage = createBenchmarkStorage({
+      repository,
+      retentionLimit: 2,
+      navigatorLike: {},
+      isDev: false,
+      logger,
+    });
+
+    await expect(storage.init()).resolves.toEqual({
+      persistOutcome: 'unsupported',
+      repositoryHealth: 'memory-fallback',
+    });
+
+    expect(storage.getRepositoryHealth()).toBe('memory-fallback');
+    expect(storage.getLastRepositoryError()).toBe('delete failed');
+    await expect(storage.loadResults()).resolves.toEqual([resultB, resultC]);
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[bench] Failed to initialize benchmark repository.',
+      expect.any(Error),
+    );
+
+    storage.dispose();
+  });
+
+  it('syncs repository results during init before sticky fallback is activated', async () => {
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+    };
+    const persisted = createResult({ id: 'persisted', startedAtMs: 1, finishedAtMs: 10 });
+
+    const repository: BenchmarkRepository = {
+      loadRuns: vi.fn(async () => [persisted]),
+      saveRun: vi.fn(async () => undefined),
+      replaceRuns: vi.fn(async () => undefined),
+      clearRuns: vi.fn(async () => undefined),
+      deleteRuns: vi.fn(async () => undefined),
+      dispose: vi.fn(),
+    };
+
+    const storage = createBenchmarkStorage({
+      repository,
+      navigatorLike: {},
+      isDev: false,
+      logger,
+    });
+
+    await expect(storage.init()).resolves.toEqual({
+      persistOutcome: 'unsupported',
+      repositoryHealth: 'durable',
+    });
+
+    expect(storage.getRepositoryHealth()).toBe('durable');
+    expect(storage.getLastRepositoryError()).toBeNull();
+    await expect(storage.loadResults()).resolves.toEqual([persisted]);
+
+    storage.dispose();
+  });
+
+  it('keeps in-memory fallback results when init is called again after degraded mode begins', async () => {
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+    };
+    const persisted = createResult({ id: 'persisted', startedAtMs: 1, finishedAtMs: 10 });
+    let loadAttempt = 0;
+
+    const repository: BenchmarkRepository = {
+      loadRuns: vi.fn(async () => {
+        loadAttempt += 1;
+        if (loadAttempt === 1) {
+          throw new Error('init failed');
+        }
+        return [persisted];
+      }),
+      saveRun: vi.fn(async () => undefined),
+      replaceRuns: vi.fn(async () => undefined),
+      clearRuns: vi.fn(async () => undefined),
+      deleteRuns: vi.fn(async () => undefined),
+      dispose: vi.fn(),
+    };
+
+    const storage = createBenchmarkStorage({
+      repository,
+      navigatorLike: {},
+      isDev: false,
+      logger,
+    });
+
+    await expect(storage.init()).resolves.toEqual({
+      persistOutcome: 'unsupported',
+      repositoryHealth: 'memory-fallback',
+    });
+
+    const inMemoryOnly = createResult({ id: 'memory-only', startedAtMs: 2, finishedAtMs: 20 });
+    await expect(storage.saveResult(inMemoryOnly)).resolves.toBeUndefined();
+
+    expect(repository.saveRun).not.toHaveBeenCalled();
+
+    await expect(storage.init()).resolves.toEqual({
+      persistOutcome: 'unsupported',
+      repositoryHealth: 'memory-fallback',
+    });
+
+    expect(repository.loadRuns).toHaveBeenCalledTimes(1);
+    expect(storage.getRepositoryHealth()).toBe('memory-fallback');
+    expect(storage.getLastRepositoryError()).toBe('init failed');
+    await expect(storage.loadResults()).resolves.toEqual([inMemoryOnly]);
+    expect(repository.loadRuns).toHaveBeenCalledTimes(1);
+
+    storage.dispose();
+  });
+
+  it('falls back to in-memory results when a later repository load throws a string', async () => {
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+    };
+    const persisted = createResult({ id: 'persisted', startedAtMs: 1, finishedAtMs: 10 });
+    let loadAttempt = 0;
+
+    const repository: BenchmarkRepository = {
+      loadRuns: vi.fn(async () => {
+        loadAttempt += 1;
+        if (loadAttempt === 1) {
+          return [persisted];
+        }
+        throw 'load later failed';
+      }),
+      saveRun: vi.fn(async () => undefined),
+      replaceRuns: vi.fn(async () => undefined),
+      clearRuns: vi.fn(async () => undefined),
+      deleteRuns: vi.fn(async () => undefined),
+      dispose: vi.fn(),
+    };
+
+    const storage = createBenchmarkStorage({
+      repository,
+      navigatorLike: {},
+      isDev: false,
+      logger,
+    });
+
+    await storage.init();
+
+    await expect(storage.loadResults()).resolves.toEqual([persisted]);
+    expect(storage.getRepositoryHealth()).toBe('memory-fallback');
+    expect(storage.getLastRepositoryError()).toBe('load later failed');
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[bench] Failed to load benchmark runs from repository.',
+      'load later failed',
+    );
+
+    storage.dispose();
+  });
+
+  it('keeps loaded retained results in memory when loadResults retention delete fails', async () => {
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+    };
+    const resultA = createResult({ id: 'a', finishedAtMs: 10, startedAtMs: 1 });
+    const resultB = createResult({ id: 'b', finishedAtMs: 20, startedAtMs: 2 });
+    const resultC = createResult({ id: 'c', finishedAtMs: 30, startedAtMs: 3 });
+    let loadAttempt = 0;
+
+    const repository: BenchmarkRepository = {
+      loadRuns: vi.fn(async () => {
+        loadAttempt += 1;
+        if (loadAttempt === 1) {
+          return [resultC];
+        }
+        return [resultA, resultB, resultC];
+      }),
+      saveRun: vi.fn(async () => undefined),
+      replaceRuns: vi.fn(async () => undefined),
+      clearRuns: vi.fn(async () => undefined),
+      deleteRuns: vi.fn(async (runIds: string[]) => {
+        if (runIds.length > 0) {
+          throw new Error('delete failed');
+        }
+      }),
+      dispose: vi.fn(),
+    };
+
+    const storage = createBenchmarkStorage({
+      repository,
+      retentionLimit: 2,
+      navigatorLike: {},
+      isDev: false,
+      logger,
+    });
+
+    await storage.init();
+
+    await expect(storage.loadResults()).resolves.toEqual([resultB, resultC]);
+    expect(storage.getRepositoryHealth()).toBe('memory-fallback');
+    expect(storage.getLastRepositoryError()).toBe('delete failed');
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[bench] Failed to load benchmark runs from repository.',
+      expect.any(Error),
+    );
+
+    storage.dispose();
+  });
+
+  it('records a fallback message when replaceResults throws a non-Error value', async () => {
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+    };
+    const persisted = createResult({ id: 'persisted', startedAtMs: 1, finishedAtMs: 10 });
+
+    const repository: BenchmarkRepository = {
+      loadRuns: vi.fn(async () => [persisted]),
+      saveRun: vi.fn(async () => undefined),
+      replaceRuns: vi.fn(async () => {
+        throw {};
+      }),
+      clearRuns: vi.fn(async () => undefined),
+      deleteRuns: vi.fn(async () => undefined),
+      dispose: vi.fn(),
+    };
+
+    const storage = createBenchmarkStorage({
+      repository,
+      navigatorLike: {},
+      isDev: false,
+      logger,
+    });
+
+    await storage.init();
+
+    const replacement = createResult({ id: 'replacement', startedAtMs: 11, finishedAtMs: 12 });
+    await expect(storage.replaceResults([replacement])).rejects.toEqual({});
+
+    expect(storage.getRepositoryHealth()).toBe('memory-fallback');
+    expect(storage.getLastRepositoryError()).toBe(
+      'Failed to replace benchmark results in repository.',
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[bench] Failed to replace benchmark results in repository.',
+      {},
+    );
+
+    storage.dispose();
+  });
+
+  it('records clear failures after a successful repository-backed init', async () => {
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+    };
+    const persisted = createResult({ id: 'persisted', startedAtMs: 1, finishedAtMs: 10 });
+
+    const repository: BenchmarkRepository = {
+      loadRuns: vi.fn(async () => [persisted]),
+      saveRun: vi.fn(async () => undefined),
+      replaceRuns: vi.fn(async () => undefined),
+      clearRuns: vi.fn(async () => {
+        throw new Error('clear later failed');
+      }),
+      deleteRuns: vi.fn(async () => undefined),
+      dispose: vi.fn(),
+    };
+
+    const storage = createBenchmarkStorage({
+      repository,
+      navigatorLike: {},
+      isDev: false,
+      logger,
+    });
+
+    await storage.init();
+
+    await expect(storage.clearResults()).rejects.toThrow('clear later failed');
+    expect(storage.getRepositoryHealth()).toBe('memory-fallback');
+    expect(storage.getLastRepositoryError()).toBe('clear later failed');
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[bench] Failed to clear benchmark results in repository.',
+      expect.any(Error),
+    );
+
     storage.dispose();
   });
 

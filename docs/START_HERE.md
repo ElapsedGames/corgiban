@@ -1,11 +1,13 @@
 # Start here
 
-This repository is the **planning + architecture baseline** for the Corgiban product:
+This repository is the active Corgiban workspace with implementation, architecture, and process
+docs kept in sync:
 
 - Sokoban-style gameplay in a modern React/TypeScript/Tailwind app
 - Multiple solver algorithms running in Web Workers
 - Benchmarking and analysis tools
-- Optional extensions: Web Components embed, Level Lab/dev tooling, and performance kernels (WASM later)
+- Optional/advanced extensions: Web Components embed, `/lab` dev tooling, and performance kernels
+  (TS-first, WASM optional)
 
 ## 1) What to read (in order)
 
@@ -15,24 +17,33 @@ This repository is the **planning + architecture baseline** for the Corgiban pro
 4. `docs/Engineering-Process-Playbook.md` - engineering process and quality gates
 5. `docs/dev-tools-spec.md` - boundary tooling and repo automation
 6. Package README(s) for the surface you are changing:
+   - `packages/shared/README.md`
+   - `packages/levels/README.md`
+   - `packages/formats/README.md`
    - `packages/core/README.md`
    - `packages/solver/README.md`
+   - `packages/solver-kernels/README.md`
    - `packages/worker/README.md`
+   - `packages/benchmarks/README.md`
+   - `packages/embed/README.md`
    - `apps/web/README.md`
 7. `CONTRIBUTING.md` - contributor workflow and expectations
 8. `LLM_GUIDE.md` - canonical collaboration and repository rules (humans + agents)
 
 ## 2) Where the code will live
 
-Top-level layout (target):
+Top-level layout (current):
 
-- `apps/web/` - Remix app (UI, routes, Tailwind, orchestration). README exists.
+- `apps/web/` - Remix app (UI, routes, Tailwind, orchestration, `/play`, `/bench`, `/lab`). README exists.
+- `packages/shared/` - shared primitives and hard constraints. README exists.
+- `packages/levels/` - built-in levels and schema helpers. README exists.
+- `packages/formats/` - XSB/SOK/SLC import/export adapters. README exists.
 - `packages/core/` - pure game engine (no DOM, deterministic). README exists.
 - `packages/solver/` - algorithms + heuristics (pure, deterministic). README exists.
+- `packages/solver-kernels/` - TS-first performance kernels with optional WASM loader hooks. README exists.
 - `packages/worker/` - worker runtime + protocol + client(s). README exists.
-- `packages/benchmarks/` - benchmark models + runner (executed in workers). Planned. README added when scaffolded.
-- `packages/embed/` - optional Web Component embed adapter. Planned. README added when scaffolded.
-- `packages/solver-kernels/` - optional accelerated kernels (TS first, WASM later). Planned. README added when scaffolded.
+- `packages/benchmarks/` - benchmark contracts + runner (executed in workers). README exists.
+- `packages/embed/` - Web Component embed adapter. README exists.
 
 ## 3) How to execute the plan
 
@@ -44,18 +55,21 @@ The plan is intentionally phased to keep diffs reviewable and the repo consisten
 
 See `docs/project-plan.md` for the canonical phase breakdown and acceptance criteria.
 
-## 4) Architecture quick scan (10 bullets)
+## 4) Architecture quick scan (11 bullets)
 
 - Remix-first app shell (routes + error boundaries)
 - Workers for solver and benchmarks; protocol is versioned and validated
 - Domain packages are framework-agnostic (no React/DOM in core/solver)
 - Push-based solver model (macro pushes expanded to move strings for playback)
-- Benchmarks run in a worker pool and persist to IndexedDB with migrations
-- Canvas rendering is testable: `buildRenderPlan()` (pure) + `draw()` (thin)
+- Benchmarks run in a worker pool, persist to IndexedDB, and expose strict comparison metadata
+- Canvas rendering is testable: `buildRenderPlan()` (pure) + `draw()` (thin), with sprite-atlas
+  worker fallback behavior owned in `apps/web`
 - Design system via Tailwind + tokens; `/dev/ui-kit` route validates primitives
+- `/lab` provides format parsing, preview/play checks, and worker-backed solve/bench sanity runs
 - Strict input validation and size constraints for imported data
 - Quality gates: strict TS, boundary enforcement, high unit coverage
-- Optional extensions behind feature flags (embed, lab, WASM kernels, dev env)
+- Optional and late-phase extensions stay bounded and additive:
+  `packages/embed`, WASM kernel promotion, and the Phase 10 `/lab` browser-dev workspace
 
 ## 5) Decision records (ADRs)
 

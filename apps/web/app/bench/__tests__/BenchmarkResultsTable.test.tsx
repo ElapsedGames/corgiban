@@ -55,18 +55,21 @@ describe('BenchmarkResultsTable', () => {
   it('renders rows sorted by completed timestamp descending by default', () => {
     const oldest = createResult({
       id: 'oldest',
+      suiteRunId: 'suite-oldest',
       levelId: 'level-oldest',
       finishedAtMs: 1000,
       startedAtMs: 900,
     });
     const newest = createResult({
       id: 'newest',
+      suiteRunId: 'suite-newest',
       levelId: 'level-newest',
       finishedAtMs: 4000,
       startedAtMs: 3900,
     });
     const middle = createResult({
       id: 'middle',
+      suiteRunId: 'suite-middle',
       levelId: 'level-middle',
       finishedAtMs: 2500,
       startedAtMs: 2400,
@@ -76,6 +79,7 @@ describe('BenchmarkResultsTable', () => {
 
     expect(html.indexOf('level-newest')).toBeLessThan(html.indexOf('level-middle'));
     expect(html.indexOf('level-middle')).toBeLessThan(html.indexOf('level-oldest'));
+    expect(html).toContain('suite-newest');
   });
 
   it('renders metrics and status columns for each result', () => {
@@ -135,6 +139,16 @@ describe('BenchmarkResultsTable', () => {
     expect(
       sortBenchmarkResults([alpha, beta], 'algorithmId', 'desc').map((result) => result.id),
     ).toEqual(['beta', 'alpha']);
+    expect(
+      sortBenchmarkResults(
+        [
+          { ...alpha, suiteRunId: 'suite-b' },
+          { ...beta, suiteRunId: 'suite-a' },
+        ],
+        'suiteRunId',
+        'asc',
+      ).map((result) => result.suiteRunId),
+    ).toEqual(['suite-a', 'suite-b']);
     expect(sortBenchmarkResults([alpha, beta], 'status', 'asc').map((result) => result.id)).toEqual(
       ['alpha', 'beta'],
     );

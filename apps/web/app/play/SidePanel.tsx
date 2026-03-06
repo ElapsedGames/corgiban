@@ -8,6 +8,8 @@ export type SidePanelProps = {
   stats: GameStats;
   moves: GameMove[];
   isSolved: boolean;
+  canGoToPreviousLevel: boolean;
+  onPreviousLevel: () => void;
   onRestart: () => void;
   onUndo: () => void;
   onNextLevel: () => void;
@@ -19,6 +21,8 @@ export function SidePanel({
   stats,
   moves,
   isSolved,
+  canGoToPreviousLevel,
+  onPreviousLevel,
   onRestart,
   onUndo,
   onNextLevel,
@@ -54,6 +58,11 @@ export function SidePanel({
         <Button variant="secondary" onClick={onUndo} disabled={moves.length === 0}>
           Undo
         </Button>
+        {canGoToPreviousLevel ? (
+          <Button variant="ghost" onClick={onPreviousLevel}>
+            Previous level
+          </Button>
+        ) : null}
         <Button variant="ghost" onClick={onNextLevel}>
           Next level
         </Button>

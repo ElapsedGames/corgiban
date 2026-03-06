@@ -9,6 +9,7 @@
   "include": ["app/**/*", "vite.config.ts"],
   "references": [
     { "path": "../../packages/shared" },
+    { "path": "../../packages/formats" },
     { "path": "../../packages/core" },
     { "path": "../../packages/levels" },
     { "path": "../../packages/solver" },

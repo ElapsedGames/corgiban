@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { isRouteErrorResponse, useRouteError } from '@remix-run/react';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 
@@ -11,13 +11,17 @@ import { builtinLevels } from '@corgiban/levels';
 import { ALGORITHM_IDS, isImplementedAlgorithmId } from '@corgiban/solver';
 
 import { BenchPage } from '../bench/BenchPage';
+import type { BenchmarkComparisonSnapshot } from '../bench/benchmarkAnalytics';
 import { exportTextFile, importTextFile } from '../bench/fileAccess.client';
+import { LEVEL_PACK_TYPE, LEVEL_PACK_VERSION } from '../bench/levelPackImport';
 import {
   clearBenchPerformanceEntries,
   observeBenchPerformance,
 } from '../bench/performanceObserver.client';
 import { createNoopBenchmarkPort } from '../ports/benchmarkPort';
 import { createBenchmarkPort } from '../ports/benchmarkPort.client';
+import { createNoopPersistencePort } from '../ports/persistencePort';
+import { createPersistencePort } from '../ports/persistencePort.client';
 import { createNoopSolverPort } from '../ports/solverPort';
 import { createSolverPort } from '../ports/solverPort.client';
 import type { AppDispatch, AppStore, RootState } from '../state';
@@ -35,10 +39,45 @@ import {
   cancelBenchRun,
   setSuiteNodeBudget,
   setSuiteRepetitions,
+  setSuiteWarmupRepetitions,
   setSuiteTimeBudgetMs,
   toggleSuiteAlgorithmId,
   toggleSuiteLevelId,
 } from '../state';
+import {
+  createMutableBenchmarkPort,
+  createMutablePersistencePort,
+  createMutableSolverPort,
+  type MutableBenchmarkPort,
+  type MutablePersistencePort,
+  type MutableSolverPort,
+} from '../state/mutableDependencies';
+
+const useRouteStoreEffect = typeof document === 'undefined' ? useEffect : useLayoutEffect;
+
+type BenchRouteStoreOwner = {
+  solverPort: MutableSolverPort;
+  benchmarkPort: MutableBenchmarkPort;
+  persistencePort: MutablePersistencePort;
+  store: AppStore;
+};
+
+function createBenchRouteStoreOwner(): BenchRouteStoreOwner {
+  const solverPort = createMutableSolverPort();
+  const benchmarkPort = createMutableBenchmarkPort();
+  const persistencePort = createMutablePersistencePort();
+
+  return {
+    solverPort,
+    benchmarkPort,
+    persistencePort,
+    store: createAppStore({
+      solverPort,
+      benchmarkPort,
+      persistencePort,
+    }),
+  };
+}
 
 function BenchRoutePage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -104,8 +143,8 @@ function BenchRoutePage() {
   const handleExportLevelPack = useCallback(() => {
     const selectedLevels = builtinLevels.filter((level) => bench.suite.levelIds.includes(level.id));
     const payload = {
-      type: 'corgiban-level-pack',
-      version: 1,
+      type: LEVEL_PACK_TYPE,
+      version: LEVEL_PACK_VERSION,
       exportedAtIso: new Date().toISOString(),
       levelIds: selectedLevels.map((level) => level.id),
       levels: selectedLevels,
@@ -136,6 +175,22 @@ function BenchRoutePage() {
       });
   }, [dispatch]);
 
+  const handleExportComparisonSnapshot = useCallback(
+    (snapshot: BenchmarkComparisonSnapshot) => {
+      void exportTextFile({
+        suggestedName: 'corgiban-benchmark-comparison.json',
+        content: JSON.stringify(snapshot, null, 2),
+      }).catch((error) => {
+        dispatch(
+          benchErrorRecorded(
+            error instanceof Error ? error.message : 'Failed to export comparison snapshot.',
+          ),
+        );
+      });
+    },
+    [dispatch],
+  );
+
   return (
     <BenchPage
       suite={bench.suite}
@@ -155,6 +210,9 @@ function BenchRoutePage() {
       }}
       onSetRepetitions={(value) => {
         dispatch(setSuiteRepetitions(value));
+      }}
+      onSetWarmupRepetitions={(value) => {
+        dispatch(setSuiteWarmupRepetitions(value));
       }}
       onSetTimeBudgetMs={(value) => {
         dispatch(setSuiteTimeBudgetMs(value));
@@ -179,33 +237,30 @@ function BenchRoutePage() {
       onClearResults={() => {
         void dispatch(clearBenchResults());
       }}
+      onExportComparisonSnapshot={handleExportComparisonSnapshot}
     />
   );
 }
 
 export default function BenchRoute() {
-  const storeRef = useRef<AppStore>();
+  const [storeOwner] = useState(createBenchRouteStoreOwner);
 
-  if (!storeRef.current) {
-    const isServer = typeof document === 'undefined';
-    const solverPort = isServer ? createNoopSolverPort() : createSolverPort();
-    const benchmarkPort = isServer ? createNoopBenchmarkPort() : createBenchmarkPort();
+  useRouteStoreEffect(() => {
+    if (typeof document !== 'undefined') {
+      storeOwner.solverPort.replace(createSolverPort());
+      storeOwner.benchmarkPort.replace(createBenchmarkPort());
+      storeOwner.persistencePort.replace(createPersistencePort());
+    }
 
-    storeRef.current = createAppStore({
-      solverPort,
-      benchmarkPort,
-    });
-  }
-
-  useEffect(() => {
     return () => {
-      storeRef.current?.dispose();
-      storeRef.current = undefined;
+      storeOwner.solverPort.replace(createNoopSolverPort());
+      storeOwner.benchmarkPort.replace(createNoopBenchmarkPort());
+      storeOwner.persistencePort.replace(createNoopPersistencePort());
     };
-  }, []);
+  }, [storeOwner]);
 
   return (
-    <Provider store={storeRef.current}>
+    <Provider store={storeOwner.store}>
       <BenchRoutePage />
     </Provider>
   );

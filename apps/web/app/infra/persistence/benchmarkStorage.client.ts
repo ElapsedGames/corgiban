@@ -80,19 +80,16 @@ function toRepositoryErrorMessage(error: unknown, fallbackMessage: string): stri
   return fallbackMessage;
 }
 
-async function syncResultsFromRepository(params: {
+async function loadRetainedResultsFromRepository(params: {
   repository: BenchmarkRepository;
   retentionLimit: number;
   logger: BenchmarkStorageLogger;
-}): Promise<BenchmarkRunRecord[]> {
+}): Promise<{
+  retainedResults: BenchmarkRunRecord[];
+  droppedIds: string[];
+}> {
   const loadedResults = await params.repository.loadRuns();
-  const retention = applyRetentionLimit(loadedResults, params.retentionLimit);
-
-  if (retention.droppedIds.length > 0) {
-    await params.repository.deleteRuns(retention.droppedIds);
-  }
-
-  return retention.retainedResults;
+  return applyRetentionLimit(loadedResults, params.retentionLimit);
 }
 
 export function createBenchmarkStorage(
@@ -117,8 +114,17 @@ export function createBenchmarkStorage(
   let memoryResults: BenchmarkRunRecord[] = [];
   let repositoryHealth: RepositoryHealth = repository ? 'durable' : 'unavailable';
   let repositoryError: string | null = null;
+  let stickyMemoryFallback = false;
 
   const setRepositoryStatus = (nextHealth: RepositoryHealth, error: string | null = null) => {
+    if (nextHealth === 'memory-fallback') {
+      stickyMemoryFallback = true;
+    }
+    if (stickyMemoryFallback && nextHealth === 'durable') {
+      repositoryHealth = 'memory-fallback';
+      repositoryError = repositoryError ?? 'Repository is in sticky memory-fallback mode.';
+      return;
+    }
     repositoryHealth = nextHealth;
     repositoryError = error;
   };
@@ -132,12 +138,26 @@ export function createBenchmarkStorage(
       }
 
       if (repository) {
+        // Sticky fallback is instance-scoped. Once repository use fails, later init() calls must
+        // not re-sync durable state back over in-memory results created during degraded mode.
+        if (stickyMemoryFallback) {
+          setRepositoryStatus(
+            'memory-fallback',
+            repositoryError ?? 'Repository is in sticky memory-fallback mode until reload.',
+          );
+          return { persistOutcome, repositoryHealth };
+        }
+
         try {
-          memoryResults = await syncResultsFromRepository({
+          const syncedResults = await loadRetainedResultsFromRepository({
             repository,
             retentionLimit,
             logger,
           });
+          memoryResults = syncedResults.retainedResults;
+          if (syncedResults.droppedIds.length > 0) {
+            await repository.deleteRuns(syncedResults.droppedIds);
+          }
           setRepositoryStatus('durable');
         } catch (error) {
           setRepositoryStatus(
@@ -159,12 +179,24 @@ export function createBenchmarkStorage(
         return sortByCompletion(memoryResults);
       }
 
+      if (stickyMemoryFallback) {
+        setRepositoryStatus(
+          'memory-fallback',
+          repositoryError ?? 'Repository is in sticky memory-fallback mode until reload.',
+        );
+        return sortByCompletion(memoryResults);
+      }
+
       try {
-        memoryResults = await syncResultsFromRepository({
+        const syncedResults = await loadRetainedResultsFromRepository({
           repository,
           retentionLimit,
           logger,
         });
+        memoryResults = syncedResults.retainedResults;
+        if (syncedResults.droppedIds.length > 0) {
+          await repository.deleteRuns(syncedResults.droppedIds);
+        }
         setRepositoryStatus('durable');
       } catch (error) {
         setRepositoryStatus(
@@ -184,6 +216,14 @@ export function createBenchmarkStorage(
 
       if (!repository) {
         setRepositoryStatus('unavailable');
+        return;
+      }
+
+      if (stickyMemoryFallback) {
+        setRepositoryStatus(
+          'memory-fallback',
+          repositoryError ?? 'Repository is in sticky memory-fallback mode until reload.',
+        );
         return;
       }
 
@@ -213,6 +253,14 @@ export function createBenchmarkStorage(
         return;
       }
 
+      if (stickyMemoryFallback) {
+        setRepositoryStatus(
+          'memory-fallback',
+          repositoryError ?? 'Repository is in sticky memory-fallback mode until reload.',
+        );
+        return;
+      }
+
       try {
         await repository.replaceRuns(memoryResults);
         setRepositoryStatus('durable');
@@ -231,6 +279,14 @@ export function createBenchmarkStorage(
 
       if (!repository) {
         setRepositoryStatus('unavailable');
+        return;
+      }
+
+      if (stickyMemoryFallback) {
+        setRepositoryStatus(
+          'memory-fallback',
+          repositoryError ?? 'Repository is in sticky memory-fallback mode until reload.',
+        );
         return;
       }
 

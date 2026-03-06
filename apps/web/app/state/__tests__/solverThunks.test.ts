@@ -258,11 +258,15 @@ describe('solverThunks', () => {
       dispose: () => undefined,
     };
 
-    const dispatch = vi.fn();
-    await startSolve({ levelRuntime })(dispatch, () => baseState(), { solverPort });
-    chooseSpy.mockRestore();
+    try {
+      const dispatch = vi.fn();
+      await startSolve({ levelRuntime })(dispatch, () => baseState(), { solverPort });
 
-    expect(startCalls[0]).toBe('bfsPush');
+      expect(chooseSpy).toHaveBeenCalledTimes(1);
+      expect(startCalls[0]).toBe('bfsPush');
+    } finally {
+      chooseSpy.mockRestore();
+    }
   });
 
   it('applies default budgets when no options are provided', async () => {

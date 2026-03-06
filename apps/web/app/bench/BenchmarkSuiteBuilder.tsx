@@ -23,6 +23,7 @@ export type BenchmarkSuiteBuilderProps = {
   onToggleLevel: (levelId: string) => void;
   onToggleAlgorithm: (algorithmId: AlgorithmId) => void;
   onSetRepetitions: (value: number) => void;
+  onSetWarmupRepetitions?: (value: number) => void;
   onSetTimeBudgetMs: (value: number) => void;
   onSetNodeBudget: (value: number) => void;
   onRun: () => void;
@@ -37,6 +38,7 @@ export function BenchmarkSuiteBuilder({
   onToggleLevel,
   onToggleAlgorithm,
   onSetRepetitions,
+  onSetWarmupRepetitions,
   onSetTimeBudgetMs,
   onSetNodeBudget,
   onRun,
@@ -111,6 +113,15 @@ export function BenchmarkSuiteBuilder({
           step={1}
           value={suite.repetitions}
           onChange={(event) => onSetRepetitions(Number(event.target.value))}
+        />
+        <Input
+          label="Warm-up Repetitions"
+          type="number"
+          min={0}
+          step={1}
+          value={suite.warmupRepetitions}
+          onChange={(event) => onSetWarmupRepetitions?.(Number(event.target.value))}
+          hint="Warm-up runs are executed before measured runs and are not stored."
         />
         <Input
           label="Time Budget (ms)"
