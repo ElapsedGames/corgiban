@@ -83,7 +83,7 @@ describe('corgibanEmbed', () => {
     expect(solvedHandler).toHaveBeenCalled();
   });
 
-  it('emits benchmarkComplete when show-solver is enabled', async () => {
+  it('emits a synthetic benchmarkComplete payload when show-solver is enabled', async () => {
     defineCorgibanEmbed();
 
     const element = document.createElement(EMBED_ELEMENT_TAG);
@@ -104,7 +104,14 @@ describe('corgibanEmbed', () => {
       solveButton?.click();
     });
 
-    expect(handler).toHaveBeenCalled();
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail: expect.objectContaining({
+          source: 'known-solution',
+          synthetic: true,
+        }),
+      }),
+    );
   });
 
   it('prefers a valid level-id over invalid level-data and does not emit an error', async () => {
@@ -282,22 +289,7 @@ describe('corgibanEmbed', () => {
     expect(shadowText(element)).toContain('Moves: 1 | Pushes: 0 | In progress');
   });
 
-  it('unmounts cleanly on disconnect', async () => {
-    defineCorgibanEmbed();
-
-    const element = document.createElement(EMBED_ELEMENT_TAG);
-    await commitDomUpdate(() => {
-      document.body.append(element);
-    });
-
-    await commitDomUpdate(() => {
-      element.remove();
-    });
-
-    expect(document.querySelector(EMBED_ELEMENT_TAG)).toBeNull();
-  });
-
-  it('reconnects the same element without reattaching shadow DOM', async () => {
+  it('clears shadow DOM content on disconnect before reconnecting', async () => {
     defineCorgibanEmbed();
 
     const element = document.createElement(EMBED_ELEMENT_TAG);
@@ -306,10 +298,15 @@ describe('corgibanEmbed', () => {
       document.body.append(element);
     });
 
-    const firstShadowRoot = element.shadowRoot;
+    expect(element.shadowRoot?.querySelectorAll('style')).toHaveLength(1);
+    expect(element.shadowRoot?.querySelectorAll('[data-corgiban-embed-root]')).toHaveLength(1);
+
     await commitDomUpdate(() => {
       element.remove();
     });
+
+    const firstShadowRoot = element.shadowRoot;
+    expect(firstShadowRoot?.childElementCount).toBe(0);
 
     await commitDomUpdate(() => {
       document.body.append(element);
@@ -317,6 +314,8 @@ describe('corgibanEmbed', () => {
 
     expect(element.shadowRoot).toBe(firstShadowRoot);
     expect(shadowText(element)).toContain('Classic 1');
+    expect(element.shadowRoot?.querySelectorAll('style')).toHaveLength(1);
+    expect(element.shadowRoot?.querySelectorAll('[data-corgiban-embed-root]')).toHaveLength(1);
 
     await commitDomUpdate(() => {
       element.setAttribute('level-id', 'classic-002');

@@ -81,11 +81,6 @@ function detectUnsupportedVariants(rows: string[]): UnsupportedVariant[] {
         continue;
       }
 
-      if (/[a-zA-Z]/.test(token) && !allowedSourceTokens.has(token)) {
-        variants.add('multiban');
-        continue;
-      }
-
       if (token === '<' || token === '>' || token === '^' || token === 'v') {
         variants.add('hexoban');
         continue;
@@ -93,6 +88,11 @@ function detectUnsupportedVariants(rows: string[]): UnsupportedVariant[] {
 
       if (token === '=' || token === '&') {
         variants.add('modern');
+        continue;
+      }
+
+      if (/[a-zA-Z]/.test(token) && !allowedSourceTokens.has(token)) {
+        variants.add('multiban');
       }
     }
   });

@@ -21,12 +21,14 @@ export type SpriteAtlas = {
 
 export type SpriteAtlasRequestMessage = {
   type: 'SPRITE_ATLAS_REQUEST';
+  requestId: string;
   cellSize: number;
   dpr: number;
 };
 
 export type SpriteAtlasReadyMessage = {
   type: 'SPRITE_ATLAS_READY';
+  requestId: string;
   cellSize: number;
   dpr: number;
   sprites: SpriteAtlasRecord;
@@ -34,6 +36,7 @@ export type SpriteAtlasReadyMessage = {
 
 export type SpriteAtlasErrorMessage = {
   type: 'SPRITE_ATLAS_ERROR';
+  requestId: string;
   message: string;
 };
 
@@ -45,6 +48,10 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
 
 function isPositiveFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
 }
 
 function isImageBitmapLike(value: unknown): value is ImageBitmap {
@@ -63,6 +70,7 @@ export function isSpriteAtlasRequestMessage(value: unknown): value is SpriteAtla
   return (
     isObjectRecord(value) &&
     value.type === 'SPRITE_ATLAS_REQUEST' &&
+    isNonEmptyString(value.requestId) &&
     isPositiveFiniteNumber(value.cellSize) &&
     isPositiveFiniteNumber(value.dpr)
   );
@@ -72,6 +80,7 @@ export function isSpriteAtlasReadyMessage(value: unknown): value is SpriteAtlasR
   return (
     isObjectRecord(value) &&
     value.type === 'SPRITE_ATLAS_READY' &&
+    isNonEmptyString(value.requestId) &&
     isPositiveFiniteNumber(value.cellSize) &&
     isPositiveFiniteNumber(value.dpr) &&
     isSpriteAtlasRecord(value.sprites)
@@ -82,6 +91,7 @@ export function isSpriteAtlasErrorMessage(value: unknown): value is SpriteAtlasE
   return (
     isObjectRecord(value) &&
     value.type === 'SPRITE_ATLAS_ERROR' &&
+    isNonEmptyString(value.requestId) &&
     typeof value.message === 'string'
   );
 }

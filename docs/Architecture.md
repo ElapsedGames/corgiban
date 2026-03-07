@@ -569,7 +569,8 @@ Import rules:
 - Reject levels with all boxes on targets at start.
 - Detect unsupported variants (numbered, multiban, hexoban, modern); reject by default with
   optional metadata carry.
-- Support full SOK 0.17 grammar (including RLE and row separators).
+- Support the documented SOK import/export subset: pre-board title/comment metadata, positive-count
+  RLE, row separators, and topology-preserving normalization.
 
 **LevelRuntime (engine)**
 
@@ -1021,6 +1022,8 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
   in browser-backed ports after commit so SSR/render stays pure and browser resources are not
   created before the route mounts. This preserves one stable store instance per route; route
   modules replace ports, not store identity. See ADR-0025.
+- `/play` and `/bench` also sync `settings.theme` to `document.documentElement` after commit; the
+  SSR app shell defaults `<html>` to `light` so hydration matches the current settings default.
 - `/lab` intentionally stays outside Redux thunk orchestration; it creates route-local
   `SolverPort` / `BenchmarkPort` refs and coordinates one-click solve/bench flows directly inside
   `LabPage`.
@@ -1033,8 +1036,10 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 
 - `/lab` owns authored input text, parsed metadata, preview `GameState`, and single-run
   solve/bench status in local React state.
-- Parse/import transitions bump an authored revision token so stale worker results are ignored
-  after the level input changes.
+- Successful parse/import commits bump an authored revision token so stale worker results are
+  ignored after the active level changes.
+- Failed parses leave the authored revision unchanged; in-flight solve/bench runs continue against
+  the last successfully committed level.
 - Route unmount disposes direct worker ports instead of relying on shared-store lifecycle.
 - Promote `/lab` state into Redux only when a concrete cross-route workflow requires shared
   ownership and the change is documented in an ADR.

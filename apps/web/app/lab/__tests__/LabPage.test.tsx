@@ -262,6 +262,7 @@ afterEach(async () => {
 describe('LabPage', () => {
   it.each([
     ['a non-object import payload', 'null', 'Lab import payload must be a JSON object.'],
+    ['an array import payload', '[]', 'Lab import payload must be a JSON object.'],
     [
       'an unsupported import type',
       JSON.stringify({
@@ -300,6 +301,17 @@ describe('LabPage', () => {
         format: 'xsb',
       }),
       'Lab import payload is missing textual content.',
+    ],
+    [
+      'an import payload with unsupported fields',
+      JSON.stringify({
+        type: 'corgiban-lab-level',
+        version: 1,
+        format: 'xsb',
+        content: '#####\n#@$.#\n#####',
+        extra: true,
+      }),
+      'Lab import payload contains unsupported fields.',
     ],
   ])('shows a readable error for %s', async (_label, content, expectedMessage) => {
     mocks.importTextFile.mockResolvedValueOnce({ content });
@@ -668,5 +680,32 @@ describe('LabPage', () => {
 
     await clickButton(container, 'Reset preview');
     expect(container.textContent).toContain('Moves: 0 | Pushes: 0');
+  });
+
+  // DEBT-002 contract: a failed parse does NOT cancel in-flight runs. The previously committed
+  // active level remains the authoritative level for any running solve or bench. This is
+  // intentional - only commitParsedLevel() advances the authored revision and cancels active runs.
+  it('does not cancel in-flight solve runs when a subsequent parse fails', async () => {
+    const deferredSolve = createDeferred<ReturnType<typeof makeSolverResult>>();
+    mocks.solverPort.startSolve.mockReturnValueOnce(deferredSolve.promise);
+
+    const { container } = await renderPage();
+
+    await clickButton(container, 'Run solve');
+    expect(container.textContent).toContain('running');
+
+    // Paste invalid content and attempt to parse - this should fail
+    await setTextareaValue(container, 'this is not valid xsb input !!!!!');
+    await clickButton(container, 'Parse Level');
+
+    // Parse failed: solver must still be running and cancel must not have been called
+    expect(mocks.solverPort.cancelSolve).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('running');
+
+    // The in-flight run completes normally against the last committed level
+    deferredSolve.resolve(makeSolverResult('R'));
+    await flushPromises();
+
+    expect(container.textContent).toContain('solved (5.0 ms)');
   });
 });

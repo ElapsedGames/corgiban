@@ -5,15 +5,15 @@ type: debt
 severity: low
 area: ui
 regression: false
-status: open
+status: fixed
 discovered_at: 2026-03-06
 introduced_in: phase6
-branch: null
+branch: main
 pr: null
 commit: null
 owner: null
-fixed_at: null
-fixed_by: null
+fixed_at: 2026-03-07
+fixed_by: JSly
 ---
 
 ## Summary
@@ -42,10 +42,15 @@ before caching.
 
 ## Resolution
 
-(fill in when closing)
+- `apps/web/app/canvas/spriteAtlas.types.ts` adds `requestId` to sprite-atlas request and worker
+  response messages, and validates that it is present.
+- `apps/web/app/canvas/spriteAtlas.client.ts` now correlates worker responses by `requestId` and
+  rejects stale or mismatched atlas payloads before caching them.
+- `apps/web/app/canvas/spriteAtlasWorker.client.ts` echoes the originating `requestId`, and the
+  sprite-atlas tests cover both uncorrelated and mismatched-response cases.
 
 ## Verification
 
-- [ ] test added or updated
-- [ ] manual verification completed
-- [ ] docs updated if needed
+- [x] test added or updated
+- [x] manual verification completed
+- [-] docs updated if needed

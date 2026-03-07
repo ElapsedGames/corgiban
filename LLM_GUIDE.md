@@ -311,6 +311,10 @@ Validate both directions:
   during render/SSR and replace those ports with browser-backed implementations after commit;
   preserve one stable route-store instance across hydration and do not create workers or
   persistence adapters during route render.
+- Keep the SSR app shell `<html>` theme class aligned with the current `settings.theme` default
+  (`light` today). Route surfaces with route-scoped stores should sync `settings.theme` to
+  `document.documentElement` after commit from inside the mounted provider rather than mutating the
+  root theme class during SSR/render.
 - `/lab` keeps authored text, preview state, and one-click solve/bench status in route-local
   React state + direct port refs; do not promote that tool-state into Redux until a concrete
   cross-route workflow requires it and an ADR documents the change.

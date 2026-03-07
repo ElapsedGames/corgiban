@@ -2,34 +2,33 @@
 
 # Known Issues
 
-_19 open, 2 fixed, 0 deferred_
+_0 open, 21 fixed, 2 deferred_
 
-## Open -- Medium Severity
+## Deferred
 
-- BUG-003 -- Warmup rows not filtered from analytics and comparison on import (bug, medium, bench)
-- BUG-004 -- Lowercase v hexoban token misclassified as multiban (bug, medium, formats)
-- BUG-005 -- Canvas CSS size stays stale when logical size changes without backing-store size change (bug, medium, ui)
-- BUG-006 -- maxFrontier underreported in solved branch of bfsPush (bug, medium, solver)
-- BUG-007 -- Offscreen sprite atlas creates and terminates a fresh worker per request (bug, medium, ui)
-- BUG-008 -- Benchmark timestamps fail strict import validation under wall-clock rollback (bug, medium, bench)
-- BUG-009 -- Multi-level lab imports silently truncated to first level (bug, medium, lab)
-- BUG-010 -- corgiban-embed emits benchmarkComplete for known-solution path with non-benchmark payload (bug, medium, embed)
-- BUG-011 -- disconnectedCallback may leave stale shadow DOM on repeated mount/unmount cycles (bug, medium, embed)
-- BUG-012 -- Game canvas uses fixed cell size and still risks small-screen distortion (bug, medium, ui)
-- DEBT-001 -- SOK adapter does not match full SOK 0.17 grammar claim in docs (debt, medium, formats)
-- DEBT-007 -- best-practices report tooling is still stubbed end-to-end (debt, medium, build)
-- DEBT-008 -- UI primitives still have documented accessibility gaps before wider reuse (debt, medium, ui)
-- DEBT-009 -- Root theme is hardcoded to dark and ignores settings theme state (debt, medium, ui)
-
-## Open -- Low Severity
-
-- DEBT-002 -- Lab draft-input vs active-level contract is ambiguous on failed parse (debt, low, lab)
-- DEBT-003 -- Comparison fingerprint sort is locale-sensitive (debt, low, data)
-- DEBT-004 -- Sprite atlas worker response not validated for request correlation (debt, low, ui)
-- DEBT-005 -- Lab payload schema not strict-closed on unknown keys (debt, low, lab)
-- DEBT-006 -- Imported benchmark metadata comparison silently degrades without UI signal (debt, low, bench)
+- DEBT-007 -- best-practices report tooling is still stubbed end-to-end (debt, build)
+- DEBT-011 -- Tabs keyboard navigation relies on document-global tab ids (debt, ui)
 
 ## Fixed
 
 - BUG-001 -- Sticky fallback discards loaded benchmark history on deleteRuns failure -- 2026-03-06 by JSly
 - BUG-002 -- Non-null assert on nowMs in bfsPush can crash direct callers -- 2026-03-06 by JSly
+- BUG-003 -- Warmup rows not filtered from analytics and comparison on import -- 2026-03-07 by JSly
+- BUG-004 -- Lowercase v hexoban token misclassified as multiban -- 2026-03-07 by JSly
+- BUG-005 -- Canvas CSS size stays stale when logical size changes without backing-store size change -- 2026-03-07 by JSly
+- BUG-006 -- maxFrontier underreported in solved branch of bfsPush -- 2026-03-07 by JSly
+- BUG-007 -- Offscreen sprite atlas creates and terminates a fresh worker per request -- 2026-03-07 by JSly
+- BUG-008 -- Benchmark timestamps fail strict import validation under wall-clock rollback -- 2026-03-07 by JSly
+- BUG-009 -- Multi-level lab imports silently truncated to first level -- 2026-03-07 by JSly
+- BUG-010 -- corgiban-embed emits benchmarkComplete for known-solution path with non-benchmark payload -- 2026-03-07 by JSly
+- BUG-011 -- disconnectedCallback may leave stale shadow DOM on repeated mount/unmount cycles -- 2026-03-07 by JSly
+- BUG-012 -- Game canvas uses fixed cell size and still risks small-screen distortion -- 2026-03-07 by JSly
+- DEBT-001 -- SOK adapter does not match full SOK 0.17 grammar claim in docs -- 2026-03-07 by JSly
+- DEBT-002 -- Lab draft-input vs active-level contract is ambiguous on failed parse -- 2026-03-07 by JSly
+- DEBT-003 -- Comparison fingerprint sort is locale-sensitive -- 2026-03-07 by JSly
+- DEBT-004 -- Sprite atlas worker response not validated for request correlation -- 2026-03-07 by JSly
+- DEBT-005 -- Lab payload schema not strict-closed on unknown keys -- 2026-03-07 by JSly
+- DEBT-006 -- Imported benchmark metadata comparison silently degrades without UI signal -- 2026-03-07 by JSly
+- DEBT-008 -- UI primitives still have documented accessibility gaps before wider reuse -- 2026-03-07 by JSly
+- DEBT-009 -- Root theme is hardcoded to dark and ignores settings theme state -- 2026-03-06 by JSly
+- DEBT-010 -- Tooltip overwrites aria-describedby instead of merging with existing value -- 2026-03-06

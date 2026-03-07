@@ -26,6 +26,11 @@ surface and create churn ahead of the planned Phase 7 route-responsibility pass.
 - Create/dispose `SolverPort` and `BenchmarkPort` directly inside the route component.
 - Guard async worker callbacks with a route-local token (`runId` + authored revision) so stale
   solve/bench results are ignored after parse/import/cancel transitions.
+- **Failed-parse contract (explicit):** A parse attempt that throws does _not_ advance the authored
+  revision and does _not_ cancel in-flight solve/bench runs. Solve and bench always operate on the
+  last _successfully committed_ level. Only `commitParsedLevel()` (called on successful parse or
+  import) advances the revision, resets run tokens, and cancels active runs. This is intentional:
+  failed input is treated as a transient editor error, not a state transition.
 - Revisit store ownership only when a concrete cross-route workflow requires shared state, and
   capture that change in a new ADR.
 

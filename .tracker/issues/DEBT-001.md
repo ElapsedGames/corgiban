@@ -5,15 +5,15 @@ type: debt
 severity: medium
 area: formats
 regression: false
-status: open
+status: fixed
 discovered_at: 2026-03-06
 introduced_in: phase6
-branch: null
+branch: main
 pr: null
 commit: null
 owner: null
-fixed_at: null
-fixed_by: null
+fixed_at: 2026-03-07
+fixed_by: JSly
 ---
 
 ## Summary
@@ -52,10 +52,10 @@ Sources: Review 2 and Principal/QA review.
 
 ## Resolution
 
-(fill in when closing)
+Narrowed the docs and package contract from full SOK 0.17 grammar to the implemented documented subset, and added a dedicated SOK grammar contract doc plus parser tests that match that scope.
 
 ## Verification
 
-- [ ] test added or updated
-- [ ] manual verification completed
-- [ ] docs updated if needed
+- [x] test added or updated
+- [x] manual verification completed
+- [x] docs updated if needed

@@ -5,15 +5,15 @@ type: debt
 severity: low
 area: lab
 regression: false
-status: open
+status: fixed
 discovered_at: 2026-03-06
 introduced_in: phase6
-branch: null
+branch: main
 pr: null
 commit: null
 owner: null
-fixed_at: null
-fixed_by: null
+fixed_at: 2026-03-07
+fixed_by: JSly
 ---
 
 ## Summary
@@ -42,10 +42,10 @@ If passthrough is intentional, document why.
 
 ## Resolution
 
-(fill in when closing)
+Made the /lab payload contract strict-closed on top-level keys, added shared create/parse helpers for the versioned payload, and covered unknown-key rejection in unit and page tests.
 
 ## Verification
 
-- [ ] test added or updated
-- [ ] manual verification completed
-- [ ] docs updated if needed
+- [x] test added or updated
+- [x] manual verification completed
+- [x] docs updated if needed

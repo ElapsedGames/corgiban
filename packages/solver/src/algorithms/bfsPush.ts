@@ -147,12 +147,13 @@ export function solveBfsPush(input: AlgorithmInput): SolveResult {
       const solutionMoves = directionsToString(directions);
       const finalElapsed = nowMs() - startMs;
       const solvedFrontier = queue.length - head;
+      const finalMaxFrontier = Math.max(maxFrontier, solvedFrontier);
       const metrics = buildMetrics(
         finalElapsed,
         expanded,
         generated,
         maxDepth,
-        maxFrontier,
+        finalMaxFrontier,
         solutionPushes.length,
         directions.length,
       );

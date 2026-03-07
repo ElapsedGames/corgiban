@@ -18,7 +18,7 @@ export const meta: MetaFunction = () => [
 
 export default function App() {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="light">
       <head>
         <Meta />
         <Links />

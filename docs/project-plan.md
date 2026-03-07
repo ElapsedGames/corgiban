@@ -316,7 +316,8 @@ Format interop (packages/formats):
 
 - CORG stays canonical; core/encoding handles CORG only.
 - formats package handles XSB/SOK/SLC import/export and emits LevelDefinition/LevelCollection.
-- Full SOK 0.17 grammar support (including RLE and row separators).
+- Documented SOK subset support (pre-board title/comment metadata, positive-count RLE, and row
+  separators).
 - Import normalization rules:
   - Never trim rows; ragged rows allowed (pad to max width with floor).
   - Support interior empty rows via two-pass normalization.
@@ -792,18 +793,21 @@ Deferred notes:
 - Protocol-level `SOLVE_CANCEL` and `BENCH_CANCEL` remain out of protocol v2 and are unscheduled; revisit only in a future protocol-version ADR after current queue/dispose cancellation semantics are insufficient.
 - RenderPlan build is O(cells x boxes); no measured perf issue with current Sokoban sizes or the draw-on-change pipeline. Revisit only if profiling shows regressions.
 - Two sources of truth (GameState ref + Redux history) are intentional in Phase 2; revisit if replay or solver integration needs shared state outside /play.
-- Canvas distortion on small screens is tracked in `BUG-012`; current `/play` keeps fixed cell sizing until a responsive cell-size pass lands.
-- A11y gaps (Dialog focus trap, Tabs arrow navigation, Tooltip aria-describedby merge) are tracked in `DEBT-008`; address them before these primitives move into user-facing routes.
-- Root theme hardcodes dark mode while Redux theme state remains disconnected; this is tracked in `DEBT-009` and should be resolved alongside SSR-safe theme bootstrapping.
+- `/play` now clamps canvas cell size against the available container width to reduce small-screen distortion.
+- Route-scoped `/play` and `/bench` surfaces now sync `settings.theme` to the root `<html>` class
+  after commit; keep the SSR default class aligned with `settingsSlice` defaults when theme boot
+  behavior changes again.
 - Core engine linear scans and allocations are deferred until profiling indicates a need.
 - Process: keep PR scope manageable; split when Phase 2 and Phase 3 changes start to mix.
 
 Phase 6 - Adapters, tooling, and performance
 Decision dependencies: ADR-0006 (embed Shadow DOM and styling delivery strategy), ADR-0010 (format interop policy), ADR-0016 (benchmark export/import contract policy), ADR-0019 (benchmark persistence recovery semantics), ADR-0020 (benchmark comparison snapshot contract), ADR-0021 (solver-kernel delivery/preload contract), ADR-0022 (solver progress throttle ownership), ADR-0023 (Level Lab route-local state ownership), ADR-0024 (Offscreen sprite-atlas worker fallback), and ADR-0025 (SSR-safe route-store bootstrap).
-Status: Baseline landed, not closure-ready. Tasks 1-13 are implemented, but tracked follow-up issues still block calling Phase 6 complete: BUG-003, BUG-005, BUG-006, BUG-007, BUG-009, and BUG-010. Phase 6.1 owns those cleanup and contract fixes before scope expansion.
+Status: Complete (Phase 6 scope delivered). Deferred debt now lives in `.tracker/issues/*.md` and
+`KNOWN_ISSUES.md`; it should not be treated as a Phase 6 closeout blocker. Phase 7 Task 10 owns
+the remaining `pnpm best-practices` CLI/report wiring work tracked in `DEBT-007`.
 
 1. [done] Level Lab page (/lab): level editor (text input for row encoding) + keyboard-first preview/play area + one-click solver/bench run + export/import JSON
-2. [done] formats package: XSB/SOK/SLC import/export with full SOK 0.17 grammar, normalization rules, and variant detection; integrate with Level Lab and import/export flows
+2. [done] formats package: XSB/SOK/SLC import/export with the documented SOK subset, normalization rules, and variant detection; integrate with Level Lab and import/export flows
 3. [done] Embed adapter (`packages/embed`): `<corgiban-embed>` custom element mounting a minimal React subtree with Shadow DOM + scoped stylesheet injection. Bundle React as a dependency (not peer). Follow ADR-0006 lifecycle/cleanup constraints and add integration tests covering attribute changes, DOM events, unmount, and the precedence contract where known built-in `level-id` values override `level-data`, `level-data` handles missing/unknown ids, and unresolved inputs fail closed.
 4. [done] OffscreenCanvas: move sprite pre-rendering into a dedicated app-owned worker using OffscreenCanvas; keep main-thread renderer as fallback for browsers that don't support it and keep this optimization out of the solver/benchmark worker protocol
 5. [done] WASM kernels (`packages/solver-kernels`): implement reachability flood fill, state hashing, and assignment heuristic in TS first, and land app-owned URL wiring plus best-effort worker preload scaffolding for future promoted Rust + `wasm-pack` kernels (`instantiateStreaming` + fallback). Solve and bench execution remain on the TS solver path in this phase.
@@ -862,9 +866,9 @@ Decision dependencies: capture an ADR if route ownership, store ownership, or cr
    - persistence degraded/offline messaging
    - keyboard-shortcut discoverability and responsive/mobile ergonomics
 9. Add usability-oriented tests for at least one primary happy path per route plus cross-route handoff flows.
-10. Finish the best-practices tooling scaffold in `tools/` so `pnpm best-practices` produces a real report (tracked in `DEBT-007`):
+10. Finish the remaining best-practices CLI/report wiring in `tools/` so `pnpm best-practices` produces a real report artifact (tracked in `DEBT-007`):
 
-- implement the remaining `scanFiles`, `analyzeFiles`, and CLI/report wiring called for in `docs/dev-tools-spec.md`
+- connect the implemented `scanFiles` / `analyzeFiles` helpers to the CLI entrypoint and write the generated report to disk
 - replace opaque `P` / `W` / `F` issue labels in human-facing output with descriptive severity/size wording
 - make the generated report explicitly define the meaning of each reported size/severity bucket instead of assuming shorthand knowledge
 

@@ -38,7 +38,7 @@ import PlayRoute, { ErrorBoundary } from '../play';
 
 function createStoreMock() {
   return {
-    getState: () => ({}),
+    getState: () => ({ settings: { theme: 'light' as const } }),
     dispatch: () => undefined,
     subscribe: () => () => undefined,
     replaceReducer: () => undefined,

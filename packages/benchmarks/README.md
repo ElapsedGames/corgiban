@@ -82,11 +82,21 @@ Comparison contract baseline:
 
 - `toComparableRunInput(...)` and `buildSuiteComparisonInfo(...)` derive exact suite-input
   fingerprints from measured run metadata.
+- `buildSuiteComparisonInfo(...)` sorts inputs in a canonical locale-independent order
+  (`levelId`, `repetition`, serialized tiebreaker) before fingerprinting so comparison exports stay
+  stable across runtimes.
 - Fingerprints include level/repetition inputs, solver options, environment metadata, and warm-up
   settings.
 - Comparison helpers expect measured `BenchmarkRunRecord` data; warm-up runs are excluded before
   persistence/comparison in the app layer.
+- Imported reports may legitimately omit `comparableMetadata`; consumers should surface a user-
+  visible notice when that downgrades strict comparison availability.
 - Consumers should treat fingerprint mismatches as non-comparable, not synthesize delta metrics.
+
+Runner contract baseline:
+
+- `runBenchmarkSuite(...)` clamps `finishedAtMs` to at least `startedAtMs` when a caller-supplied
+  clock moves backward, so persisted durations never go negative.
 
 ## Usage example
 

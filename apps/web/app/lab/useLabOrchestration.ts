@@ -12,7 +12,7 @@ import { exportTextFile, importTextFile } from '../bench/fileAccess.client';
 import { makeRunId } from '../runId';
 import { defaultLabLevelText, parseLabInput, type LabInputFormat } from './labFormat';
 import { subscribeLabKeyboardControls } from './labKeyboard';
-import { LAB_PAYLOAD_TYPE, LAB_PAYLOAD_VERSION, parseLabPayload } from './labPayload';
+import { createLabPayload, parseLabPayload } from './labPayload';
 import { toDirectionArray } from './labStatus';
 import type { BenchState, ParseState, RunToken, SolveState } from './labTypes';
 import { useLabOwnedPorts } from './useLabOwnedPorts';
@@ -359,13 +359,11 @@ export function useLabOrchestration(): LabOrchestrationState {
   };
 
   const exportLabPayload = () => {
-    const payload = {
-      type: LAB_PAYLOAD_TYPE,
-      version: LAB_PAYLOAD_VERSION,
+    const payload = createLabPayload({
       format,
       content: input,
       exportedAtIso: new Date().toISOString(),
-    };
+    });
 
     void exportTextFile({
       suggestedName: 'corgiban-lab-level.json',

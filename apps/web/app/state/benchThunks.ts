@@ -1,4 +1,4 @@
-import { parseBenchmarkReportJson } from '@corgiban/benchmarks';
+import { buildSuiteComparisonInfo, parseBenchmarkReportJson } from '@corgiban/benchmarks';
 import { parseLevel } from '@corgiban/core';
 import { builtinLevels } from '@corgiban/levels';
 
@@ -111,6 +111,88 @@ function resolveLevelRuntime(levelId: string) {
     throw new Error(`Unknown level id in benchmark suite: ${levelId}`);
   }
   return runtime;
+}
+
+function formatImportedComparisonNotice(results: BenchmarkRunRecord[]): string | null {
+  const recordsBySuite = new Map<string, BenchmarkRunRecord[]>();
+
+  results.forEach((result) => {
+    const suiteResults = recordsBySuite.get(result.suiteRunId) ?? [];
+    suiteResults.push(result);
+    recordsBySuite.set(result.suiteRunId, suiteResults);
+  });
+
+  const degradedSuites = [...recordsBySuite.entries()]
+    .map(([suiteRunId, suiteResults]) => {
+      return {
+        suiteRunId,
+        issues: buildSuiteComparisonInfo(suiteResults).issues,
+      };
+    })
+    .filter((suite) => suite.issues.length > 0);
+
+  if (degradedSuites.length === 0) {
+    return null;
+  }
+
+  const affectedRuns = degradedSuites.reduce((total, suite) => total + suite.issues.length, 0);
+  const listedSuites = degradedSuites
+    .slice(0, 3)
+    .map((suite) => suite.suiteRunId)
+    .join(', ');
+  const remainingSuites = degradedSuites.length > 3 ? `, +${degradedSuites.length - 3} more` : '';
+  const suiteNoun = degradedSuites.length === 1 ? 'suite' : 'suites';
+  const runNoun = affectedRuns === 1 ? 'run' : 'runs';
+
+  return `Imported report includes ${affectedRuns} ${runNoun} without comparable metadata across ${degradedSuites.length} ${suiteNoun}. Analytics will mark those suites as non-comparable. Affected suites: ${listedSuites}${remainingSuites}.`;
+}
+
+function splitImportedWarmupResults(results: BenchmarkRunRecord[]): {
+  measuredResults: BenchmarkRunRecord[];
+  discardedWarmupCount: number;
+  discardedWarmupSuiteIds: string[];
+} {
+  const measuredResults: BenchmarkRunRecord[] = [];
+  const discardedWarmupSuiteIds = new Set<string>();
+  let discardedWarmupCount = 0;
+
+  results.forEach((result) => {
+    if (result.warmup === true) {
+      discardedWarmupCount += 1;
+      discardedWarmupSuiteIds.add(result.suiteRunId);
+      return;
+    }
+
+    measuredResults.push(result);
+  });
+
+  return {
+    measuredResults,
+    discardedWarmupCount,
+    discardedWarmupSuiteIds: [...discardedWarmupSuiteIds].sort(),
+  };
+}
+
+function formatImportedWarmupNotice(
+  discardedWarmupCount: number,
+  discardedWarmupSuiteIds: string[],
+): string | null {
+  if (discardedWarmupCount === 0) {
+    return null;
+  }
+
+  const listedSuites = discardedWarmupSuiteIds.slice(0, 3).join(', ');
+  const remainingSuites =
+    discardedWarmupSuiteIds.length > 3 ? `, +${discardedWarmupSuiteIds.length - 3} more` : '';
+  const runNoun = discardedWarmupCount === 1 ? 'run' : 'runs';
+  const suiteNoun = discardedWarmupSuiteIds.length === 1 ? 'suite' : 'suites';
+
+  return `Imported report skipped ${discardedWarmupCount} warm-up ${runNoun} across ${discardedWarmupSuiteIds.length} ${suiteNoun}. Warm-up runs are excluded from measured benchmark history. Affected suites: ${listedSuites}${remainingSuites}.`;
+}
+
+function joinImportNotices(notices: Array<string | null>): string | null {
+  const nonEmptyNotices = notices.filter((notice): notice is string => notice !== null);
+  return nonEmptyNotices.length > 0 ? nonEmptyNotices.join(' ') : null;
 }
 
 export const initializeBench = (): AppThunk<Promise<void>> => {
@@ -269,16 +351,22 @@ export const importBenchmarkReport = (jsonText: string): AppThunk<Promise<void>>
     let attemptedPersistenceReplace = false;
 
     try {
-      const results = parseBenchmarkReportJson(jsonText);
+      const parsedResults = parseBenchmarkReportJson(jsonText);
+      const { measuredResults, discardedWarmupCount, discardedWarmupSuiteIds } =
+        splitImportedWarmupResults(parsedResults);
+      const importNotice = joinImportNotices([
+        formatImportedWarmupNotice(discardedWarmupCount, discardedWarmupSuiteIds),
+        formatImportedComparisonNotice(measuredResults),
+      ]);
       let repositoryError: string | null = null;
       if (persistencePort) {
         attemptedPersistenceReplace = true;
-        await persistencePort.replaceResults(results);
+        await persistencePort.replaceResults(measuredResults);
         repositoryError = await reconcilePersistedResults(dispatch, persistencePort);
       } else {
-        dispatch(benchResultsReplaced(results));
+        dispatch(benchResultsReplaced(measuredResults));
       }
-      dispatch(benchNoticeRecorded(null));
+      dispatch(benchNoticeRecorded(importNotice));
       dispatch(benchErrorRecorded(repositoryError));
     } catch (error) {
       if (persistencePort && attemptedPersistenceReplace) {

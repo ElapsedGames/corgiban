@@ -197,6 +197,97 @@ describe('benchmark comparison helpers', () => {
     expect(info.issues).toEqual(['Missing comparable metadata for run run-missing.']);
   });
 
+  it('sorts inputs by levelId ascending (ordinal, not locale-aware)', () => {
+    // Ordinal comparison: 'b' (0x62) < 'a\u0301' locale-collated in some locales, but
+    // ordinal byte order is well-defined. We test a simpler, unambiguous case:
+    // digits before letters ('1' < 'a') holds under both ordinal and most locales,
+    // but the key regression is that the sort is field-by-field, not by JSON string.
+    const recordA = createRecord({ id: 'r-a', runId: 'run-a', levelId: 'level-a' });
+    const recordB = createRecord({ id: 'r-b', runId: 'run-b', levelId: 'level-b' });
+    const recordC = createRecord({ id: 'r-c', runId: 'run-c', levelId: 'level-c' });
+
+    const info = buildSuiteComparisonInfo([recordC, recordA, recordB]);
+
+    expect(info.inputs.map((i) => i.levelId)).toEqual(['level-a', 'level-b', 'level-c']);
+  });
+
+  it('sorts inputs by repetition ascending (numeric) when levelIds are equal', () => {
+    // repetition 10 must sort after repetition 2 numerically (not "10" < "2" lexicographically)
+    const rep2 = createRecord({ id: 'r-2', runId: 'run-2', levelId: 'classic-001', repetition: 2 });
+    const rep10 = createRecord({
+      id: 'r-10',
+      runId: 'run-10',
+      levelId: 'classic-001',
+      repetition: 10,
+    });
+    const rep1 = createRecord({ id: 'r-1', runId: 'run-1', levelId: 'classic-001', repetition: 1 });
+
+    const info = buildSuiteComparisonInfo([rep10, rep2, rep1]);
+
+    expect(info.inputs.map((i) => i.repetition)).toEqual([1, 2, 10]);
+  });
+
+  it('uses serialized JSON as a tiebreaker when levelId and repetition are identical', () => {
+    // Two records with the same levelId and repetition but different solver configs.
+    // The ordering must be deterministic (not arbitrary/random).
+    const recordAlpha = createRecord({
+      id: 'r-alpha',
+      runId: 'run-alpha',
+      levelId: 'classic-001',
+      repetition: 1,
+      comparableMetadata: {
+        solver: { algorithmId: 'bfsPush', timeBudgetMs: 1_000 },
+        environment: { userAgent: 'test-agent', hardwareConcurrency: 8, appVersion: 'test-build' },
+        warmupEnabled: false,
+        warmupRepetitions: 0,
+      },
+    });
+    const recordBeta = createRecord({
+      id: 'r-beta',
+      runId: 'run-beta',
+      levelId: 'classic-001',
+      repetition: 1,
+      comparableMetadata: {
+        solver: { algorithmId: 'bfsPush', timeBudgetMs: 2_000 },
+        environment: { userAgent: 'test-agent', hardwareConcurrency: 8, appVersion: 'test-build' },
+        warmupEnabled: false,
+        warmupRepetitions: 0,
+      },
+    });
+
+    const forward = buildSuiteComparisonInfo([recordAlpha, recordBeta]);
+    const reversed = buildSuiteComparisonInfo([recordBeta, recordAlpha]);
+
+    // Both orderings must produce the same sorted result
+    expect(forward.inputs).toEqual(reversed.inputs);
+    // And the sort must be stable (timeBudgetMs 1000 serializes before 2000 in JSON)
+    expect(forward.inputs[0].solver.timeBudgetMs).toBe(1_000);
+    expect(forward.inputs[1].solver.timeBudgetMs).toBe(2_000);
+  });
+
+  it('sorts levelId before repetition (primary key is levelId, not repetition)', () => {
+    // level-b rep-1 must sort after level-a rep-99, not before it
+    const highRepLowLevel = createRecord({
+      id: 'r-high',
+      runId: 'run-high',
+      levelId: 'level-a',
+      repetition: 99,
+    });
+    const lowRepHighLevel = createRecord({
+      id: 'r-low',
+      runId: 'run-low',
+      levelId: 'level-b',
+      repetition: 1,
+    });
+
+    const info = buildSuiteComparisonInfo([lowRepHighLevel, highRepLowLevel]);
+
+    expect(info.inputs[0].levelId).toBe('level-a');
+    expect(info.inputs[0].repetition).toBe(99);
+    expect(info.inputs[1].levelId).toBe('level-b');
+    expect(info.inputs[1].repetition).toBe(1);
+  });
+
   it('normalizes omitted optional solver fields into the same fingerprint shape', () => {
     const minimalMetadataRecord = createRecord({
       id: 'record-minimal',

@@ -1232,6 +1232,72 @@ describe('createBenchmarkPort (client)', () => {
     port.dispose();
   });
 
+  it('clamps finishedAtMs when the clock rolls backwards between dispatch and result', async () => {
+    const clientMock = createClientMock({
+      runSuite: vi.fn(
+        async (request: {
+          runs: BenchmarkClientRunRequest[];
+          callbacks?: BenchmarkClientRunCallbacks;
+        }) => {
+          const run = request.runs[0];
+          if (!run) {
+            throw new Error('Expected one run.');
+          }
+
+          request.callbacks?.onDispatch?.(run);
+          const result = makeBenchResult(run.runId);
+          request.callbacks?.onResult?.(result, run);
+          return [result];
+        },
+      ),
+    });
+
+    mocks.createBenchmarkClient.mockImplementation((options?: { createWorker?: () => unknown }) => {
+      options?.createWorker?.();
+      return clientMock;
+    });
+
+    const port = createBenchmarkPort({
+      concurrency: 1,
+      navigatorLike: { userAgent: 'rollback-test', hardwareConcurrency: 4 },
+      performanceApi: { mark: vi.fn(), measure: vi.fn() },
+      now: (() => {
+        const values = [100, 80];
+        let index = 0;
+        return () => {
+          const value = values[index];
+          index += 1;
+          return value ?? values[values.length - 1] ?? 0;
+        };
+      })(),
+    });
+
+    const results = await port.runSuite({
+      suiteRunId: 'bench-rollback',
+      suite: {
+        levelIds: ['classic-001'],
+        algorithmIds: ['bfsPush'],
+        repetitions: 1,
+        timeBudgetMs: 1_000,
+        nodeBudget: 5_000,
+      },
+      levelResolver: () => ({
+        levelId: 'classic-001',
+        width: 1,
+        height: 1,
+        staticGrid: new Uint8Array([0]),
+        initialPlayerIndex: 0,
+        initialBoxes: new Uint32Array([]),
+      }),
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.startedAtMs).toBe(100);
+    expect(results[0]?.finishedAtMs).toBe(100);
+
+    port.dispose();
+  });
+
   it('throws cancellation error when suite is cancelled before a successful client completion', async () => {
     const suiteResolution: { resolve: (() => void) | null } = { resolve: null };
     const clientMock = createClientMock({

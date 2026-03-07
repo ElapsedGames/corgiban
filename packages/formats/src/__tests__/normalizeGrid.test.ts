@@ -67,6 +67,19 @@ describe('normalizeImportedGrid', () => {
     );
   });
 
+  it('classifies lowercase v as hexoban instead of multiban', () => {
+    const result = normalizeImportedGrid(['#####', '#@v #', '#$. #', '#####'], {
+      source: 'xsb',
+      allowUnsupportedVariants: true,
+    });
+
+    expect(result.unsupportedVariants).toEqual(['hexoban']);
+    expect(result.warnings).toContainEqual({
+      code: 'unsupported-variant-carried',
+      message: 'Unsupported variants retained in diagnostics: hexoban.',
+    });
+  });
+
   it('rejects tabs and all-boxes-on-target starts', () => {
     expect(() =>
       normalizeImportedGrid(['#\t#', '#@*#', '####'], {
@@ -97,6 +110,19 @@ describe('normalizeImportedGrid', () => {
     expect(result.warnings).toContainEqual({
       code: 'unsupported-variant-carried',
       message: 'Unsupported variants retained in diagnostics: hexoban, modern, multiban.',
+    });
+  });
+
+  it('reports each detected variant once for mixed unsupported inputs', () => {
+    const result = normalizeImportedGrid(['########', '#@1av= #', '#$ . & #', '########'], {
+      source: 'xsb',
+      allowUnsupportedVariants: true,
+    });
+
+    expect(result.unsupportedVariants).toEqual(['hexoban', 'modern', 'multiban', 'numbered']);
+    expect(result.warnings).toContainEqual({
+      code: 'unsupported-variant-carried',
+      message: 'Unsupported variants retained in diagnostics: hexoban, modern, multiban, numbered.',
     });
   });
 

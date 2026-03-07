@@ -291,6 +291,22 @@ describe('benchmarkSchema', () => {
     ).toBe(false);
   });
 
+  it('rejects records with missing timestamp fields', () => {
+    expect(
+      isBenchmarkRunRecord({
+        ...createValidRecord(),
+        startedAtMs: undefined,
+      }),
+    ).toBe(false);
+
+    expect(
+      isBenchmarkRunRecord({
+        ...createValidRecord(),
+        finishedAtMs: undefined,
+      }),
+    ).toBe(false);
+  });
+
   it('rejects non-integer sequence values', () => {
     expect(
       isBenchmarkRunRecord({

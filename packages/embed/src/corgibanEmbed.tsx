@@ -29,6 +29,7 @@ type EmbedEventMap = {
     elapsedMs: number;
     moveCount: number;
     solved: boolean;
+    synthetic: true;
   };
 };
 
@@ -82,6 +83,8 @@ export class CorgibanEmbedElement extends HTMLElementBase {
   disconnectedCallback(): void {
     this.root?.unmount();
     this.root = null;
+    this.mountNode = null;
+    this.shadow?.replaceChildren();
     this.lastErrorSignature = null;
     this.lastResolvedLevel = null;
   }

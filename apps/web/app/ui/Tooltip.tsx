@@ -9,9 +9,12 @@ export type TooltipProps = {
 export function Tooltip({ content, children }: TooltipProps) {
   const tooltipId = useId();
 
+  const existingDescribedBy = children.props['aria-describedby'] as string | undefined;
+  const mergedDescribedBy = existingDescribedBy ? `${existingDescribedBy} ${tooltipId}` : tooltipId;
+
   return (
     <span className="relative inline-flex group">
-      {cloneElement(children, { 'aria-describedby': tooltipId })}
+      {cloneElement(children, { 'aria-describedby': mergedDescribedBy })}
       <span
         id={tooltipId}
         role="tooltip"

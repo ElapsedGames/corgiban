@@ -386,7 +386,7 @@ describe('benchmarkRunner', () => {
     ]);
   });
 
-  it('uses Date.now when nowMs is omitted', async () => {
+  it('uses Date.now when nowMs is omitted and preserves ordered timestamps', async () => {
     const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValueOnce(100).mockReturnValueOnce(125);
 
     const execute = vi.fn(async () => ({
@@ -413,6 +413,33 @@ describe('benchmarkRunner', () => {
     expect(results[0]?.startedAtMs).toBe(100);
     expect(results[0]?.finishedAtMs).toBe(125);
     dateNowSpy.mockRestore();
+  });
+
+  it('clamps finishedAtMs when the wall clock rolls backwards during a run', async () => {
+    const execute = vi.fn(async () => ({
+      status: 'unsolved' as const,
+      metrics: createMetrics(9),
+    }));
+
+    const results = await runBenchmarkSuite(
+      {
+        suiteRunId: 'suite-clock-rollback',
+        suite: {
+          ...suite,
+          repetitions: 1,
+          warmupRepetitions: 0,
+        },
+        environment: createEnvironment(),
+      },
+      {
+        execute,
+        nowMs: createNowMs([200, 150]),
+      },
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.startedAtMs).toBe(200);
+    expect(results[0]?.finishedAtMs).toBe(200);
   });
 
   it('omits solutionMoves and errorDetails when they are not present', async () => {

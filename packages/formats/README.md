@@ -9,6 +9,18 @@ External Sokoban format adapters.
 - Normalize imported rows while preserving puzzle topology.
 - Detect unsupported format variants and report explicit diagnostics.
 
+## SOK contract
+
+- `parseSok017(...)` supports the documented Corgiban SOK subset: pre-board `;` / `Title:`
+  metadata, XSB board tokens, positive-count RLE, and `|` row separators.
+- `serializeSok017(...)` emits a canonical subset: optional `Title:` line plus decoded XSB rows
+  with no RLE, comments, or solution metadata.
+- Digits in SOK input are always interpreted as RLE counts, not numbered board tokens.
+- `knownSolution` is not parsed from or serialized to SOK text; parsed levels return
+  `knownSolution: null`.
+- See [SOK grammar contract](./docs/sok-grammar.md) for accepted syntax, invalid syntax, and
+  normalization rules.
+
 ## Validation notes
 
 - `strictClosedValidation` is operational, not copy-only:

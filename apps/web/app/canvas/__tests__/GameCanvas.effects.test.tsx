@@ -21,15 +21,29 @@ describe('GameCanvas effects', () => {
   it('runs resize and draw effects in hook-driven environments', async () => {
     const addEventListener = vi.fn();
     const removeEventListener = vi.fn();
+    const observe = vi.fn();
+    const disconnect = vi.fn();
     vi.stubGlobal('window', {
       devicePixelRatio: 2,
       addEventListener,
       removeEventListener,
     });
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(_callback: () => void) {}
+
+        observe = observe;
+        disconnect = disconnect;
+      },
+    );
 
     const drawMock = vi.fn();
     const cleanups: Array<() => void> = [];
     const setDpr = vi.fn();
+    const setContainerWidth = vi.fn();
+    const setAtlas = vi.fn();
+    let stateCallCount = 0;
 
     const canvasContext = {
       imageSmoothingEnabled: true,
@@ -37,22 +51,36 @@ describe('GameCanvas effects', () => {
     const canvas = {
       width: 0,
       height: 0,
-      style: { width: '', height: '' },
+      parentElement: { clientWidth: 40 },
+      style: { width: '', height: '', maxWidth: '' },
       getContext: vi.fn(() => canvasContext),
     };
 
     vi.doMock('react', async (importOriginal) => {
       const actual = await importOriginal<typeof import('react')>();
+      const runEffect = (effect: () => void | (() => void)) => {
+        const cleanup = effect();
+        if (typeof cleanup === 'function') {
+          cleanups.push(cleanup);
+        }
+      };
       return {
         ...actual,
-        useEffect: (effect: () => void | (() => void)) => {
-          const cleanup = effect();
-          if (typeof cleanup === 'function') {
-            cleanups.push(cleanup);
-          }
-        },
+        useEffect: runEffect,
+        useLayoutEffect: runEffect,
         useRef: () => ({ current: canvas }),
-        useState: (initialValue: number) => [initialValue, setDpr],
+        useState: (initialValue: number | null) => {
+          stateCallCount += 1;
+          if (stateCallCount === 1) {
+            return [initialValue, setDpr];
+          }
+
+          if (stateCallCount === 2) {
+            return [40, setContainerWidth];
+          }
+
+          return [initialValue, setAtlas];
+        },
       };
     });
     vi.doMock('../draw', () => ({
@@ -70,16 +98,20 @@ describe('GameCanvas effects', () => {
 
     expect(element.props.className).toBe('canvas-class');
     expect(element.props.role).toBe('img');
-    expect(canvas.width).toBe(50);
-    expect(canvas.height).toBe(30);
-    expect(canvas.style.width).toBe('50px');
-    expect(canvas.style.height).toBe('30px');
+    expect(canvas.width).toBe(40);
+    expect(canvas.height).toBe(24);
+    expect(canvas.style.width).toBe('40px');
+    expect(canvas.style.maxWidth).toBe('100%');
+    expect(canvas.style.height).toBe('auto');
     expect(drawMock).toHaveBeenCalledTimes(1);
     expect(addEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
     expect(setDpr).toHaveBeenCalledWith(2);
+    expect(setContainerWidth).toHaveBeenCalledWith(40);
+    expect(observe).toHaveBeenCalledWith(canvas.parentElement);
 
     cleanups.forEach((cleanup) => cleanup());
     expect(removeEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
+    expect(disconnect).toHaveBeenCalledTimes(1);
   });
 
   it('skips dpr subscription when window is unavailable while still rendering frame effects', async () => {
@@ -88,6 +120,9 @@ describe('GameCanvas effects', () => {
     const drawMock = vi.fn();
     const cleanups: Array<() => void> = [];
     const setDpr = vi.fn();
+    const setContainerWidth = vi.fn();
+    const setAtlas = vi.fn();
+    let stateCallCount = 0;
 
     const canvasContext = {
       imageSmoothingEnabled: true,
@@ -95,22 +130,36 @@ describe('GameCanvas effects', () => {
     const canvas = {
       width: 0,
       height: 0,
-      style: { width: '', height: '' },
+      parentElement: { clientWidth: 40 },
+      style: { width: '', height: '', maxWidth: '' },
       getContext: vi.fn(() => canvasContext),
     };
 
     vi.doMock('react', async (importOriginal) => {
       const actual = await importOriginal<typeof import('react')>();
+      const runEffect = (effect: () => void | (() => void)) => {
+        const cleanup = effect();
+        if (typeof cleanup === 'function') {
+          cleanups.push(cleanup);
+        }
+      };
       return {
         ...actual,
-        useEffect: (effect: () => void | (() => void)) => {
-          const cleanup = effect();
-          if (typeof cleanup === 'function') {
-            cleanups.push(cleanup);
-          }
-        },
+        useEffect: runEffect,
+        useLayoutEffect: runEffect,
         useRef: () => ({ current: canvas }),
-        useState: (initialValue: number) => [initialValue, setDpr],
+        useState: (initialValue: number | null) => {
+          stateCallCount += 1;
+          if (stateCallCount === 1) {
+            return [initialValue, setDpr];
+          }
+
+          if (stateCallCount === 2) {
+            return [40, setContainerWidth];
+          }
+
+          return [initialValue, setAtlas];
+        },
       };
     });
     vi.doMock('../draw', () => ({
@@ -126,6 +175,7 @@ describe('GameCanvas effects', () => {
     });
 
     expect(setDpr).not.toHaveBeenCalled();
+    expect(setContainerWidth).toHaveBeenCalledWith(40);
     expect(drawMock).toHaveBeenCalledTimes(1);
 
     cleanups.forEach((cleanup) => cleanup());
@@ -152,7 +202,8 @@ describe('GameCanvas effects', () => {
     const canvas = {
       width: 0,
       height: 0,
-      style: { width: '', height: '' },
+      parentElement: null,
+      style: { width: '', height: '', maxWidth: '' },
       getContext: vi.fn(() => canvasContext),
     };
 
@@ -179,18 +230,28 @@ describe('GameCanvas effects', () => {
 
     vi.doMock('react', async (importOriginal) => {
       const actual = await importOriginal<typeof import('react')>();
+      const runEffect = (effect: () => void | (() => void)) => {
+        const cleanup = effect();
+        if (typeof cleanup === 'function') {
+          cleanups.push(cleanup);
+        }
+      };
       return {
         ...actual,
-        useEffect: (effect: () => void | (() => void)) => {
-          const cleanup = effect();
-          if (typeof cleanup === 'function') {
-            cleanups.push(cleanup);
-          }
-        },
+        useEffect: runEffect,
+        useLayoutEffect: runEffect,
         useRef: () => ({ current: canvas }),
         useState: (initialValue: number | null) => {
           stateCallCount += 1;
-          return stateCallCount === 1 ? [initialValue, setDpr] : [initialValue, setAtlas];
+          if (stateCallCount === 1) {
+            return [initialValue, setDpr];
+          }
+
+          if (stateCallCount === 2) {
+            return [initialValue, vi.fn()];
+          }
+
+          return [initialValue, setAtlas];
         },
       };
     });

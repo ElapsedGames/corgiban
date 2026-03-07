@@ -240,6 +240,68 @@ describe('toSuiteAnalytics', () => {
     expect(analytics[1]?.comparisonFingerprint).toBeTruthy();
   });
 
+  it('filters warmup rows before computing suite analytics and comparison inputs', () => {
+    const analytics = toSuiteAnalytics([
+      createResult('suite-measured', 5, 'solved', {
+        warmup: true,
+        runId: 'warmup-run',
+        finishedAtMs: 6,
+        comparableMetadata: {
+          solver: {
+            algorithmId: 'bfsPush',
+            timeBudgetMs: 1_000,
+            nodeBudget: 5_000,
+          },
+          environment: {
+            userAgent: 'test',
+            hardwareConcurrency: 4,
+            appVersion: 'test',
+          },
+          warmupEnabled: true,
+          warmupRepetitions: 1,
+        },
+      }),
+      createResult('suite-measured', 25, 'unsolved', {
+        repetition: 1,
+        finishedAtMs: 26,
+      }),
+      createResult('suite-warmup-only', 10, 'solved', {
+        warmup: true,
+        runId: 'warmup-only-run',
+        finishedAtMs: 11,
+      }),
+    ]);
+
+    expect(analytics).toEqual([
+      expect.objectContaining({
+        suiteRunId: 'suite-measured',
+        runs: 1,
+        solvedRuns: 0,
+        successRate: 0,
+        p50ElapsedMs: 25,
+        p95ElapsedMs: 25,
+        comparisonInputs: [
+          {
+            levelId: 'classic-001',
+            repetition: 1,
+            solver: {
+              algorithmId: 'bfsPush',
+              timeBudgetMs: 1_000,
+              nodeBudget: 5_000,
+            },
+            environment: {
+              userAgent: 'test',
+              hardwareConcurrency: 4,
+              appVersion: 'test',
+            },
+            warmupEnabled: false,
+            warmupRepetitions: 0,
+          },
+        ],
+      }),
+    ]);
+  });
+
   it('prefers the most recent comparable suite as the default baseline', () => {
     const analytics = toSuiteAnalytics([
       createResult('suite-a', 10, 'unsolved', { comparableMetadata: undefined }),
@@ -611,6 +673,77 @@ describe('BenchmarkAnalyticsPanel', () => {
         deltaP95ElapsedMs: null,
       },
     ]);
+  });
+
+  it('excludes warmup-only imported rows from rendered suites and comparison snapshot export', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-05T18:00:00.000Z'));
+
+    const onExportSnapshot = vi.fn();
+    const { container } = await renderPanel({
+      results: [
+        createResult('suite-a', 5, 'solved', {
+          warmup: true,
+          runId: 'suite-a-warmup',
+          finishedAtMs: 6,
+          comparableMetadata: {
+            solver: {
+              algorithmId: 'bfsPush',
+              timeBudgetMs: 1_000,
+              nodeBudget: 5_000,
+            },
+            environment: {
+              userAgent: 'test',
+              hardwareConcurrency: 4,
+              appVersion: 'test',
+            },
+            warmupEnabled: true,
+            warmupRepetitions: 1,
+          },
+        }),
+        createResult('suite-a', 20, 'unsolved'),
+        createResult('suite-b', 10, 'solved', {
+          warmup: true,
+          runId: 'suite-b-warmup',
+          finishedAtMs: 11,
+        }),
+      ],
+      onExportSnapshot,
+    });
+
+    expect(container.textContent).toContain('suite-a');
+    expect(container.textContent).not.toContain('suite-b');
+    expect(container.textContent).not.toContain('2 runs');
+
+    await act(async () => {
+      findButton(container, 'Export comparison snapshot')?.click();
+    });
+
+    expect(onExportSnapshot).toHaveBeenCalledTimes(1);
+    expect(onExportSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baselineSuiteRunId: 'suite-a',
+        generatedAtIso: '2026-03-05T18:00:00.000Z',
+        suites: [
+          expect.objectContaining({
+            suiteRunId: 'suite-a',
+            runs: 1,
+            p50ElapsedMs: 20,
+            p95ElapsedMs: 20,
+          }),
+        ],
+        comparisons: [
+          {
+            suiteRunId: 'suite-a',
+            comparable: true,
+            reason: null,
+            deltaSuccessRate: 0,
+            deltaP50ElapsedMs: 0,
+            deltaP95ElapsedMs: 0,
+          },
+        ],
+      }),
+    );
   });
 
   it('resets a stale selected baseline back to auto when results change', async () => {

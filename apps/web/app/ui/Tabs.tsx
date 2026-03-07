@@ -1,3 +1,5 @@
+import type { KeyboardEvent } from 'react';
+
 export type TabItem = {
   id: string;
   label: string;
@@ -20,9 +22,39 @@ export function Tabs({ items, value, onChange, ariaLabel, className }: TabsProps
     .filter(Boolean)
     .join(' ');
 
+  // ARIA tabs pattern: arrow keys navigate between tabs (roving tabIndex).
+  // Only enabled (non-disabled) tabs are reachable via arrow keys.
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, currentIndex: number) {
+    const enabled = items.map((item, i) => ({ item, i })).filter(({ item }) => !item.disabled);
+
+    const enabledIndex = enabled.findIndex(({ i }) => i === currentIndex);
+    if (enabledIndex === -1) return;
+
+    let nextEnabledIndex: number | null = null;
+
+    if (event.key === 'ArrowRight') {
+      nextEnabledIndex = (enabledIndex + 1) % enabled.length;
+    } else if (event.key === 'ArrowLeft') {
+      nextEnabledIndex = (enabledIndex - 1 + enabled.length) % enabled.length;
+    } else if (event.key === 'Home') {
+      nextEnabledIndex = 0;
+    } else if (event.key === 'End') {
+      nextEnabledIndex = enabled.length - 1;
+    }
+
+    if (nextEnabledIndex !== null) {
+      event.preventDefault();
+      const target = enabled[nextEnabledIndex];
+      onChange(target.item.id);
+      // Move DOM focus to the newly selected tab button.
+      const tabEl = document.getElementById(`tab-${target.item.id}`);
+      tabEl?.focus();
+    }
+  }
+
   return (
     <div role="tablist" aria-label={ariaLabel} className={containerClasses}>
-      {items.map((item) => {
+      {items.map((item, index) => {
         const selected = item.id === value;
         const tabClasses = [
           'rounded-[var(--radius-md)] px-3 py-1.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]',
@@ -46,6 +78,7 @@ export function Tabs({ items, value, onChange, ariaLabel, className }: TabsProps
             disabled={item.disabled}
             className={tabClasses}
             onClick={() => onChange(item.id)}
+            onKeyDown={(e) => handleKeyDown(e, index)}
           >
             {item.label}
           </button>

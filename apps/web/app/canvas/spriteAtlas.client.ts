@@ -2,6 +2,8 @@ import spriteAtlasWorkerUrl from './spriteAtlasWorker.client.ts?worker&url';
 import type { SpriteAtlas, SpriteAtlasRequestMessage } from './spriteAtlas.types';
 import { isSpriteAtlasWorkerMessage } from './spriteAtlas.types';
 
+type SpriteAtlasWorkerLike = Pick<Worker, 'onerror' | 'onmessage' | 'postMessage' | 'terminate'>;
+
 type PendingAtlasCacheEntry = {
   key: string;
   status: 'pending';
@@ -24,13 +26,23 @@ type AtlasLifecycleState = {
   closed: boolean;
 };
 
+type PendingWorkerRequest = {
+  key: string;
+  cellSize: number;
+  dpr: number;
+  resolve: (atlas: SpriteAtlas | null) => void;
+};
+
 // Keep only the most recent atlas pairs hot; older bitmaps are large enough that
 // session-long retention is not worth the memory cost.
 const MAX_CACHED_SPRITE_ATLASES = 2;
 
 const atlasCache = new Map<string, AtlasCacheEntry>();
 const atlasLifecycle = new WeakMap<SpriteAtlas, AtlasLifecycleState>();
+const pendingWorkerRequests = new Map<string, PendingWorkerRequest>();
 let atlasUseSequence = 0;
+let atlasRequestSequence = 0;
+let spriteAtlasWorker: SpriteAtlasWorkerLike | null = null;
 
 function makeAtlasKey(cellSize: number, dpr: number): string {
   return `${cellSize}:${dpr}`;
@@ -39,6 +51,11 @@ function makeAtlasKey(cellSize: number, dpr: number): string {
 function nextAtlasUseSequence(): number {
   atlasUseSequence += 1;
   return atlasUseSequence;
+}
+
+function nextAtlasRequestId(key: string): string {
+  atlasRequestSequence += 1;
+  return `${key}:${atlasRequestSequence}`;
 }
 
 function isReadyAtlasCacheEntry(entry: AtlasCacheEntry): entry is ReadyAtlasCacheEntry {
@@ -128,6 +145,83 @@ export function supportsOffscreenSpritePreRender(): boolean {
   );
 }
 
+function detachSpriteAtlasWorker(): void {
+  if (!spriteAtlasWorker) {
+    return;
+  }
+
+  spriteAtlasWorker.onerror = null;
+  spriteAtlasWorker.onmessage = null;
+  spriteAtlasWorker.terminate();
+  spriteAtlasWorker = null;
+}
+
+function resetSpriteAtlasWorker(): void {
+  const pendingRequests = Array.from(pendingWorkerRequests.values());
+  pendingWorkerRequests.clear();
+  detachSpriteAtlasWorker();
+
+  pendingRequests.forEach((pendingRequest) => {
+    pendingRequest.resolve(null);
+  });
+}
+
+function resolvePendingWorkerRequest(requestId: string, atlas: SpriteAtlas | null): void {
+  const pendingRequest = pendingWorkerRequests.get(requestId);
+  if (!pendingRequest) {
+    return;
+  }
+
+  pendingWorkerRequests.delete(requestId);
+  pendingRequest.resolve(atlas);
+}
+
+function handleSpriteAtlasWorkerMessage(event: MessageEvent<unknown>): void {
+  const message = event.data;
+  if (!isSpriteAtlasWorkerMessage(message)) {
+    resetSpriteAtlasWorker();
+    return;
+  }
+
+  const pendingRequest = pendingWorkerRequests.get(message.requestId);
+  if (!pendingRequest) {
+    resetSpriteAtlasWorker();
+    return;
+  }
+
+  if (message.type !== 'SPRITE_ATLAS_READY') {
+    resolvePendingWorkerRequest(message.requestId, null);
+    return;
+  }
+
+  if (message.cellSize !== pendingRequest.cellSize || message.dpr !== pendingRequest.dpr) {
+    resetSpriteAtlasWorker();
+    return;
+  }
+
+  resolvePendingWorkerRequest(message.requestId, {
+    key: pendingRequest.key,
+    sprites: message.sprites,
+  });
+}
+
+function ensureSpriteAtlasWorker(): SpriteAtlasWorkerLike {
+  if (spriteAtlasWorker) {
+    return spriteAtlasWorker;
+  }
+
+  const worker = new Worker(spriteAtlasWorkerUrl, {
+    type: 'module',
+    name: 'corgiban-sprite-atlas',
+  });
+  worker.onerror = () => {
+    resetSpriteAtlasWorker();
+  };
+  worker.onmessage = handleSpriteAtlasWorkerMessage;
+  spriteAtlasWorker = worker;
+  return worker;
+}
+
 function requestSpriteAtlas(cellSize: number, dpr: number): Promise<SpriteAtlas | null> {
   if (!supportsOffscreenSpritePreRender()) {
     return Promise.resolve(null);
@@ -137,52 +231,29 @@ function requestSpriteAtlas(cellSize: number, dpr: number): Promise<SpriteAtlas 
     return Promise.resolve(null);
   }
 
+  const key = makeAtlasKey(cellSize, dpr);
+  const requestId = nextAtlasRequestId(key);
+
   return new Promise((resolve) => {
-    const worker = new Worker(spriteAtlasWorkerUrl, {
-      type: 'module',
-      name: 'corgiban-sprite-atlas',
-    });
-
-    const cleanup = () => {
-      worker.onerror = null;
-      worker.onmessage = null;
-      worker.terminate();
-    };
-
-    worker.onerror = () => {
-      cleanup();
-      resolve(null);
-    };
-
-    worker.onmessage = (event: MessageEvent<unknown>) => {
-      const message = event.data;
-      if (!isSpriteAtlasWorkerMessage(message)) {
-        cleanup();
-        resolve(null);
-        return;
-      }
-
-      if (message.type === 'SPRITE_ATLAS_READY') {
-        const key = makeAtlasKey(message.cellSize, message.dpr);
-        cleanup();
-        resolve({
-          key,
-          sprites: message.sprites,
-        });
-        return;
-      }
-
-      cleanup();
-      resolve(null);
-    };
-
     const request: SpriteAtlasRequestMessage = {
       type: 'SPRITE_ATLAS_REQUEST',
+      requestId,
       cellSize,
       dpr,
     };
 
-    worker.postMessage(request);
+    pendingWorkerRequests.set(requestId, {
+      key,
+      cellSize,
+      dpr,
+      resolve,
+    });
+
+    try {
+      ensureSpriteAtlasWorker().postMessage(request);
+    } catch {
+      resetSpriteAtlasWorker();
+    }
   });
 }
 
@@ -266,5 +337,7 @@ export function clearSpriteAtlasCache(): void {
 
     atlasCache.delete(key);
   });
+  resetSpriteAtlasWorker();
   atlasUseSequence = 0;
+  atlasRequestSequence = 0;
 }

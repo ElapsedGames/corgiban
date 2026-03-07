@@ -5,22 +5,22 @@ type: debt
 severity: medium
 area: ui
 regression: false
-status: open
+status: fixed
 discovered_at: 2026-03-06
 introduced_in: null
-branch: null
+branch: main
 pr: null
 commit: null
 owner: null
-fixed_at: null
-fixed_by: null
+fixed_at: 2026-03-07
+fixed_by: JSly
 ---
 
 ## Summary
 
-Project docs still defer several accessibility gaps in shared UI primitives, and the current
-implementations confirm those gaps remain: `Dialog` has no focus trap, `Tabs` has no arrow-key
-navigation, and `Tooltip` overwrites `aria-describedby` instead of merging with existing values.
+Project docs still defer a remaining accessibility gap in shared UI primitives before wider reuse:
+`Dialog` moves focus on open and handles Escape, but it still does not trap Tab and Shift+Tab
+navigation within the modal.
 
 ## Expected
 
@@ -29,15 +29,14 @@ outside `/dev/ui-kit`.
 
 ## Actual
 
-The accessibility gaps documented as deferred are still present in `apps/web/app/ui`, so the repo
-is carrying known primitive-level a11y debt.
+Tabs now support arrow-key navigation and Tooltip now merges `aria-describedby`, but `Dialog`
+still allows keyboard focus to escape the modal because a full focus trap has not landed yet.
 
 ## Repro
 
-1. Inspect `apps/web/app/ui/Dialog.tsx`, `Tabs.tsx`, and `Tooltip.tsx`
-2. Note the lack of focus-trap logic in `Dialog`
-3. Note the click-only tab switching in `Tabs`
-4. Note the direct `aria-describedby` overwrite in `Tooltip`
+1. Open a dialog with multiple focusable elements
+2. Press Tab or Shift+Tab repeatedly
+3. Observe that focus can move outside the modal instead of cycling within it
 
 ## Notes
 
@@ -46,16 +45,15 @@ This is debt, not a phase-gated future feature.
 
 ## Fix Plan
 
-- Add focus management and trap behavior to `Dialog`
-- Implement roving focus or arrow-key navigation in `Tabs`
-- Merge `aria-describedby` in `Tooltip` instead of replacing existing descriptors
+- Add Tab and Shift+Tab trapping to `Dialog`
+- Extend dialog tests to cover focus cycling across the modal boundary
 
 ## Resolution
 
-(fill in when closing)
+Dialog now traps Tab and Shift+Tab within the modal, keeps focus on the dialog container when no focusable descendants remain, and has jsdom coverage for open focus, wraparound, and Escape handling.
 
 ## Verification
 
-- [ ] test added or updated
-- [ ] manual verification completed
-- [ ] docs updated if needed
+- [x] test added or updated
+- [x] manual verification completed
+- [-] docs updated if needed

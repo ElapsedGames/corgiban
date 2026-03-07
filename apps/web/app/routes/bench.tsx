@@ -52,6 +52,7 @@ import {
   type MutablePersistencePort,
   type MutableSolverPort,
 } from '../state/mutableDependencies';
+import { useThemeSync } from '../useThemeSync';
 
 const useRouteStoreEffect = typeof document === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -80,6 +81,7 @@ function createBenchRouteStoreOwner(): BenchRouteStoreOwner {
 }
 
 function BenchRoutePage() {
+  useThemeSync();
   const dispatch = useDispatch<AppDispatch>();
   const bench = useSelector((state: RootState) => state.bench);
   const debug = useSelector((state: RootState) => state.settings.debug);

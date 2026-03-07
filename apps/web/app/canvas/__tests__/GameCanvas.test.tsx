@@ -12,7 +12,13 @@ vi.mock('../draw', () => ({
   draw: mocks.draw,
 }));
 
-import { GameCanvas, renderCanvasFrame, subscribeDevicePixelRatio } from '../GameCanvas';
+import {
+  GameCanvas,
+  renderCanvasFrame,
+  resolveResponsiveCellSize,
+  subscribeContainerWidth,
+  subscribeDevicePixelRatio,
+} from '../GameCanvas';
 
 const level: LevelDefinition = {
   id: 'canvas-ssr',
@@ -65,6 +71,78 @@ describe('GameCanvas', () => {
     expect(() => unsubscribe()).not.toThrow();
   });
 
+  it('derives a smaller responsive cell size when the container is narrow', () => {
+    expect(resolveResponsiveCellSize(5, 32, 100)).toBe(20);
+    expect(resolveResponsiveCellSize(5, 32, 400)).toBe(32);
+    expect(resolveResponsiveCellSize(5, 32, 3)).toBe(1);
+  });
+
+  it('keeps the preferred cell size when container width is unavailable', () => {
+    expect(resolveResponsiveCellSize(5, 32, null)).toBe(32);
+    expect(resolveResponsiveCellSize(5, 32, undefined)).toBe(32);
+    expect(resolveResponsiveCellSize(0, 32, 100)).toBe(32);
+  });
+
+  it('subscribes to container width with ResizeObserver when available', () => {
+    const canvas = {
+      width: 0,
+      height: 0,
+      parentElement: { clientWidth: 144 },
+      style: { width: '', height: '', maxWidth: '' },
+      getContext: vi.fn(() => null),
+    };
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    const resizeObserverCtor = vi.fn(
+      () =>
+        ({
+          observe,
+          disconnect,
+        }) as const,
+    );
+    const updates: number[] = [];
+
+    const unsubscribe = subscribeContainerWidth(canvas, undefined, resizeObserverCtor, (width) =>
+      updates.push(width),
+    );
+
+    expect(updates).toEqual([144]);
+    expect(observe).toHaveBeenCalledWith(canvas.parentElement);
+
+    unsubscribe();
+    expect(disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to window resize events for container width when ResizeObserver is unavailable', () => {
+    const container = { clientWidth: 120 };
+    const windowLike = {
+      devicePixelRatio: 1,
+      addEventListener: vi.fn((_event: 'resize', _listener: () => void) => undefined),
+      removeEventListener: vi.fn(),
+    };
+    const canvas = {
+      width: 0,
+      height: 0,
+      parentElement: container,
+      style: { width: '', height: '', maxWidth: '' },
+      getContext: vi.fn(() => null),
+    };
+    const updates: number[] = [];
+
+    const unsubscribe = subscribeContainerWidth(canvas, windowLike, undefined, (width) =>
+      updates.push(width),
+    );
+    const resizeListener = windowLike.addEventListener.mock.calls[0]?.[1];
+
+    expect(updates).toEqual([120]);
+    container.clientWidth = 96;
+    resizeListener?.();
+    expect(updates).toEqual([120, 96]);
+
+    unsubscribe();
+    expect(windowLike.removeEventListener).toHaveBeenCalledTimes(1);
+  });
+
   it('falls back to dpr=1 when resize updates report 0 or undefined', () => {
     const windowLike = {
       devicePixelRatio: 0 as number | undefined,
@@ -91,7 +169,7 @@ describe('GameCanvas', () => {
     const canvas = {
       width: 0,
       height: 0,
-      style: { width: '', height: '' },
+      style: { width: '', height: '', maxWidth: '' },
       getContext: vi.fn(() => context),
     };
 
@@ -100,7 +178,8 @@ describe('GameCanvas', () => {
     expect(canvas.width).toBe(100);
     expect(canvas.height).toBe(60);
     expect(canvas.style.width).toBe('50px');
-    expect(canvas.style.height).toBe('30px');
+    expect(canvas.style.maxWidth).toBe('100%');
+    expect(canvas.style.height).toBe('auto');
     expect(context.imageSmoothingEnabled).toBe(false);
     expect(mocks.draw).toHaveBeenCalledTimes(1);
   });
@@ -115,7 +194,7 @@ describe('GameCanvas', () => {
       {
         width: 0,
         height: 0,
-        style: { width: '', height: '' },
+        style: { width: '', height: '', maxWidth: '' },
         getContext: vi.fn(() => null),
       },
       state,
@@ -125,13 +204,13 @@ describe('GameCanvas', () => {
     expect(mocks.draw).not.toHaveBeenCalled();
   });
 
-  it('reuses current canvas dimensions when pixel size is unchanged', () => {
+  it('keeps the backing-store size when pixel size is unchanged', () => {
     const state = createGame(parseLevel(level));
     const context = { imageSmoothingEnabled: true };
     const canvas = {
       width: 100,
       height: 60,
-      style: { width: 'existing-width', height: 'existing-height' },
+      style: { width: '50px', height: 'auto', maxWidth: '100%' },
       getContext: vi.fn(() => context),
     };
 
@@ -139,8 +218,30 @@ describe('GameCanvas', () => {
 
     expect(canvas.width).toBe(100);
     expect(canvas.height).toBe(60);
-    expect(canvas.style.width).toBe('existing-width');
-    expect(canvas.style.height).toBe('existing-height');
+    expect(canvas.style.width).toBe('50px');
+    expect(canvas.style.maxWidth).toBe('100%');
+    expect(canvas.style.height).toBe('auto');
+    expect(context.imageSmoothingEnabled).toBe(false);
+    expect(mocks.draw).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the canvas height responsive when the logical width changes', () => {
+    const state = createGame(parseLevel(level));
+    const context = { imageSmoothingEnabled: true };
+    const canvas = {
+      width: 100,
+      height: 60,
+      style: { width: '50px', height: 'auto', maxWidth: '100%' },
+      getContext: vi.fn(() => context),
+    };
+
+    renderCanvasFrame(canvas, state, 20, 1);
+
+    expect(canvas.width).toBe(100);
+    expect(canvas.height).toBe(60);
+    expect(canvas.style.width).toBe('100px');
+    expect(canvas.style.maxWidth).toBe('100%');
+    expect(canvas.style.height).toBe('auto');
     expect(context.imageSmoothingEnabled).toBe(false);
     expect(mocks.draw).toHaveBeenCalledTimes(1);
   });

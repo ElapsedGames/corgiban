@@ -37,11 +37,40 @@ function serializeComparableRunInput(input: BenchmarkComparableRunInput): string
   });
 }
 
+/**
+ * Sorts comparable run inputs into a canonical, locale-independent order.
+ *
+ * Ordering contract (all comparisons are ordinal / byte-order):
+ *   1. Primary:   levelId ascending (ordinal string comparison, not locale-aware)
+ *   2. Secondary: repetition ascending (numeric)
+ *   3. Tertiary:  full serialized JSON string ascending (ordinal) - breaks ties
+ *                 caused by identical levelId+repetition but differing solver/
+ *                 environment config, and ensures a fully deterministic result.
+ *
+ * Using `localeCompare` would make the sort order (and therefore the fingerprint)
+ * vary across browsers, operating systems, and Node.js ICU configurations.
+ */
+function compareOrdinal(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 function sortComparableInputs(
   inputs: BenchmarkComparableRunInput[],
 ): BenchmarkComparableRunInput[] {
   return [...inputs].sort((left, right) => {
-    return serializeComparableRunInput(left).localeCompare(serializeComparableRunInput(right));
+    // 1. levelId - ordinal, locale-independent
+    const byLevel = compareOrdinal(left.levelId, right.levelId);
+    if (byLevel !== 0) return byLevel;
+
+    // 2. repetition - numeric
+    if (left.repetition !== right.repetition) {
+      return left.repetition - right.repetition;
+    }
+
+    // 3. full serialized shape - ordinal tiebreaker for differing configs
+    return compareOrdinal(serializeComparableRunInput(left), serializeComparableRunInput(right));
   });
 }
 

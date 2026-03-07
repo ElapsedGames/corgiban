@@ -33,9 +33,17 @@ describe('bfsPush', () => {
 
     expectSolved(result);
     expect(result.solutionMoves).toBe('R');
+    expect(result.metrics).toEqual({
+      elapsedMs: 0,
+      expanded: 2,
+      generated: 2,
+      maxDepth: 1,
+      maxFrontier: 1,
+      pushCount: 1,
+      moveCount: 1,
+    });
     expect(result.metrics.pushCount).toBe(1);
     expect(result.metrics.moveCount).toBe(1);
-    expect(result.metrics.expanded).toBeGreaterThanOrEqual(1);
 
     const replayed = applyMoves(
       createGame(level),
@@ -44,7 +52,7 @@ describe('bfsPush', () => {
     expect(isWin(replayed)).toBe(true);
   });
 
-  it('tracks the maximum frontier on a branching solve', () => {
+  it('keeps solved-run maxFrontier aligned with the queued frontier regression case', () => {
     const level = buildLevel(['WWWWWWW', 'WPEBTEW', 'WEEEEEW', 'WWWWWWW']);
 
     const result = solve(level, 'bfsPush', undefined, undefined, { nowMs: () => 0 });
@@ -52,6 +60,7 @@ describe('bfsPush', () => {
     expectSolved(result);
     expect(result.solutionMoves).toBe('RR');
     expect(result.metrics.maxFrontier).toBe(2);
+    expect(result.metrics.generated).toBe(3);
     expect(result.metrics.pushCount).toBe(1);
   });
 
@@ -62,8 +71,15 @@ describe('bfsPush', () => {
 
     expectSolved(result);
     expect(result.solutionMoves).toBe('');
-    expect(result.metrics.pushCount).toBe(0);
-    expect(result.metrics.moveCount).toBe(0);
+    expect(result.metrics).toEqual({
+      elapsedMs: 0,
+      expanded: 0,
+      generated: 1,
+      maxDepth: 0,
+      maxFrontier: 1,
+      pushCount: 0,
+      moveCount: 0,
+    });
   });
 
   it('honors a pre-cancelled token', () => {

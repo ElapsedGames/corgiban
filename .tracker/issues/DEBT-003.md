@@ -5,15 +5,15 @@ type: debt
 severity: low
 area: data
 regression: false
-status: open
+status: fixed
 discovered_at: 2026-03-06
 introduced_in: phase6
-branch: null
+branch: main
 pr: null
 commit: null
 owner: null
-fixed_at: null
-fixed_by: null
+fixed_at: 2026-03-07
+fixed_by: JSly
 ---
 
 ## Summary
@@ -39,10 +39,16 @@ Replace localeCompare with a byte-wise sort (e.g. a < b ? -1 : a > b ? 1 : 0) in
 
 ## Resolution
 
-(fill in when closing)
+- `packages/benchmarks/src/model/comparison.ts`: replaced `localeCompare` with a
+  three-level explicit comparator - ordinal `levelId` (byte-order, locale-independent),
+  numeric `repetition`, then ordinal full-JSON tiebreaker. Added `compareOrdinal` helper
+  and JSDoc documenting the ordering contract.
+- `packages/benchmarks/src/model/__tests__/comparison.test.ts`: four new tests -
+  ordinal levelId sort, numeric repetition sort (verifies 10 > 2), JSON tiebreaker
+  determinism, and primary-key ordering (levelId beats repetition).
 
 ## Verification
 
-- [ ] test added or updated
-- [ ] manual verification completed
-- [ ] docs updated if needed
+- [x] test added or updated
+- [x] manual verification completed
+- [-] docs updated if needed

@@ -66,6 +66,23 @@ describe('parseXsb', () => {
     });
   });
 
+  it('reports lowercase v as a hexoban variant in XSB flows', () => {
+    const input = '#####\n#@v #\n#$. #\n#####';
+
+    expect(() => parseXsb(input)).toThrow('Unsupported variant tokens detected: hexoban.');
+
+    const collection = parseXsb(input, {
+      allowUnsupportedVariants: true,
+    });
+
+    expect(collection.levels).toHaveLength(1);
+    expect(collection.warnings).toContainEqual({
+      code: 'unsupported-variant-carried',
+      message: 'Unsupported variants retained in diagnostics: hexoban.',
+      levelId: 'xsb-001-level',
+    });
+  });
+
   it('rejects oversized multi-level payloads before parsing blocks', () => {
     const level = '; Demo\n#####\n#.@ #\n# $ #\n# . #\n#####';
     const repeatCount = Math.floor(MAX_IMPORT_BYTES / level.length) + 20;

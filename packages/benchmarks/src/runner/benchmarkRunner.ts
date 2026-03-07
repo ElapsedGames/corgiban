@@ -104,6 +104,10 @@ function buildSolverMetadata(plan: BenchmarkRunPlan): BenchmarkComparableMetadat
   };
 }
 
+function clampFinishedAtMs(startedAtMs: number, finishedAtMs: number): number {
+  return finishedAtMs >= startedAtMs ? finishedAtMs : startedAtMs;
+}
+
 export function buildComparableMetadata(
   plan: BenchmarkRunPlan,
   request: BenchmarkSuiteRunRequest,
@@ -245,7 +249,7 @@ export async function runBenchmarkSuite(
 
     const startedAtMs = nowMs();
     const outcome = await options.execute(executionRequest);
-    const finishedAtMs = nowMs();
+    const finishedAtMs = clampFinishedAtMs(startedAtMs, nowMs());
 
     if (plan.warmup) {
       continue;

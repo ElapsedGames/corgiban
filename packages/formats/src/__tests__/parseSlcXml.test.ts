@@ -121,6 +121,24 @@ describe('parseSlcXml', () => {
     ).toThrow('Malformed SLC XML');
   });
 
+  it('reports lowercase v as a hexoban variant in SLC XML flows', () => {
+    const xml =
+      '<Collection><Level id="variant"><L>#####</L><L>#@v #</L><L>#$. #</L><L>#####</L></Level></Collection>';
+
+    expect(() => parseSlcXml(xml)).toThrow('Unsupported variant tokens detected: hexoban.');
+
+    const collection = parseSlcXml(xml, {
+      allowUnsupportedVariants: true,
+    });
+
+    expect(collection.levels).toHaveLength(1);
+    expect(collection.warnings).toContainEqual({
+      code: 'unsupported-variant-carried',
+      message: 'Unsupported variants retained in diagnostics: hexoban.',
+      levelId: 'slc-001-variant',
+    });
+  });
+
   it('rejects unterminated processing instructions and unclosed tags', () => {
     expect(() => parseSlcXml('<?xml version="1.0"<Collection />')).toThrow(
       'Malformed SLC XML: unterminated processing instruction.',

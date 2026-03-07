@@ -119,6 +119,10 @@ function buildMeasuredSequenceByRunId(plans: RunPlan[]): Map<string, number> {
   return measuredSequenceByRunId;
 }
 
+function clampFinishedAtMs(startedAtMs: number, finishedAtMs: number): number {
+  return finishedAtMs >= startedAtMs ? finishedAtMs : startedAtMs;
+}
+
 function toRunRequestOptions(options: RunPlan['options'], streamWorkerProgress: boolean) {
   if (streamWorkerProgress || options?.enableSpectatorStream !== true) {
     return options;
@@ -312,7 +316,7 @@ export function createBenchmarkPort(options: CreateBenchmarkPortOptions = {}): B
                 return;
               }
 
-              const finishedAtMs = now();
+              const capturedFinishedAtMs = now();
               let startedAtMs = runStartTimes.get(runRequest.runId);
               const plan = planMetas.get(runRequest.runId);
               if (!plan) {
@@ -321,9 +325,10 @@ export function createBenchmarkPort(options: CreateBenchmarkPortOptions = {}): B
 
               // Defensive fallback for unexpected paths where dispatch callback was not observed.
               if (startedAtMs === undefined) {
-                startedAtMs = finishedAtMs;
+                startedAtMs = capturedFinishedAtMs;
                 runStartTimes.set(runRequest.runId, startedAtMs);
               }
+              const finishedAtMs = clampFinishedAtMs(startedAtMs, capturedFinishedAtMs);
               if (!dispatchMarked.has(runRequest.runId)) {
                 markSolveDispatch(performanceApi, runRequest.runId);
                 dispatchMarked.add(runRequest.runId);

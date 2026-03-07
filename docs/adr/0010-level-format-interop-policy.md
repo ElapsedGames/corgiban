@@ -20,7 +20,8 @@ mixed-case solutions used by some Sokoban formats.
 - `packages/core/encoding` handles CORG only.
 - Introduce `packages/formats` for XSB/SOK/SLC import/export; it depends on `shared` + `levels`.
 - `packages/formats` emits `LevelDefinition` / `LevelCollection` and does not require `core`.
-- Support full SOK 0.17 grammar (including RLE and row separators).
+- Support a documented SOK subset that covers pre-board title/comment metadata, positive-count
+  RLE, row separators, and the implemented normalization rules.
 - Import normalization rules:
   - Never trim rows; ragged rows allowed (pad to max width with floor).
   - Support interior empty rows via two-pass normalization.
@@ -51,14 +52,14 @@ mixed-case solutions used by some Sokoban formats.
 
 - Switch canonical storage to XSB symbols everywhere.
 - Put adapters inside `packages/core/src/encoding`.
-- Implement minimal RLE only (no full SOK 0.17 grammar).
+- Implement only plain XSB rows (no SOK metadata, RLE, or row separators).
 - Always accept open puzzles or silently auto-close them.
 - Force knownSolution to uppercase only.
 
 ## Testing plan
 
 - Import parsing and normalization tests (ragged rows, empty interior rows, crop rules).
-- RLE and SOK 0.17 grammar coverage.
+- RLE and documented SOK subset coverage.
 - Open/unclosed detection, closed-puzzle warnings, and strict-mode rejection tests.
 - Variant detection and metadata carry behavior.
 - Tab rejection and floor alias acceptance in converters.
@@ -68,4 +69,5 @@ mixed-case solutions used by some Sokoban formats.
 
 - `docs/Architecture.md` (format interop section)
 - `docs/project-plan.md` (formats package and normalization rules)
+- `packages/formats/docs/sok-grammar.md` (accepted SOK syntax and normalization contract)
 - `artifacts/architecture-decisions.md`

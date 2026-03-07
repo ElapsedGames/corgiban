@@ -5,15 +5,15 @@ type: debt
 severity: low
 area: lab
 regression: false
-status: open
+status: fixed
 discovered_at: 2026-03-06
 introduced_in: phase6
-branch: null
+branch: main
 pr: null
 commit: null
 owner: null
-fixed_at: null
-fixed_by: null
+fixed_at: 2026-03-07
+fixed_by: JSly
 ---
 
 ## Summary
@@ -44,10 +44,12 @@ in-flight run behavior on failed parse. No code change may be needed if behavior
 
 ## Resolution
 
-(fill in when closing)
+Accepted the "last successfully committed level" contract as intentional. Documented it explicitly
+in ADR-0023 under the Decision section. Added a regression test to `LabPage.test.tsx` that verifies
+an in-flight solve run is NOT cancelled and resolves normally after a failed parse attempt.
 
 ## Verification
 
-- [ ] test added or updated
-- [ ] manual verification completed
-- [ ] docs updated if needed
+- [x] test added or updated
+- [x] manual verification completed
+- [x] docs updated if needed

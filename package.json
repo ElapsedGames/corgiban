@@ -12,6 +12,7 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "encoding:fix": "pnpm exec tsx tools/scripts/normalize-ascii.ts --all",
     "test": "vitest run --workspace vitest.workspace.ts",
     "test:coverage": "vitest run --coverage --coverage.all false --workspace vitest.workspace.ts",
     "test:smoke": "pnpm build && playwright test",
@@ -25,7 +26,7 @@
     "issue:check": "node tools/scripts/generate-known-issues.mjs --check"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm format:check && node tools/scripts/run-affected-tests.mjs && node tools/scripts/encoding-check.mjs"
+    "pre-commit": "pnpm exec tsx tools/scripts/normalize-ascii.ts --staged && pnpm format:check && node tools/scripts/run-affected-tests.mjs && node tools/scripts/encoding-check.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

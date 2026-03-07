@@ -91,6 +91,11 @@ function takeFirst(collection: { levels: LevelDefinition[] }): LevelDefinition {
   if (!first) {
     throw new Error('No levels were parsed from input.');
   }
+  if (collection.levels.length > 1) {
+    throw new Error(
+      `Multi-level input is not supported in the lab editor. Input contains ${collection.levels.length} levels; paste a single level only.`,
+    );
+  }
   return first;
 }
 

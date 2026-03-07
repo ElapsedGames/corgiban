@@ -125,6 +125,10 @@ export function toSuiteAnalytics(results: BenchmarkRunRecord[]): SuiteAnalytics[
   const bySuite = new Map<string, BenchmarkRunRecord[]>();
 
   results.forEach((result) => {
+    if (result.warmup === true) {
+      return;
+    }
+
     const existing = bySuite.get(result.suiteRunId) ?? [];
     existing.push(result);
     bySuite.set(result.suiteRunId, existing);

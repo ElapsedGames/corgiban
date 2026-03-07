@@ -8,6 +8,7 @@ import { PlayPage } from '../play/PlayPage';
 import { createNoopSolverPort } from '../ports/solverPort';
 import { createSolverPort } from '../ports/solverPort.client';
 import { createMutableSolverPort, type MutableSolverPort } from '../state/mutableDependencies';
+import { useThemeSync } from '../useThemeSync';
 
 const useRouteStoreEffect = typeof document === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -22,6 +23,11 @@ function createPlayRouteStoreOwner(): PlayRouteStoreOwner {
     solverPort,
     store: createAppStore({ solverPort }),
   };
+}
+
+function PlayRouteInner() {
+  useThemeSync();
+  return <PlayPage />;
 }
 
 export default function PlayRoute() {
@@ -39,7 +45,7 @@ export default function PlayRoute() {
 
   return (
     <Provider store={storeOwner.store}>
-      <PlayPage />
+      <PlayRouteInner />
     </Provider>
   );
 }

@@ -112,11 +112,40 @@ describe('labFormat.parseLabInput', () => {
     expect(parsed.level.rows[0]).toBe('WWWWW');
   });
 
+  it('rejects multi-level XSB input with an explicit error', () => {
+    const multiLevel =
+      '; Level 1\n#####\n#.@ #\n# $ #\n# . #\n#####\n\n; Level 2\n#####\n#.@ #\n# $ #\n# . #\n#####';
+    expect(() => parseLabInput('xsb', multiLevel)).toThrow(
+      'Multi-level input is not supported in the lab editor. Input contains 2 levels; paste a single level only.',
+    );
+  });
+
   it('parses SOK 0.17 input', () => {
     const parsed = parseLabInput('sok-0.17', 'Title: Demo\n5#|#.@ #|# $ #|# . #|5#');
     expect(parsed.level.rows[0]).toBe('WWWWW');
     expect(parsed.normalizedFormat).toBe('sok-0.17');
     expect(parsed.normalizedInput).toContain('Title: Demo');
+  });
+
+  it('rejects multi-level SOK 0.17 input with an explicit error', () => {
+    const multiLevel = [
+      'Title: First',
+      '#####',
+      '#.@ #',
+      '# $ #',
+      '# . #',
+      '#####',
+      '',
+      'Title: Second',
+      '#####',
+      '#.@ #',
+      '# $ #',
+      '# . #',
+      '#####',
+    ].join('\n');
+    expect(() => parseLabInput('sok-0.17', multiLevel)).toThrow(
+      'Multi-level input is not supported in the lab editor. Input contains 2 levels; paste a single level only.',
+    );
   });
 
   it('parses SLC XML input', () => {
@@ -128,5 +157,16 @@ describe('labFormat.parseLabInput', () => {
     expect(parsed.normalizedFormat).toBe('slc-xml');
     expect(parsed.normalizedInput).toContain('<Collection>');
     expect(parsed.normalizedInput).toContain('<L>#.@ #</L>');
+  });
+
+  it('rejects multi-level SLC XML input with an explicit error', () => {
+    const multiLevel =
+      '<Collection>' +
+      '<Level Id="a" Name="A"><L>#####</L><L>#.@ #</L><L># $ #</L><L># . #</L><L>#####</L></Level>' +
+      '<Level Id="b" Name="B"><L>#####</L><L>#.@ #</L><L># $ #</L><L># . #</L><L>#####</L></Level>' +
+      '</Collection>';
+    expect(() => parseLabInput('slc-xml', multiLevel)).toThrow(
+      'Multi-level input is not supported in the lab editor. Input contains 2 levels; paste a single level only.',
+    );
   });
 });

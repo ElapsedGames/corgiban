@@ -15,8 +15,8 @@ main thread with versioned, runtime-validated protocol messages.
 - Phase 3 complete: versioned worker protocol, baseline push-based BFS solver, solver client/runtime, and `/play` solver controls + replay integration.
 - Phase 4 complete: benchmark domain package, benchmark worker/runtime/client flows, worker pool orchestration, `/bench` UI, and IndexedDB-backed persistence with import/export and diagnostics.
 - Phase 5 complete: coverage/boundary quality gates verified, solver ping timeout hardening, Playwright smoke coverage, and Workbox-based offline shell support.
-- Phase 6 baseline landed: `/lab` route is live, `packages/formats` / `packages/embed` / `packages/solver-kernels` are active, OffscreenCanvas sprite-atlas pre-rendering is integrated with fallback, benchmark analytics/comparison flows are live, and level-pack/persistence contracts are hardened. This is not the final Phase 6 closeout state yet; tracked follow-up issues remain in `BUG-003`, `BUG-005`, `BUG-006`, `BUG-007`, `BUG-009`, and `BUG-010`.
-- Next Step: Phase 6.1 focuses on resolving the remaining Phase 6 contract/correctness issues plus repo code cleanup and best-practices alignment before expanding scope.
+- Phase 6 complete: `/lab` route is live, `packages/formats` / `packages/embed` / `packages/solver-kernels` are active, OffscreenCanvas sprite-atlas pre-rendering is integrated with fallback, benchmark analytics/comparison flows are live, and level-pack/persistence contracts are hardened.
+- Next Step: Phase 7 focuses on the UX and route-responsibility pass across `/play`, `/lab`, and `/bench`. Deferred cleanup and tooling debt stays tracked in `.tracker/issues/*.md` and `KNOWN_ISSUES.md` instead of blocking phase closeout.
 
 Current routes:
 
@@ -93,7 +93,6 @@ Current:
 
 Planned next-phase extensions:
 
-- Phase 6.1: remaining Phase 6 follow-up fixes, repo code cleanup, and best-practices alignment
 - Phase 7: UX and route-responsibility pass across `/play`, `/lab`, and `/bench`
 - Phase 8: solver optimization and advanced search
 - Phase 9: UI/visual polish and sprite/art pass

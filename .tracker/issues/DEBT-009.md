@@ -5,15 +5,15 @@ type: debt
 severity: medium
 area: ui
 regression: false
-status: open
+status: fixed
 discovered_at: 2026-03-06
 introduced_in: null
-branch: null
+branch: main
 pr: null
 commit: null
-owner: null
-fixed_at: null
-fixed_by: null
+owner: JSly
+fixed_at: 2026-03-06
+fixed_by: JSly
 ---
 
 ## Summary
@@ -53,10 +53,21 @@ feature.
 
 ## Resolution
 
-(fill in when closing)
+- `apps/web/app/root.tsx`: changed `className="dark"` to `className="light"` so the
+  SSR-rendered HTML class matches the `settingsSlice` default of `'light'`.
+- `apps/web/app/useThemeSync.ts`: new hook that reads `settings.theme` from the Redux
+  store via `useSelector` and applies it to `document.documentElement.classList` in a
+  `useEffect`, removing the opposing class on each theme change.
+- `apps/web/app/routes/play.tsx`: added `PlayRouteInner` wrapper (inside `<Provider>`)
+  that calls `useThemeSync()` so theme propagates on the /play route.
+- `apps/web/app/routes/bench.tsx`: called `useThemeSync()` at the top of
+  `BenchRoutePage` (already inside `<Provider>`) so theme propagates on /bench.
+- `apps/web/app/__tests__/useThemeSync.test.tsx`: five tests covering initial mount,
+  dark initial state, light-to-dark switch, dark-to-light switch, and no simultaneous
+  dual-class state.
 
 ## Verification
 
-- [ ] test added or updated
-- [ ] manual verification completed
-- [ ] docs updated if needed
+- [x] test added or updated
+- [x] manual verification completed
+- [x] docs updated if needed

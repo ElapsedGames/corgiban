@@ -72,7 +72,7 @@ pnpm issue:check      # verify it is up to date (used by CI)
 
 ## Verification checklist
 
-All three boxes must be checked before running `issue:close`.
+All three boxes must be resolved before running `issue:close`.
 
 - **test added or updated** - a unit or integration test covers the fixed behaviour.
 - **manual verification completed** - the fix was confirmed to work end-to-end (tests pass, no
@@ -80,7 +80,15 @@ All three boxes must be checked before running `issue:close`.
 - **docs updated if needed** - ADRs, Architecture.md, or other docs reflect the change if the fix
   touched a design decision or public contract.
 
-The person who authored the fix is responsible for checking these off.
+Checkbox states:
+
+| Markdown | Meaning                                                   |
+| -------- | --------------------------------------------------------- |
+| `- [ ]`  | Not yet done - blocks closing.                            |
+| `- [x]`  | Done - item was applicable and has been completed.        |
+| `- [-]`  | Not applicable - docs did not need updating for this fix. |
+
+The person who authored the fix is responsible for resolving all three before closing.
 
 ## Valid frontmatter statuses
 

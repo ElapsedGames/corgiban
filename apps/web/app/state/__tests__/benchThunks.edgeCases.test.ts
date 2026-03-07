@@ -22,18 +22,26 @@ import {
 import { createAppStore } from '../store';
 
 function createResult(overrides: Partial<BenchmarkRunRecord> = {}): BenchmarkRunRecord {
+  const algorithmId = overrides.algorithmId ?? 'bfsPush';
+  const options = overrides.options ?? {
+    timeBudgetMs: 1000,
+    nodeBudget: 500,
+  };
+  const environment = overrides.environment ?? {
+    userAgent: 'test',
+    hardwareConcurrency: 4,
+    appVersion: 'test',
+  };
+
   return {
     id: 'edge-result-1',
     suiteRunId: 'edge-suite-1',
     runId: 'edge-run-1',
     sequence: 1,
     levelId: builtinLevels[0]?.id ?? 'classic-001',
-    algorithmId: 'bfsPush',
+    algorithmId,
     repetition: 1,
-    options: {
-      timeBudgetMs: 1000,
-      nodeBudget: 500,
-    },
+    options,
     status: 'unsolved',
     metrics: {
       elapsedMs: 10,
@@ -46,11 +54,26 @@ function createResult(overrides: Partial<BenchmarkRunRecord> = {}): BenchmarkRun
     },
     startedAtMs: 10,
     finishedAtMs: 20,
-    environment: {
-      userAgent: 'test',
-      hardwareConcurrency: 4,
-      appVersion: 'test',
-    },
+    environment,
+    comparableMetadata: Object.prototype.hasOwnProperty.call(overrides, 'comparableMetadata')
+      ? overrides.comparableMetadata
+      : {
+          solver: {
+            algorithmId,
+            ...(options.timeBudgetMs !== undefined ? { timeBudgetMs: options.timeBudgetMs } : {}),
+            ...(options.nodeBudget !== undefined ? { nodeBudget: options.nodeBudget } : {}),
+            ...(options.heuristicId !== undefined ? { heuristicId: options.heuristicId } : {}),
+            ...(options.heuristicWeight !== undefined
+              ? { heuristicWeight: options.heuristicWeight }
+              : {}),
+            ...(options.enableSpectatorStream !== undefined
+              ? { enableSpectatorStream: options.enableSpectatorStream }
+              : {}),
+          },
+          environment,
+          warmupEnabled: false,
+          warmupRepetitions: 0,
+        },
     ...overrides,
   };
 }
@@ -174,13 +197,68 @@ describe('benchThunks edge cases', () => {
       persistencePort: undefined,
     });
 
-    const imported = createResult({ id: 'imported-without-storage' });
+    const importedWarmup = createResult({
+      id: 'imported-warmup-without-storage',
+      runId: 'imported-warmup-run',
+      warmup: true,
+      comparableMetadata: {
+        solver: {
+          algorithmId: 'bfsPush',
+          timeBudgetMs: 1000,
+          nodeBudget: 500,
+        },
+        environment: {
+          userAgent: 'test',
+          hardwareConcurrency: 4,
+          appVersion: 'test',
+        },
+        warmupEnabled: true,
+        warmupRepetitions: 1,
+      },
+    });
+    const imported = createResult({
+      id: 'imported-without-storage',
+      runId: 'imported-measured-run',
+    });
     await expect(
-      store.dispatch(importBenchmarkReport(createReportPayload([imported]))),
+      store.dispatch(importBenchmarkReport(createReportPayload([importedWarmup, imported]))),
     ).resolves.toBe(undefined);
 
     expect(store.getState().bench.results).toEqual([imported]);
     expect(store.getState().bench.diagnostics.lastError).toBeNull();
+    expect(store.getState().bench.diagnostics.lastNotice).toContain(
+      'Imported report skipped 1 warm-up run across 1 suite.',
+    );
+    store.dispose();
+  });
+
+  it('records an import notice when imported runs lack comparable metadata', async () => {
+    const benchmarkPort = createBenchmarkPortMock();
+    const benchmarkStorage = createBenchmarkStorageMock();
+    const store = createAppStore({
+      solverPort: createNoopSolverPort(),
+      benchmarkPort,
+      persistencePort: benchmarkStorage,
+    });
+
+    const imported = createResult({
+      id: 'imported-missing-comparable-metadata',
+      suiteRunId: 'import-suite',
+      runId: 'import-run',
+      comparableMetadata: undefined,
+    });
+
+    await expect(
+      store.dispatch(importBenchmarkReport(createReportPayload([imported]))),
+    ).resolves.toBeUndefined();
+
+    expect(store.getState().bench.diagnostics.lastError).toBeNull();
+    expect(store.getState().bench.diagnostics.lastNotice).toContain(
+      'Imported report includes 1 run without comparable metadata across 1 suite.',
+    );
+    expect(store.getState().bench.diagnostics.lastNotice).toContain(
+      'Affected suites: import-suite.',
+    );
     store.dispose();
   });
 

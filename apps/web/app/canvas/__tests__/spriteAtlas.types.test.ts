@@ -17,6 +17,7 @@ describe('spriteAtlas.types', () => {
     expect(
       isSpriteAtlasRequestMessage({
         type: 'SPRITE_ATLAS_REQUEST',
+        requestId: 'atlas-1',
         cellSize: 24,
         dpr: 2,
       }),
@@ -25,6 +26,7 @@ describe('spriteAtlas.types', () => {
     expect(
       isSpriteAtlasWorkerMessage({
         type: 'SPRITE_ATLAS_READY',
+        requestId: 'atlas-1',
         cellSize: 24,
         dpr: 2,
         sprites: createSpriteRecord(),
@@ -34,6 +36,7 @@ describe('spriteAtlas.types', () => {
     expect(
       isSpriteAtlasWorkerMessage({
         type: 'SPRITE_ATLAS_ERROR',
+        requestId: 'atlas-1',
         message: 'failed to render sprites',
       }),
     ).toBe(true);
@@ -51,13 +54,16 @@ describe('spriteAtlas.types', () => {
     expect(
       isSpriteAtlasRequestMessage({
         type: 'SPRITE_ATLAS_REQUEST',
+        requestId: '',
         cellSize: 24,
+        dpr: 2,
       }),
     ).toBe(false);
 
     expect(
       isSpriteAtlasWorkerMessage({
         type: 'SPRITE_ATLAS_READY',
+        requestId: 'atlas-1',
         cellSize: 24,
         dpr: 2,
         sprites: {
@@ -69,6 +75,7 @@ describe('spriteAtlas.types', () => {
     expect(
       isSpriteAtlasWorkerMessage({
         type: 'SPRITE_ATLAS_ERROR',
+        requestId: 'atlas-1',
         message: 42,
       }),
     ).toBe(false);

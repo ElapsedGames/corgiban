@@ -12,8 +12,38 @@ describe('parseSok017', () => {
     expect(collection.levels[0].rows[0]).toBe('WWWWW');
   });
 
+  it('parses multiple levels separated by blank lines and normalizes floor aliases', () => {
+    const collection = parseSok017(
+      [
+        '; First',
+        '5#|#@-_#|#$. #|5#',
+        '',
+        'Title: Second',
+        '#####',
+        '#.@ #',
+        '# $ #',
+        '# . #',
+        '#####',
+      ].join('\n'),
+    );
+
+    expect(collection.levels).toHaveLength(2);
+    expect(collection.levels[0]).toMatchObject({
+      name: 'First',
+      rows: ['WWWWW', 'WPEEW', 'WBTEW', 'WWWWW'],
+      knownSolution: null,
+    });
+    expect(collection.levels[1]?.name).toBe('Second');
+  });
+
   it('throws on malformed RLE content', () => {
     expect(() => parseSok017('Title: Broken\n3')).toThrow('trailing digit');
+  });
+
+  it('rejects zero repeat counts instead of normalizing them to one', () => {
+    expect(() => parseSok017('Title: Broken\n0#|#@  #|# $.#|5#')).toThrow(
+      'repeat count must be greater than zero',
+    );
   });
 
   it('rejects tiny RLE payloads that would decode beyond MAX_GRID_WIDTH', () => {
@@ -53,6 +83,12 @@ describe('parseSok017', () => {
     );
   });
 
+  it('rejects Title metadata that appears after board rows have started', () => {
+    expect(() => parseSok017('#####\nTitle: Later\n#@  #\n# $.#\n#####')).toThrow(
+      'Unsupported SOK 0.17 line: "Title: Later".',
+    );
+  });
+
   it('keeps unsupported variants strict by default and carries them when explicitly allowed', () => {
     const input = 'Title: Variant\n####\n#@a#\n#$.#\n####';
 
@@ -88,5 +124,17 @@ describe('parseSok017', () => {
     const xsb = parseXsb(`; Indented\n${board}`);
 
     expect(sok.levels[0]?.rows).toEqual(xsb.levels[0]?.rows);
+  });
+
+  it('ignores semicolon comments that appear after a board has started', () => {
+    const collection = parseSok017(
+      'Title: Demo\n#####\n; note inside block\n#.@ #\n# $ #\n# . #\n#####',
+    );
+
+    expect(collection.levels).toHaveLength(1);
+    expect(collection.levels[0]).toMatchObject({
+      name: 'Demo',
+      rows: ['WWWWW', 'WTPEW', 'WEBEW', 'WETEW', 'WWWWW'],
+    });
   });
 });

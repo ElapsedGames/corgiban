@@ -78,6 +78,18 @@ function createSpriteBitmapSet() {
   };
 }
 
+function getPostedRequest(
+  worker: WorkerMockInstance,
+  callIndex = worker.postMessage.mock.calls.length - 1,
+) {
+  return worker.postMessage.mock.calls[callIndex]?.[0] as {
+    type: 'SPRITE_ATLAS_REQUEST';
+    requestId: string;
+    cellSize: number;
+    dpr: number;
+  };
+}
+
 describe('spriteAtlas.client', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -116,6 +128,60 @@ describe('spriteAtlas.client', () => {
     expect(instances).toHaveLength(0);
   });
 
+  it('reuses one dedicated worker across atlas requests with different keys', async () => {
+    const { WorkerMock, instances } = createWorkerMock();
+    installSpriteAtlasCapabilities(WorkerMock);
+
+    const { clearSpriteAtlasCache, getSpriteAtlas } = await importSpriteAtlasModule();
+
+    const firstRequest = getSpriteAtlas(16, 1);
+    expect(instances).toHaveLength(1);
+
+    const worker = instances[0];
+    const firstPostedRequest = getPostedRequest(worker);
+    const firstBitmapSet = createSpriteBitmapSet();
+    worker.onmessage?.({
+      data: {
+        type: 'SPRITE_ATLAS_READY',
+        requestId: firstPostedRequest.requestId,
+        cellSize: 16,
+        dpr: 1,
+        sprites: firstBitmapSet.sprites,
+      },
+    } as MessageEvent<SpriteAtlasWorkerMessage>);
+
+    await expect(firstRequest).resolves.toEqual({
+      key: '16:1',
+      sprites: firstBitmapSet.sprites,
+    });
+    expect(worker.terminate).not.toHaveBeenCalled();
+
+    const secondRequest = getSpriteAtlas(20, 1);
+    expect(instances).toHaveLength(1);
+    expect(worker.postMessage).toHaveBeenCalledTimes(2);
+
+    const secondPostedRequest = getPostedRequest(worker);
+    const secondBitmapSet = createSpriteBitmapSet();
+    worker.onmessage?.({
+      data: {
+        type: 'SPRITE_ATLAS_READY',
+        requestId: secondPostedRequest.requestId,
+        cellSize: 20,
+        dpr: 1,
+        sprites: secondBitmapSet.sprites,
+      },
+    } as MessageEvent<SpriteAtlasWorkerMessage>);
+
+    await expect(secondRequest).resolves.toEqual({
+      key: '20:1',
+      sprites: secondBitmapSet.sprites,
+    });
+    expect(secondPostedRequest.requestId).not.toBe(firstPostedRequest.requestId);
+
+    clearSpriteAtlasCache();
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
+  });
+
   it('reuses successful atlases for the same key and clears cached bitmaps', async () => {
     const { WorkerMock, instances } = createWorkerMock();
     installSpriteAtlasCapabilities(WorkerMock);
@@ -129,10 +195,12 @@ describe('spriteAtlas.client', () => {
     expect(instances).toHaveLength(1);
 
     const worker = instances[0];
+    const request = getPostedRequest(worker);
     const { sprites, closeSpies } = createSpriteBitmapSet();
     worker.onmessage?.({
       data: {
         type: 'SPRITE_ATLAS_READY',
+        requestId: request.requestId,
         cellSize: 16,
         dpr: 2,
         sprites,
@@ -151,16 +219,20 @@ describe('spriteAtlas.client', () => {
     expect(third).toBe(await first);
     expect(worker.postMessage).toHaveBeenCalledWith({
       type: 'SPRITE_ATLAS_REQUEST',
+      requestId: expect.any(String),
       cellSize: 16,
       dpr: 2,
     });
-    expect(worker.terminate).toHaveBeenCalledTimes(1);
-    expect(worker.onmessage).toBeNull();
-    expect(worker.onerror).toBeNull();
+    expect(worker.terminate).not.toHaveBeenCalled();
+    expect(worker.onmessage).not.toBeNull();
+    expect(worker.onerror).not.toBeNull();
     expect(instances).toHaveLength(1);
 
     clearSpriteAtlasCache();
 
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
+    expect(worker.onmessage).toBeNull();
+    expect(worker.onerror).toBeNull();
     expect(closeSpies.floorClose).toHaveBeenCalledTimes(1);
     expect(closeSpies.wallClose).toHaveBeenCalledTimes(1);
     expect(closeSpies.targetClose).toHaveBeenCalledTimes(1);
@@ -177,22 +249,28 @@ describe('spriteAtlas.client', () => {
     const { getSpriteAtlas } = await importSpriteAtlasModule();
 
     const firstAttempt = getSpriteAtlas(20, 1);
-    instances[0].onmessage?.({
+    const worker = instances[0];
+    const firstRequest = getPostedRequest(worker);
+    worker.onmessage?.({
       data: {
         type: 'SPRITE_ATLAS_ERROR',
+        requestId: firstRequest.requestId,
         message: 'failed to render sprites',
       },
     } as MessageEvent<SpriteAtlasWorkerMessage>);
     await expect(firstAttempt).resolves.toBeNull();
-    expect(instances[0].terminate).toHaveBeenCalledTimes(1);
+    expect(worker.terminate).not.toHaveBeenCalled();
 
     const secondAttempt = getSpriteAtlas(20, 1);
-    expect(instances).toHaveLength(2);
+    expect(instances).toHaveLength(1);
+    expect(worker.postMessage).toHaveBeenCalledTimes(2);
 
+    const secondRequest = getPostedRequest(worker);
     const { sprites } = createSpriteBitmapSet();
-    instances[1].onmessage?.({
+    worker.onmessage?.({
       data: {
         type: 'SPRITE_ATLAS_READY',
+        requestId: secondRequest.requestId,
         cellSize: 20,
         dpr: 1,
         sprites,
@@ -211,9 +289,11 @@ describe('spriteAtlas.client', () => {
     const { getSpriteAtlas } = await importSpriteAtlasModule();
 
     const request = getSpriteAtlas(18, 1);
+    const postedRequest = getPostedRequest(instances[0]);
     instances[0].onmessage?.({
       data: {
         type: 'SPRITE_ATLAS_READY',
+        requestId: postedRequest.requestId,
         cellSize: 18,
         dpr: 1,
         sprites: {
@@ -221,6 +301,52 @@ describe('spriteAtlas.client', () => {
         },
       },
     } as unknown as MessageEvent<SpriteAtlasWorkerMessage>);
+
+    await expect(request).resolves.toBeNull();
+    expect(instances[0].terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns null for uncorrelated worker responses', async () => {
+    const { WorkerMock, instances } = createWorkerMock();
+    installSpriteAtlasCapabilities(WorkerMock);
+
+    const { getSpriteAtlas } = await importSpriteAtlasModule();
+
+    const request = getSpriteAtlas(22, 1);
+    const postedRequest = getPostedRequest(instances[0]);
+    const { sprites } = createSpriteBitmapSet();
+    instances[0].onmessage?.({
+      data: {
+        type: 'SPRITE_ATLAS_READY',
+        requestId: `${postedRequest.requestId}-stale`,
+        cellSize: 22,
+        dpr: 1,
+        sprites,
+      },
+    } as MessageEvent<SpriteAtlasWorkerMessage>);
+
+    await expect(request).resolves.toBeNull();
+    expect(instances[0].terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns null for mismatched atlas dimensions even when request ids match', async () => {
+    const { WorkerMock, instances } = createWorkerMock();
+    installSpriteAtlasCapabilities(WorkerMock);
+
+    const { getSpriteAtlas } = await importSpriteAtlasModule();
+
+    const request = getSpriteAtlas(26, 2);
+    const postedRequest = getPostedRequest(instances[0]);
+    const { sprites } = createSpriteBitmapSet();
+    instances[0].onmessage?.({
+      data: {
+        type: 'SPRITE_ATLAS_READY',
+        requestId: postedRequest.requestId,
+        cellSize: 26,
+        dpr: 1,
+        sprites,
+      },
+    } as MessageEvent<SpriteAtlasWorkerMessage>);
 
     await expect(request).resolves.toBeNull();
     expect(instances[0].terminate).toHaveBeenCalledTimes(1);
@@ -234,10 +360,14 @@ describe('spriteAtlas.client', () => {
       await importSpriteAtlasModule();
 
     const firstRequest = getSpriteAtlas(12, 1);
+    expect(instances).toHaveLength(1);
+    const worker = instances[0];
     const firstBitmapSet = createSpriteBitmapSet();
-    instances[0].onmessage?.({
+    const firstPostedRequest = getPostedRequest(worker);
+    worker.onmessage?.({
       data: {
         type: 'SPRITE_ATLAS_READY',
+        requestId: firstPostedRequest.requestId,
         cellSize: 12,
         dpr: 1,
         sprites: firstBitmapSet.sprites,
@@ -249,9 +379,12 @@ describe('spriteAtlas.client', () => {
 
     const secondRequest = getSpriteAtlas(14, 1);
     const secondBitmapSet = createSpriteBitmapSet();
-    instances[1].onmessage?.({
+    expect(instances).toHaveLength(1);
+    const secondPostedRequest = getPostedRequest(worker);
+    worker.onmessage?.({
       data: {
         type: 'SPRITE_ATLAS_READY',
+        requestId: secondPostedRequest.requestId,
         cellSize: 14,
         dpr: 1,
         sprites: secondBitmapSet.sprites,
@@ -264,9 +397,12 @@ describe('spriteAtlas.client', () => {
 
     const thirdRequest = getSpriteAtlas(16, 1);
     const thirdBitmapSet = createSpriteBitmapSet();
-    instances[2].onmessage?.({
+    expect(instances).toHaveLength(1);
+    const thirdPostedRequest = getPostedRequest(worker);
+    worker.onmessage?.({
       data: {
         type: 'SPRITE_ATLAS_READY',
+        requestId: thirdPostedRequest.requestId,
         cellSize: 16,
         dpr: 1,
         sprites: thirdBitmapSet.sprites,
@@ -290,6 +426,7 @@ describe('spriteAtlas.client', () => {
     expect(firstBitmapSet.closeSpies.playerOnTargetClose).toHaveBeenCalledTimes(1);
 
     clearSpriteAtlasCache();
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
     expect(secondBitmapSet.closeSpies.floorClose).toHaveBeenCalledTimes(1);
     expect(secondBitmapSet.closeSpies.wallClose).toHaveBeenCalledTimes(1);
     expect(secondBitmapSet.closeSpies.targetClose).toHaveBeenCalledTimes(1);

@@ -42,7 +42,7 @@ pnpm issue:close --id BUG-001 --fixed-by "Your Name" --resolution "Short closure
 pnpm issue:generate  # regenerate KNOWN_ISSUES.md after issue edits
 pnpm issue:check     # verify KNOWN_ISSUES.md is in sync
 pnpm graph:deps      # optional dependency graph -> docs/_generated/dep-graph.svg
-pnpm best-practices  # optional generated size/time-usage report -> docs/_generated/analysis/
+pnpm best-practices  # optional placeholder CLI; report artifact wiring is still tracked in DEBT-007
 node tools/scripts/profile-worker-validation.mjs  # optional: protocol validation profiling report
 ```
 
@@ -61,7 +61,8 @@ Validation profiling note: `node tools/scripts/profile-worker-validation.mjs` wr
 Optional architecture tooling:
 
 - `pnpm graph:deps` refreshes `docs/_generated/dep-graph.svg`.
-- `pnpm best-practices` refreshes `docs/_generated/analysis/best_practices_report.md`.
+- `pnpm best-practices` currently exercises the CLI arg plumbing and reports that artifact
+  generation is still unavailable; wiring the final report output remains tracked in `DEBT-007`.
 
 Optional runtime toggle: set `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` when running `/play` to
 exercise solver-client `light-progress` outbound validation for `SOLVE_PROGRESS` (default is strict).

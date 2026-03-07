@@ -36,6 +36,7 @@ type EmbedViewProps = {
     elapsedMs: number;
     moveCount: number;
     solved: boolean;
+    synthetic: true;
   }) => void;
 };
 
@@ -320,6 +321,7 @@ function ResolvedEmbedView({
         elapsedMs: 0,
         moveCount: 0,
         solved: false,
+        synthetic: true,
       });
       return;
     }
@@ -351,6 +353,7 @@ function ResolvedEmbedView({
       elapsedMs: Math.max(0, endedAt - startedAt),
       moveCount: currentState.stats.moves,
       solved: solvedAfterKnown,
+      synthetic: true,
     });
   };
 

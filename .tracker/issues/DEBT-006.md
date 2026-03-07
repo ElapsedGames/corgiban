@@ -5,15 +5,15 @@ type: debt
 severity: low
 area: bench
 regression: false
-status: open
+status: fixed
 discovered_at: 2026-03-06
 introduced_in: phase6
-branch: null
+branch: main
 pr: null
 commit: null
 owner: null
-fixed_at: null
-fixed_by: null
+fixed_at: 2026-03-07
+fixed_by: JSly
 ---
 
 ## Summary
@@ -41,10 +41,15 @@ Source: Review 4 #5. May be acceptable for this phase but should be documented.
 
 ## Resolution
 
-(fill in when closing)
+- `apps/web/app/state/benchThunks.ts` now inspects imported measured rows for missing comparable
+  metadata and records a user-visible import notice listing the affected suites.
+- `/bench` already renders `diagnostics.lastNotice` through `BenchDiagnosticsPanel`, so the new
+  notice reaches the UI without adding another import-specific component path.
+- Tests: `benchThunks.edgeCases.test.ts` covers the degraded-comparison notice, and the existing
+  diagnostics rendering path surfaces the message in the route UI.
 
 ## Verification
 
-- [ ] test added or updated
-- [ ] manual verification completed
-- [ ] docs updated if needed
+- [x] test added or updated
+- [x] manual verification completed
+- [-] docs updated if needed

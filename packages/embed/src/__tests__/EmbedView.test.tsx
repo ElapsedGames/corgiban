@@ -441,6 +441,7 @@ describe('EmbedView integration', () => {
       elapsedMs: number;
       moveCount: number;
       solved: boolean;
+      synthetic: true;
     }>(element, 'corgiban:benchmarkComplete');
     const solvedDetails = listenForDetails(element, 'corgiban:solved');
 
@@ -455,6 +456,7 @@ describe('EmbedView integration', () => {
         elapsedMs: 0,
         moveCount: 0,
         solved: false,
+        synthetic: true,
       },
     ]);
     expect(solvedDetails).toEqual([]);
@@ -475,6 +477,7 @@ describe('EmbedView integration', () => {
       elapsedMs: number;
       moveCount: number;
       solved: boolean;
+      synthetic: true;
     }>(element, 'corgiban:benchmarkComplete');
 
     await mountEmbedElement(element);
@@ -487,6 +490,7 @@ describe('EmbedView integration', () => {
       source: 'known-solution',
       moveCount: 1,
       solved: true,
+      synthetic: true,
     });
     expect(benchmarkDetails[0]?.elapsedMs).toBeGreaterThanOrEqual(0);
   });
@@ -509,6 +513,7 @@ describe('EmbedView integration', () => {
       elapsedMs: number;
       moveCount: number;
       solved: boolean;
+      synthetic: true;
     }>(element, 'corgiban:benchmarkComplete');
     const solvedDetails = listenForDetails<{
       moves: number;
@@ -527,6 +532,7 @@ describe('EmbedView integration', () => {
         elapsedMs: 0,
         moveCount: 1,
         solved: true,
+        synthetic: true,
       },
     ]);
     expect(solvedDetails).toEqual([

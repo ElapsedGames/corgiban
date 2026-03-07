@@ -41,6 +41,8 @@ Dispatched DOM events:
 - `corgiban:move`
 - `corgiban:solved`
 - `corgiban:benchmarkComplete`
+  Known-solution playback uses this event with `detail.synthetic === true`; it is not a real
+  benchmark completion signal.
 
 ## Usage example
 

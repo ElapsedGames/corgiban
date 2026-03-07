@@ -20,10 +20,14 @@ Remix application containing the product UI, routes, and orchestration.
 - `/play` and `/bench` create those route-scoped stores with mutable no-op ports during render,
   then replace them with browser-backed worker/persistence ports after commit so SSR stays pure and
   each route keeps a stable store instance across hydration.
+- `/play` and `/bench` sync `settings.theme` to the root `<html>` class after commit; the SSR app
+  shell defaults to `light` so hydration matches the current settings default.
 - Play:
   - GameState is derived from move history using core helpers.
   - Canvas rendering can use OffscreenCanvas sprite-atlas pre-rendering via a worker when
     supported, with main-thread draw fallback.
+  - `GameCanvas` clamps its effective cell size to the available container width so small screens
+    keep the board inside the route layout without distorting the render contract.
   - Solver panel runs/cancels solves, shows progress, and can apply/animate results.
   - Settings include default solver budgets (time/node), and `/play` solve orchestration uses those defaults with defensive fallback to solver constants.
   - Optional env toggle: `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` enables light validation mode for high-frequency `SOLVE_PROGRESS` messages in the solver client; strict mode remains default.
@@ -53,10 +57,16 @@ Remix application containing the product UI, routes, and orchestration.
   - App-generated benchmark report exports include `exportedAtIso` convenience metadata; app-
     generated level-pack exports include both `levelIds` and `levels` plus `exportedAtIso`.
 - Lab:
-  - `/lab` provides format-aware level parsing (CORG/XSB/SOK/SLC), canvas preview, and one-click
-    worker solve/bench checks.
-  - Lab import/export uses a versioned JSON payload contract (`corgiban-lab-level`, version `1`).
-  - Authored-input revisions guard stale solve/bench callbacks after parse/import/cancel changes.
+  - `/lab` provides format-aware single-level parsing (CORG/XSB/SOK/SLC), canvas preview, and
+    one-click worker solve/bench checks. Multi-level XSB/SOK/SLC payloads are rejected with an
+    explicit error so the editor always operates on one committed level at a time.
+  - Lab import/export uses a strict versioned JSON payload contract (`corgiban-lab-level`,
+    version `1`): required `type`, `version`, `format`, and `content`; optional
+    `exportedAtIso`; unknown top-level fields are rejected on import.
+  - Successful parse/import commits advance an authored-input revision so stale solve/bench
+    callbacks are ignored after the active level changes.
+  - Failed parses leave the committed level and authored revision untouched, so in-flight
+    solve/bench work continues against the last successful parse.
 - Offline/PWA:
   - Workbox-backed service worker registration is enabled in production builds.
   - Dev-only PWA worker registration can be enabled with `VITE_ENABLE_PWA_DEV=1` for local smoke validation.

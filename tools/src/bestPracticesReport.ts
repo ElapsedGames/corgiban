@@ -1,6 +1,12 @@
 import { pathToFileURL } from 'node:url';
 
-function parseOutDir(argv: string[]): string | null {
+/**
+ * Parse the --out-dir flag from an argv array.
+ *
+ * Returns the flag value when present and non-empty, or null when absent or
+ * the value is missing / starts with '-' (another flag).
+ */
+export function parseOutDir(argv: string[]): string | null {
   const flagIndex = argv.indexOf('--out-dir');
   if (flagIndex === -1) {
     return null;
@@ -17,7 +23,7 @@ function parseOutDir(argv: string[]): string | null {
 export async function run(argv: string[] = process.argv.slice(2)): Promise<void> {
   const outDir = parseOutDir(argv);
   const suffix = outDir ? ` (requested out dir: ${outDir})` : '';
-  // tracked: DEBT-007
+  // tracked: DEBT-007 -- full implementation deferred
   console.log(`best-practices report generation is unavailable.${suffix}`);
 }
 

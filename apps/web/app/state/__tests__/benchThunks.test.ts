@@ -38,18 +38,26 @@ import {
 import { createAppStore } from '../store';
 
 function createResult(overrides: Partial<BenchmarkRunRecord> = {}): BenchmarkRunRecord {
+  const algorithmId = overrides.algorithmId ?? 'bfsPush';
+  const options = overrides.options ?? {
+    timeBudgetMs: 1000,
+    nodeBudget: 500,
+  };
+  const environment = overrides.environment ?? {
+    userAgent: 'test',
+    hardwareConcurrency: 4,
+    appVersion: 'test',
+  };
+
   return {
     id: 'result-1',
     suiteRunId: 'bench-1',
     runId: 'bench-1-1',
     sequence: 1,
     levelId: builtinLevels[0]?.id ?? 'classic-001',
-    algorithmId: 'bfsPush',
+    algorithmId,
     repetition: 1,
-    options: {
-      timeBudgetMs: 1000,
-      nodeBudget: 500,
-    },
+    options,
     status: 'unsolved',
     metrics: {
       elapsedMs: 10,
@@ -62,11 +70,26 @@ function createResult(overrides: Partial<BenchmarkRunRecord> = {}): BenchmarkRun
     },
     startedAtMs: 10,
     finishedAtMs: 20,
-    environment: {
-      userAgent: 'test',
-      hardwareConcurrency: 4,
-      appVersion: 'test',
-    },
+    environment,
+    comparableMetadata: Object.prototype.hasOwnProperty.call(overrides, 'comparableMetadata')
+      ? overrides.comparableMetadata
+      : {
+          solver: {
+            algorithmId,
+            ...(options.timeBudgetMs !== undefined ? { timeBudgetMs: options.timeBudgetMs } : {}),
+            ...(options.nodeBudget !== undefined ? { nodeBudget: options.nodeBudget } : {}),
+            ...(options.heuristicId !== undefined ? { heuristicId: options.heuristicId } : {}),
+            ...(options.heuristicWeight !== undefined
+              ? { heuristicWeight: options.heuristicWeight }
+              : {}),
+            ...(options.enableSpectatorStream !== undefined
+              ? { enableSpectatorStream: options.enableSpectatorStream }
+              : {}),
+          },
+          environment,
+          warmupEnabled: false,
+          warmupRepetitions: 0,
+        },
     ...overrides,
   };
 }
@@ -434,6 +457,63 @@ describe('benchThunks', () => {
 
     expect(store.getState().bench.results).toEqual([]);
     expect(benchmarkStorage.clearResults).toHaveBeenCalledTimes(1);
+
+    store.dispose();
+  });
+
+  it('filters imported warmup rows before replacing persisted benchmark history', async () => {
+    const benchmarkPort = createBenchmarkPortMock();
+    const benchmarkStorage = createBenchmarkStorageMock();
+
+    const store = createAppStore({
+      solverPort: createNoopSolverPort(),
+      benchmarkPort,
+      persistencePort: benchmarkStorage,
+    });
+
+    const warmupResult = createResult({
+      id: 'report-warmup',
+      runId: 'report-warmup-run',
+      warmup: true,
+      comparableMetadata: {
+        solver: {
+          algorithmId: 'bfsPush',
+          timeBudgetMs: 1000,
+          nodeBudget: 500,
+        },
+        environment: {
+          userAgent: 'test',
+          hardwareConcurrency: 4,
+          appVersion: 'test',
+        },
+        warmupEnabled: true,
+        warmupRepetitions: 1,
+      },
+    });
+    const measuredResult = createResult({
+      id: 'report-measured',
+      runId: 'report-measured-run',
+      finishedAtMs: 30,
+      startedAtMs: 20,
+    });
+    vi.mocked(benchmarkStorage.loadResults).mockResolvedValue([measuredResult]);
+
+    await store.dispatch(
+      importBenchmarkReport(
+        JSON.stringify({
+          type: BENCHMARK_REPORT_TYPE,
+          version: BENCHMARK_REPORT_VERSION,
+          exportModel: BENCHMARK_REPORT_EXPORT_MODEL,
+          results: [warmupResult, measuredResult],
+        }),
+      ),
+    );
+
+    expect(benchmarkStorage.replaceResults).toHaveBeenCalledWith([measuredResult]);
+    expect(store.getState().bench.results).toEqual([measuredResult]);
+    expect(store.getState().bench.diagnostics.lastNotice).toContain(
+      'Imported report skipped 1 warm-up run across 1 suite.',
+    );
 
     store.dispose();
   });

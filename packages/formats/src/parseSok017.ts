@@ -35,6 +35,9 @@ function parseRepeatCount(digits: string): number {
   let repeat = 0;
   for (const digit of digits) {
     repeat = repeat * 10 + Number.parseInt(digit, 10);
+    if (repeat === 0) {
+      throw new Error('Invalid SOK 0.17 RLE: repeat count must be greater than zero.');
+    }
     if (repeat > MAX_SOK_RLE_REPEAT) {
       throw new Error(
         `Decoded SOK 0.17 repeat ${repeat} exceeds supported grid limits (${MAX_GRID_WIDTH}x${MAX_GRID_HEIGHT}).`,
@@ -62,7 +65,7 @@ function decodeSokRleRow(value: string, startingRowCount = 0): string[] {
   };
 
   const applyToken = (token: string) => {
-    const repeat = Math.max(1, parseRepeatCount(pendingDigits));
+    const repeat = parseRepeatCount(pendingDigits);
     pendingDigits = '';
 
     if (token === '|') {
@@ -109,6 +112,7 @@ function sanitizeIdPart(value: string): string {
   return collapsed.length > 0 ? collapsed : 'level';
 }
 
+// Keep parser behavior aligned with packages/formats/docs/sok-grammar.md.
 function parseSokBlocks(text: string): Array<{ title: string | null; rows: string[] }> {
   const lines = text.replace(/\r\n?/g, '\n').split('\n');
   const blocks: Array<{ title: string | null; rows: string[] }> = [];
@@ -147,6 +151,9 @@ function parseSokBlocks(text: string): Array<{ title: string | null; rows: strin
     }
 
     if (/^title\s*:/i.test(trimmed)) {
+      if (rows.length > 0) {
+        throw new Error(`Unsupported SOK 0.17 line: "${line}".`);
+      }
       title = trimmed.replace(/^title\s*:/i, '').trim() || title;
       return;
     }

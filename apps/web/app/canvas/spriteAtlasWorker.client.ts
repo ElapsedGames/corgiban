@@ -21,9 +21,12 @@ const palette = {
   player: '#38bdf8',
 };
 
-function postWorkerError(scope: WorkerScopeLike, message: string): void {
+const INVALID_REQUEST_ID = 'invalid-request';
+
+function postWorkerError(scope: WorkerScopeLike, requestId: string, message: string): void {
   const errorMessage: SpriteAtlasErrorMessage = {
     type: 'SPRITE_ATLAS_ERROR',
+    requestId,
     message,
   };
   scope.postMessage(errorMessage);
@@ -82,7 +85,7 @@ const scope = globalThis as unknown as WorkerScopeLike;
 scope.addEventListener('message', (event) => {
   const request = event.data;
   if (!isSpriteAtlasRequestMessage(request)) {
-    postWorkerError(scope, 'Invalid sprite atlas request message.');
+    postWorkerError(scope, INVALID_REQUEST_ID, 'Invalid sprite atlas request message.');
     return;
   }
 
@@ -99,6 +102,7 @@ scope.addEventListener('message', (event) => {
 
     const message: SpriteAtlasReadyMessage = {
       type: 'SPRITE_ATLAS_READY',
+      requestId: request.requestId,
       cellSize: request.cellSize,
       dpr: request.dpr,
       sprites,
@@ -109,6 +113,7 @@ scope.addEventListener('message', (event) => {
   } catch (error) {
     postWorkerError(
       scope,
+      request.requestId,
       error instanceof Error ? error.message : 'Unknown sprite atlas worker error.',
     );
   }
