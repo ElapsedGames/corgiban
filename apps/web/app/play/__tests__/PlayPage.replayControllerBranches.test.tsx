@@ -22,7 +22,7 @@ vi.mock('react', async (importOriginal) => {
     useRef: <T,>(initial: T) => {
       const ref = actual.useRef(initial);
       replayBranchState.refCallCount += 1;
-      const refSlot = ((replayBranchState.refCallCount - 1) % 3) + 1;
+      const refSlot = ((replayBranchState.refCallCount - 1) % 4) + 1;
       if (refSlot === 2 && replayBranchState.controller) {
         (ref as { current: unknown }).current = replayBranchState.controller;
       }

@@ -505,11 +505,12 @@ Tailwind configuration:
 
 - tailwind.config.ts content globs must include ../../packages/**/src/**/\*.{ts,tsx} so classes used in package components are compiled.
 - Design tokens live in apps/web/app/styles/tokens.css as CSS variables with a matching Tailwind theme extension. Tokens are the single source of truth; do not duplicate values in config or components.
-- Dark mode: class-based (add/remove 'dark' on the html element, toggled by settingsSlice).
+- Dark mode: class-based; the root app shell resolves and toggles the `<html>` theme class, persists explicit user choice in browser storage, and falls back to `prefers-color-scheme` on first visit.
 
 Routes/pages:
 
-- /play (default)
+- /
+- /play
 - /bench
 - /lab
 - /dev/ui-kit (design system primitives reference - no separate Storybook)
@@ -556,7 +557,7 @@ State slices (RTK):
   recommendation ({ algorithmId, features } from analyzeLevel), workerHealth ('idle' | 'healthy'
   | 'crashed'), replayState, replayIndex, replayTotalSteps
 - benchSlice: suite config, active run status/progress, persisted results, diagnostics, and perf entries
-- settingsSlice: tileAnimationDuration, solverReplaySpeed, solver budget defaults (time/node), theme, debug flags
+- settingsSlice: tileAnimationDuration, solverReplaySpeed, solver budget defaults (time/node), debug flags
 
 Redux serializability strategy (required):
 
@@ -794,9 +795,9 @@ Deferred notes:
 - RenderPlan build is O(cells x boxes); no measured perf issue with current Sokoban sizes or the draw-on-change pipeline. Revisit only if profiling shows regressions.
 - Two sources of truth (GameState ref + Redux history) are intentional in Phase 2; revisit if replay or solver integration needs shared state outside /play.
 - `/play` now clamps canvas cell size against the available container width to reduce small-screen distortion.
-- Route-scoped `/play` and `/bench` surfaces now sync `settings.theme` to the root `<html>` class
-  after commit; keep the SSR default class aligned with `settingsSlice` defaults when theme boot
-  behavior changes again.
+- The root app shell now owns the light/dark `<html>` class, resolves the initial theme before
+  paint from persisted preference with `prefers-color-scheme` fallback, and keeps route-scoped
+  Redux stores out of theme ownership.
 - Core engine linear scans and allocations are deferred until profiling indicates a need.
 - Process: keep PR scope manageable; split when Phase 2 and Phase 3 changes start to mix.
 
@@ -828,8 +829,12 @@ Deferred notes:
   for browser-backed ports after commit (ADR-0025). Future shared-store work must preserve that
   SSR-safe browser-resource ownership model or supersede it explicitly.
 
-Phase 7 - UX and route-responsibility pass (planned)
+Phase 7 - UX and route-responsibility pass (in progress)
 Decision dependencies: capture an ADR if route ownership, store ownership, or cross-route workflow contracts change materially.
+
+Status: In progress (root app-shell theme ownership, shared navigation, landing page, and the
+route-level information-architecture/accessibility refresh have landed; explicit cross-route
+handoff flows and `pnpm best-practices` report wiring remain pending).
 
 1. Define explicit route charters, entry points, and non-goals for `/play`, `/lab`, and `/bench`:
    - `/play`: primary gameplay, undo/restart/history, replay, lightweight solver help, and quick open/import actions
@@ -844,7 +849,7 @@ Decision dependencies: capture an ADR if route ownership, store ownership, or cr
    - open the current level or imported text in `/lab`
    - send a level or pack from `/lab` to `/bench`
    - jump from benchmark results back to `/play` or `/lab`
-4. Rework route navigation and page information architecture around primary jobs rather than implementation detail:
+4. [done] Rework route navigation and page information architecture around primary jobs rather than implementation detail:
    - clearer route labels and help text
    - route-local sections ordered by frequency and user intent
    - advanced/debug controls visually secondary to the main task

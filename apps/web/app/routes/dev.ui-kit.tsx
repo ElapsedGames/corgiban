@@ -21,24 +21,38 @@ export default function DevUiKitRoute() {
   ];
 
   return (
-    <main className="page-shell space-y-10">
+    <main id="main-content" className="page-shell space-y-10">
       <header>
         <h1 className="page-title">UI Kit</h1>
         <p className="page-subtitle">
           Design system primitives and interaction states for the Play UI.
         </p>
-        <div className="mt-4 flex flex-wrap gap-3 text-sm">
-          <Link className="font-semibold text-[color:var(--color-accent)]" to="/play">
-            Back to /play
+        <nav aria-label="UI Kit navigation" className="mt-4 flex flex-wrap gap-3 text-sm">
+          <Link
+            className="rounded px-2 py-1 font-semibold text-[color:var(--color-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+            to="/"
+          >
+            Home
           </Link>
-          <Link className="font-semibold text-[color:var(--color-accent)]" to="/bench">
-            Visit /bench
+          <Link
+            className="rounded px-2 py-1 font-semibold text-[color:var(--color-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+            to="/play"
+          >
+            Play
           </Link>
-        </div>
+          <Link
+            className="rounded px-2 py-1 font-semibold text-[color:var(--color-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+            to="/bench"
+          >
+            Benchmark
+          </Link>
+        </nav>
       </header>
 
-      <section className="route-card space-y-4">
-        <h2 className="text-xl font-semibold">Buttons</h2>
+      <section className="route-card space-y-4" aria-labelledby="section-buttons">
+        <h2 id="section-buttons" className="text-xl font-semibold">
+          Buttons
+        </h2>
         <div className="flex flex-wrap gap-3">
           <Button>Primary</Button>
           <Button variant="secondary">Secondary</Button>
@@ -50,8 +64,10 @@ export default function DevUiKitRoute() {
         </div>
       </section>
 
-      <section className="route-card space-y-4">
-        <h2 className="text-xl font-semibold">Inputs</h2>
+      <section className="route-card space-y-4" aria-labelledby="section-inputs">
+        <h2 id="section-inputs" className="text-xl font-semibold">
+          Inputs
+        </h2>
         <div className="grid gap-6 md:grid-cols-2">
           <Input
             label="Display name"
@@ -75,25 +91,30 @@ export default function DevUiKitRoute() {
         </div>
       </section>
 
-      <section className="route-card space-y-4">
-        <h2 className="text-xl font-semibold">Tabs</h2>
+      <section className="route-card space-y-4" aria-labelledby="section-tabs">
+        <h2 id="section-tabs" className="text-xl font-semibold">
+          Tabs
+        </h2>
         <Tabs items={tabItems} value={tab} onChange={setTab} ariaLabel="UI kit tabs" />
         <div
           id={`panel-${tab}`}
           role="tabpanel"
           aria-labelledby={`tab-${tab}`}
-          className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-4 text-sm"
+          tabIndex={0}
+          className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-4 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)]"
         >
           Selected tab: {tab}
         </div>
       </section>
 
-      <section className="route-card space-y-4">
-        <h2 className="text-xl font-semibold">Dialog</h2>
+      <section className="route-card space-y-4" aria-labelledby="section-dialog">
+        <h2 id="section-dialog" className="text-xl font-semibold">
+          Dialog
+        </h2>
         <p className="text-sm text-[color:var(--color-muted)]">
           Dialogs are used for import/export flows and advanced settings.
         </p>
-        <Button onClick={() => setDialogOpen(true)}>Open dialog</Button>
+        <Button onClick={() => setDialogOpen(true)}>Open Dialog</Button>
         <Dialog
           open={dialogOpen}
           title="Export level pack"
@@ -120,7 +141,7 @@ export function ErrorBoundary() {
 
   if (isRouteErrorResponse(error)) {
     return (
-      <main className="page-shell">
+      <main id="main-content" className="page-shell">
         <h1 className="page-title">UI Kit</h1>
         <p className="page-subtitle">
           {error.status} {error.statusText}
@@ -132,7 +153,7 @@ export function ErrorBoundary() {
   const message = error instanceof Error ? error.message : 'Unknown error';
 
   return (
-    <main className="page-shell">
+    <main id="main-content" className="page-shell">
       <h1 className="page-title">UI Kit</h1>
       <p className="page-subtitle">{message}</p>
     </main>

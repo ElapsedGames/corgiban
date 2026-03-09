@@ -89,14 +89,14 @@ describe('SolverPanel budget settings', () => {
 
   it('updates time budget with floored positive integers', () => {
     const store = renderPanel();
-    triggerInputChange('Default Time Budget (ms)', '123.9');
+    triggerInputChange('Time Budget (ms)', '123.9');
 
     expect(store.getState().settings.solverTimeBudgetMs).toBe(123);
   });
 
   it('updates node budget with floored positive integers', () => {
     const store = renderPanel();
-    triggerInputChange('Default Node Budget', '987.4');
+    triggerInputChange('Node Budget', '987.4');
 
     expect(store.getState().settings.solverNodeBudget).toBe(987);
   });
@@ -105,7 +105,7 @@ describe('SolverPanel budget settings', () => {
     const store = renderPanel();
     const before = store.getState().settings.solverTimeBudgetMs;
 
-    triggerInputChange('Default Time Budget (ms)', 'not-a-number');
+    triggerInputChange('Time Budget (ms)', 'not-a-number');
 
     expect(store.getState().settings.solverTimeBudgetMs).toBe(before);
   });
@@ -114,7 +114,7 @@ describe('SolverPanel budget settings', () => {
     const store = renderPanel();
     const before = store.getState().settings.solverNodeBudget;
 
-    triggerInputChange('Default Node Budget', '0');
+    triggerInputChange('Node Budget', '0');
 
     expect(store.getState().settings.solverNodeBudget).toBe(before);
   });
@@ -123,7 +123,7 @@ describe('SolverPanel budget settings', () => {
     const store = renderPanel();
     const before = store.getState().settings.solverNodeBudget;
 
-    triggerInputChange('Default Node Budget', '-5');
+    triggerInputChange('Node Budget', '-5');
 
     expect(store.getState().settings.solverNodeBudget).toBe(before);
   });
@@ -131,7 +131,7 @@ describe('SolverPanel budget settings', () => {
   it('normalizes tiny positive time budgets to a minimum of one', () => {
     const store = renderPanel();
 
-    triggerInputChange('Default Time Budget (ms)', '0.4');
+    triggerInputChange('Time Budget (ms)', '0.4');
 
     expect(store.getState().settings.solverTimeBudgetMs).toBe(1);
   });
@@ -140,7 +140,7 @@ describe('SolverPanel budget settings', () => {
     const store = renderPanel();
     const before = store.getState().settings.solverTimeBudgetMs;
 
-    triggerInputChange('Default Time Budget (ms)', 'Infinity');
+    triggerInputChange('Time Budget (ms)', 'Infinity');
 
     expect(store.getState().settings.solverTimeBudgetMs).toBe(before);
   });

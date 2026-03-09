@@ -7,7 +7,6 @@ import {
   setSolverNodeBudget,
   setSolverReplaySpeed,
   setSolverTimeBudgetMs,
-  setTheme,
   setTileAnimationDuration,
   settingsSlice,
 } from '../settingsSlice';
@@ -20,7 +19,6 @@ describe('settingsSlice', () => {
     expect(state.solverReplaySpeed).toBe(1);
     expect(state.solverTimeBudgetMs).toBe(DEFAULT_SOLVER_TIME_BUDGET_MS);
     expect(state.solverNodeBudget).toBe(DEFAULT_NODE_BUDGET);
-    expect(state.theme).toBe('light');
     expect(state.debug).toBe(false);
   });
 
@@ -30,14 +28,12 @@ describe('settingsSlice', () => {
     state = settingsSlice.reducer(state, setSolverReplaySpeed(1.5));
     state = settingsSlice.reducer(state, setSolverTimeBudgetMs(12_000));
     state = settingsSlice.reducer(state, setSolverNodeBudget(123_456));
-    state = settingsSlice.reducer(state, setTheme('dark'));
     state = settingsSlice.reducer(state, setDebug(true));
 
     expect(state.tileAnimationDuration).toBe(120);
     expect(state.solverReplaySpeed).toBe(1.5);
     expect(state.solverTimeBudgetMs).toBe(12_000);
     expect(state.solverNodeBudget).toBe(123_456);
-    expect(state.theme).toBe('dark');
     expect(state.debug).toBe(true);
   });
 

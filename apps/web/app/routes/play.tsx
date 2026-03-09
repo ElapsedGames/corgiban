@@ -8,7 +8,6 @@ import { PlayPage } from '../play/PlayPage';
 import { createNoopSolverPort } from '../ports/solverPort';
 import { createSolverPort } from '../ports/solverPort.client';
 import { createMutableSolverPort, type MutableSolverPort } from '../state/mutableDependencies';
-import { useThemeSync } from '../useThemeSync';
 
 const useRouteStoreEffect = typeof document === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -23,11 +22,6 @@ function createPlayRouteStoreOwner(): PlayRouteStoreOwner {
     solverPort,
     store: createAppStore({ solverPort }),
   };
-}
-
-function PlayRouteInner() {
-  useThemeSync();
-  return <PlayPage />;
 }
 
 export default function PlayRoute() {
@@ -45,7 +39,7 @@ export default function PlayRoute() {
 
   return (
     <Provider store={storeOwner.store}>
-      <PlayRouteInner />
+      <PlayPage />
     </Provider>
   );
 }
@@ -55,7 +49,7 @@ export function ErrorBoundary() {
 
   if (isRouteErrorResponse(error)) {
     return (
-      <main className="page-shell">
+      <main id="main-content" className="page-shell" aria-label="Play error">
         <h1 className="page-title">Play</h1>
         <p className="page-subtitle">
           {error.status} {error.statusText}
@@ -67,7 +61,7 @@ export function ErrorBoundary() {
   const message = error instanceof Error ? error.message : 'Unknown error';
 
   return (
-    <main className="page-shell">
+    <main id="main-content" className="page-shell" aria-label="Play error">
       <h1 className="page-title">Play</h1>
       <p className="page-subtitle">{message}</p>
     </main>

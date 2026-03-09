@@ -8,9 +8,13 @@ test('unknown routes render the 404 page and link back to play', async ({ page }
 
   await expect(page).toHaveTitle('404 Not Found | Corgiban');
   await expect(page.getByRole('heading', { name: '404 Not Found' })).toBeVisible();
-  await expect(page.getByText('The page you requested does not exist.')).toBeVisible();
+  await expect(page.getByText('/smoke-route-does-not-exist')).toBeVisible();
+  await expect(page.getByText('does not exist.')).toBeVisible();
 
-  await page.getByRole('link', { name: 'Go to /play' }).click();
+  await page
+    .getByRole('navigation', { name: 'Recovery links' })
+    .getByRole('link', { name: 'Play' })
+    .click();
   await expect(page).toHaveURL(/\/play$/);
   await expect(page.getByRole('heading', { name: 'Corgiban' })).toBeVisible();
 });

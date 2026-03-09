@@ -49,7 +49,7 @@ describe('PlayPage empty-level fallback behavior', () => {
   it('uses fallback level metadata when builtin levels are empty', () => {
     const { html } = renderPage();
 
-    expect(html).toContain('Unknown');
+    expect(html).toContain('board-heading');
     expect(emptyLevelState.sidePanelProps?.levelId).toBe('level-unknown');
     expect(emptyLevelState.sidePanelProps?.levelName).toBe('Unknown');
     expect(emptyLevelState.sidePanelProps?.canGoToPreviousLevel).toBe(false);

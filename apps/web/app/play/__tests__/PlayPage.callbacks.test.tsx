@@ -30,7 +30,7 @@ vi.mock('react', async (importOriginal) => {
     useRef: <T,>(initial: T) => {
       const ref = actual.useRef(initial);
       callbackState.refCallCount += 1;
-      const refSlot = ((callbackState.refCallCount - 1) % 3) + 1;
+      const refSlot = ((callbackState.refCallCount - 1) % 4) + 1;
       if (refSlot === 2 && callbackState.controller) {
         (ref as { current: unknown }).current = callbackState.controller;
       }

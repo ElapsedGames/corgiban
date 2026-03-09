@@ -53,6 +53,9 @@ If an ADR is superseded, link bidirectionally:
 - ADR-0025 (`0025-route-store-ssr-safe-port-bootstrap.md`) is the source of truth for `/play` and
   `/bench` route-store bootstrap. Browser-backed ports attach after commit; they are not created
   during route render.
+- ADR-0026 (`0026-app-shell-theme-ownership.md`) is the source of truth for the shared root
+  navigation + theme toggle contract. Theme bootstrap is resolved in the app shell before paint;
+  route-scoped Redux stores do not own theme.
 - Not every review-sensitive contract has a standalone ADR. The explicit monotonic-clock failure
   path is documented in `LLM_GUIDE.md`, `docs/Architecture.md`, `packages/solver/README.md`, and
   `docs/review-notes.md`.
@@ -84,3 +87,4 @@ If an ADR is superseded, link bidirectionally:
 - `0023-lab-route-local-state-ownership.md`
 - `0024-offscreen-sprite-atlas-worker-fallback.md`
 - `0025-route-store-ssr-safe-port-bootstrap.md`
+- `0026-app-shell-theme-ownership.md`

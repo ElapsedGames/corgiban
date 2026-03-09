@@ -2,14 +2,11 @@ import { createSlice } from '@reduxjs/toolkit';
 
 import { DEFAULT_NODE_BUDGET, DEFAULT_SOLVER_TIME_BUDGET_MS } from '@corgiban/solver';
 
-export type ThemeMode = 'light' | 'dark';
-
 export type SettingsState = {
   tileAnimationDuration: number;
   solverReplaySpeed: number;
   solverTimeBudgetMs: number;
   solverNodeBudget: number;
-  theme: ThemeMode;
   debug: boolean;
 };
 
@@ -26,7 +23,6 @@ const initialState: SettingsState = {
   solverReplaySpeed: 1,
   solverTimeBudgetMs: DEFAULT_SOLVER_TIME_BUDGET_MS,
   solverNodeBudget: DEFAULT_NODE_BUDGET,
-  theme: 'light',
   debug: false,
 };
 
@@ -46,9 +42,6 @@ export const settingsSlice = createSlice({
     setSolverNodeBudget(state, action: { payload: number }) {
       state.solverNodeBudget = toPositiveInt(action.payload, state.solverNodeBudget);
     },
-    setTheme(state, action: { payload: ThemeMode }) {
-      state.theme = action.payload;
-    },
     setDebug(state, action: { payload: boolean }) {
       state.debug = action.payload;
     },
@@ -60,6 +53,5 @@ export const {
   setSolverNodeBudget,
   setSolverReplaySpeed,
   setSolverTimeBudgetMs,
-  setTheme,
   setTileAnimationDuration,
 } = settingsSlice.actions;

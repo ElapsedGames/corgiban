@@ -1,7 +1,6 @@
 import type { WorkerHealth } from '../ports/solverPort';
 import type { ReplayState, SolverRunStatus } from '../state/solverSlice';
 import { Button } from '../ui/Button';
-import { Select } from '../ui/Select';
 
 const REPLAY_SPEED_OPTIONS = [
   { value: 0.5, label: '0.5x' },
@@ -9,6 +8,9 @@ const REPLAY_SPEED_OPTIONS = [
   { value: 1.5, label: '1.5x' },
   { value: 2, label: '2x' },
 ] as const;
+
+const inlineSelectClass =
+  'rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] px-2 py-1 text-xs text-[color:var(--color-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[color:var(--color-bg)]';
 
 export type SolverControlsProps = {
   status: SolverRunStatus;
@@ -53,54 +55,68 @@ export function SolverControls({
   const replaySpeedValue = String(replaySpeed);
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={onRun} disabled={workerHealth === 'crashed' || isRunning}>
-          Run solve
+    <div className="space-y-4">
+      <div role="group" aria-label="Solver run controls" className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={onRun} disabled={workerHealth === 'crashed' || isRunning}>
+          Run Solve
         </Button>
-        <Button variant="secondary" onClick={onCancel} disabled={!isRunning}>
+        <Button size="sm" variant="secondary" onClick={onCancel} disabled={!isRunning}>
           Cancel
         </Button>
         {workerHealth === 'crashed' ? (
-          <Button variant="ghost" onClick={onRetryWorker}>
-            Retry worker
+          <Button size="sm" variant="ghost" onClick={onRetryWorker}>
+            Retry Worker
           </Button>
         ) : null}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" onClick={onApply} disabled={!hasSolution}>
-          Apply solution
+      <div role="group" aria-label="Solution actions" className="flex flex-wrap gap-2">
+        <Button size="sm" variant="secondary" onClick={onApply} disabled={!hasSolution}>
+          Apply Solution
         </Button>
-        <Button variant="secondary" onClick={onAnimate} disabled={!hasSolution}>
-          Animate solution
+        <Button size="sm" variant="secondary" onClick={onAnimate} disabled={!hasSolution}>
+          Animate Solution
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" onClick={onReplayPlayPause} disabled={replayDisabled}>
-          {isReplayPlaying ? 'Pause replay' : 'Play replay'}
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={onReplayStepBack}
-          disabled={replayDisabled || replayIndex === 0}
-        >
-          Step back
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={onReplayStepForward}
-          disabled={replayDisabled || replayIndex >= replayTotalSteps}
-        >
-          Step forward
-        </Button>
-        <span className="text-xs text-[color:var(--color-muted)]">
-          Replay {replayIndex}/{replayTotalSteps}
-        </span>
-        <div className="min-w-[8rem] flex-1 sm:max-w-[9rem]">
-          <Select
-            label="Replay speed"
+      <div role="group" aria-label="Replay controls" className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="ghost" onClick={onReplayPlayPause} disabled={replayDisabled}>
+            {isReplayPlaying ? 'Pause' : 'Play'}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onReplayStepBack}
+            disabled={replayDisabled || replayIndex === 0}
+            aria-disabled={replayDisabled || replayIndex === 0}
+          >
+            Step Back
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onReplayStepForward}
+            disabled={replayDisabled || replayIndex >= replayTotalSteps}
+            aria-disabled={replayDisabled || replayIndex >= replayTotalSteps}
+          >
+            Step Forward
+          </Button>
+        </div>
+        <div className="flex items-center gap-3">
+          <span
+            className="min-w-[4.5rem] text-xs tabular-nums text-[color:var(--color-muted)]"
+            aria-live="polite"
+            aria-label={`Replay step ${replayIndex} of ${replayTotalSteps}`}
+          >
+            Step {replayIndex} / {replayTotalSteps}
+          </span>
+          <label className="sr-only" htmlFor="replay-speed-select">
+            Replay speed
+          </label>
+          <select
+            id="replay-speed-select"
+            className={inlineSelectClass}
             value={replaySpeedValue}
             onChange={(event) => {
               const nextSpeed = Number(event.target.value);
@@ -109,16 +125,15 @@ export function SolverControls({
               }
               onReplaySpeedChange(nextSpeed);
             }}
-            className="w-auto"
           >
             {REPLAY_SPEED_OPTIONS.map((option) => (
               <option key={option.value} value={String(option.value)}>
                 {option.label}
               </option>
             ))}
-          </Select>
+          </select>
         </div>
       </div>
-    </section>
+    </div>
   );
 }

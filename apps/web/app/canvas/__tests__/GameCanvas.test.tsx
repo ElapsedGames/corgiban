@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { createGame, parseLevel } from '@corgiban/core';
+import { applyMoves, createGame, parseLevel } from '@corgiban/core';
 import type { LevelDefinition } from '@corgiban/levels';
 
 const mocks = vi.hoisted(() => ({
@@ -39,6 +39,38 @@ describe('GameCanvas', () => {
     const html = renderToStaticMarkup(<GameCanvas state={state} />);
 
     expect(html).toContain('canvas');
+  });
+
+  it('canvas has role="img" and a dynamic aria-label reflecting remaining boxes', () => {
+    // Level with one box on a floor cell (B) and one target (T): 1 box remaining
+    const levelWithBox: LevelDefinition = {
+      id: 'canvas-aria',
+      name: 'Canvas Aria',
+      rows: ['WWWWW', 'WPBTW', 'WWWWW'],
+    };
+    const state = createGame(parseLevel(levelWithBox));
+    const html = renderToStaticMarkup(<GameCanvas state={state} />);
+
+    expect(html).toContain('role="img"');
+    expect(html).toContain('1 of 1 box remaining');
+  });
+
+  it('canvas aria-label reports 0 remaining boxes when all boxes are on targets', () => {
+    // Level: player at (1,1), box at (1,2) on floor, target at (1,3).
+    // Pushing the box right (R then R from player) moves box onto target => 0 remaining.
+    const levelWithBox: LevelDefinition = {
+      id: 'canvas-aria-push',
+      name: 'Canvas Aria Push',
+      rows: ['WWWWWW', 'WPBETW', 'WWWWWW'],
+    };
+    const runtime = parseLevel(levelWithBox);
+    const base = createGame(runtime);
+    // Player is at col 1; box is at col 2; target at col 4.
+    // Push box right twice: player moves R (pushes box to col 3), player moves R (pushes box to col 4=target).
+    const { state } = applyMoves(base, ['R', 'R']);
+    const html = renderToStaticMarkup(<GameCanvas state={state} />);
+
+    expect(html).toContain('0 of 1 box remaining');
   });
 
   it('subscribes to devicePixelRatio updates and cleans up resize listeners', () => {

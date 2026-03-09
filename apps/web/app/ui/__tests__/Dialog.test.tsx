@@ -78,6 +78,9 @@ afterEach(async () => {
   }
 
   document.body.innerHTML = '';
+  // Reset inline overflow styles so scroll-lock tests start from a clean slate.
+  document.body.style.overflow = '';
+  document.documentElement.style.overflow = '';
 });
 
 describe('Dialog', () => {
@@ -264,5 +267,109 @@ describe('Dialog', () => {
     dispatchKeyDown(dialog, { key: 'Escape' });
 
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('sets overflow:hidden on both body and html when opened', async () => {
+    await renderIntoDocument(<Dialog open={true} title="Scroll test" onClose={() => {}} />);
+
+    expect(document.body.style.overflow).toBe('hidden');
+    expect(document.documentElement.style.overflow).toBe('hidden');
+  });
+
+  it('restores body and html overflow to the previous values when closed', async () => {
+    document.body.style.overflow = 'auto';
+    document.documentElement.style.overflow = 'scroll';
+
+    const dialogContainer = document.createElement('div');
+    document.body.append(dialogContainer);
+    const dialogRoot = createRoot(dialogContainer);
+    mountedRoots.push(dialogRoot);
+
+    await act(async () => {
+      dialogRoot.render(<Dialog open={true} title="Scroll test" onClose={() => {}} />);
+    });
+
+    expect(document.body.style.overflow).toBe('hidden');
+    expect(document.documentElement.style.overflow).toBe('hidden');
+
+    await act(async () => {
+      dialogRoot.render(<Dialog open={false} title="Scroll test" onClose={() => {}} />);
+    });
+
+    expect(document.body.style.overflow).toBe('auto');
+    expect(document.documentElement.style.overflow).toBe('scroll');
+  });
+
+  it('keeps scroll lock active while a second dialog is still open', async () => {
+    const containerA = document.createElement('div');
+    document.body.append(containerA);
+    const rootA = createRoot(containerA);
+    mountedRoots.push(rootA);
+
+    const containerB = document.createElement('div');
+    document.body.append(containerB);
+    const rootB = createRoot(containerB);
+    mountedRoots.push(rootB);
+
+    // Open both dialogs.
+    await act(async () => {
+      rootA.render(<Dialog open={true} title="Dialog A" onClose={() => {}} />);
+      rootB.render(<Dialog open={true} title="Dialog B" onClose={() => {}} />);
+    });
+
+    expect(document.body.style.overflow).toBe('hidden');
+
+    // Close only the first dialog -- scroll must stay locked.
+    await act(async () => {
+      rootA.render(<Dialog open={false} title="Dialog A" onClose={() => {}} />);
+    });
+
+    expect(document.body.style.overflow).toBe('hidden');
+
+    // Close the second dialog -- scroll lock should now be released.
+    await act(async () => {
+      rootB.render(<Dialog open={false} title="Dialog B" onClose={() => {}} />);
+    });
+
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it('restores focus to the trigger element when the dialog closes', async () => {
+    // Render a trigger button outside the dialog container.
+    const triggerContainer = document.createElement('div');
+    document.body.append(triggerContainer);
+    const triggerRoot = createRoot(triggerContainer);
+    mountedRoots.push(triggerRoot);
+
+    await act(async () => {
+      triggerRoot.render(<button type="button">Open dialog</button>);
+    });
+
+    const triggerButton = triggerContainer.querySelector('button') as HTMLButtonElement;
+    await act(async () => {
+      triggerButton.focus();
+    });
+    expect(document.activeElement).toBe(triggerButton);
+
+    // Open the dialog -- focus moves into the dialog.
+    const dialogContainer = document.createElement('div');
+    document.body.append(dialogContainer);
+    const dialogRoot = createRoot(dialogContainer);
+    mountedRoots.push(dialogRoot);
+
+    await act(async () => {
+      dialogRoot.render(<Dialog open={true} title="Export" onClose={() => {}} />);
+    });
+
+    // Focus should now be inside the dialog.
+    expect(document.activeElement).not.toBe(triggerButton);
+
+    // Close the dialog by re-rendering with open=false.
+    await act(async () => {
+      dialogRoot.render(<Dialog open={false} title="Export" onClose={() => {}} />);
+    });
+
+    // Focus must be restored to the trigger button (WCAG 2.4.3).
+    expect(document.activeElement).toBe(triggerButton);
   });
 });

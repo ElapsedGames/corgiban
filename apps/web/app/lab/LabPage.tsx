@@ -24,9 +24,14 @@ export function LabPage() {
   } = useLabOrchestration();
 
   return (
-    <main className="page-shell">
-      <header>
-        <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-muted)]">Lab</p>
+    <main id="main-content" className="page-shell">
+      <header aria-label="Level Lab">
+        <p
+          aria-hidden="true"
+          className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-muted)]"
+        >
+          Lab
+        </p>
         <h1 className="page-title">Level Lab</h1>
         <p className="page-subtitle">
           Edit row encodings, preview gameplay, run worker-backed solve and bench checks, and
@@ -46,7 +51,7 @@ export function LabPage() {
           onExport={exportLabPayload}
         />
 
-        <section className="space-y-6">
+        <div className="space-y-6">
           <LabPreviewPanel previewState={previewState} onReset={resetPreview} />
           <LabWorkerStatusPanel
             solveState={solveState}
@@ -56,7 +61,7 @@ export function LabPage() {
             onApplySolution={applySolution}
             onRunBench={runBench}
           />
-        </section>
+        </div>
       </div>
     </main>
   );

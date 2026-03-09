@@ -52,7 +52,7 @@ export type {
   BenchRunStatus,
   BenchSliceState,
 } from './benchSlice';
-export type { SettingsState, ThemeMode } from './settingsSlice';
+export type { SettingsState } from './settingsSlice';
 export type {
   ReplayState,
   SolverProgressState,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 
 import type { BenchmarkRunRecord } from '../ports/benchmarkPort';
 
@@ -71,6 +71,7 @@ export function getNextSortState(
 }
 
 export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
+  const headingId = useId();
   const [sortKey, setSortKey] = useState<SortKey>('finishedAtMs');
   const [direction, setDirection] = useState<SortDirection>('desc');
 
@@ -85,11 +86,24 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
     setDirection(nextState.direction);
   };
 
+  const sortIndicator = (key: SortKey) => {
+    if (sortKey !== key) return null;
+    return <span aria-hidden="true">{direction === 'asc' ? ' ^' : ' v'}</span>;
+  };
+
+  const thSortButtonClasses =
+    'cursor-pointer rounded-sm px-1 py-0.5 hover:text-[color:var(--color-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)]';
+
   return (
-    <section className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg">
+    <section
+      aria-labelledby={headingId}
+      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+    >
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Results</h2>
+          <h2 id={headingId} className="text-lg font-semibold">
+            Results
+          </h2>
           <p className="text-sm text-[color:var(--color-muted)]">
             Stored benchmark history ({results.length} runs). Click column labels to sort.
           </p>
@@ -103,38 +117,130 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
       ) : (
         <div className="overflow-auto">
           <table className="min-w-full border-collapse text-sm">
+            <caption className="sr-only">
+              Benchmark run results, {results.length} {results.length === 1 ? 'row' : 'rows'}. Click
+              column headers to sort.
+            </caption>
             <thead>
               <tr className="border-b border-[color:var(--color-border)] text-left text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
-                <th className="px-2 py-2">
-                  <button type="button" onClick={() => setSort('finishedAtMs')}>
-                    Completed
+                <th
+                  scope="col"
+                  className="px-2 py-2"
+                  aria-sort={
+                    sortKey === 'finishedAtMs'
+                      ? direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                >
+                  <button
+                    type="button"
+                    className={thSortButtonClasses}
+                    onClick={() => setSort('finishedAtMs')}
+                  >
+                    Completed{sortIndicator('finishedAtMs')}
                   </button>
                 </th>
-                <th className="px-2 py-2">
-                  <button type="button" onClick={() => setSort('suiteRunId')}>
-                    Suite
+                <th
+                  scope="col"
+                  className="px-2 py-2"
+                  aria-sort={
+                    sortKey === 'suiteRunId'
+                      ? direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                >
+                  <button
+                    type="button"
+                    className={thSortButtonClasses}
+                    onClick={() => setSort('suiteRunId')}
+                  >
+                    Suite{sortIndicator('suiteRunId')}
                   </button>
                 </th>
-                <th className="px-2 py-2">
-                  <button type="button" onClick={() => setSort('levelId')}>
-                    Level
+                <th
+                  scope="col"
+                  className="px-2 py-2"
+                  aria-sort={
+                    sortKey === 'levelId'
+                      ? direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                >
+                  <button
+                    type="button"
+                    className={thSortButtonClasses}
+                    onClick={() => setSort('levelId')}
+                  >
+                    Level{sortIndicator('levelId')}
                   </button>
                 </th>
-                <th className="px-2 py-2">
-                  <button type="button" onClick={() => setSort('algorithmId')}>
-                    Algorithm
+                <th
+                  scope="col"
+                  className="px-2 py-2"
+                  aria-sort={
+                    sortKey === 'algorithmId'
+                      ? direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                >
+                  <button
+                    type="button"
+                    className={thSortButtonClasses}
+                    onClick={() => setSort('algorithmId')}
+                  >
+                    Algorithm{sortIndicator('algorithmId')}
                   </button>
                 </th>
-                <th className="px-2 py-2 text-right">
-                  <button type="button" onClick={() => setSort('elapsedMs')}>
-                    Elapsed (ms)
+                <th
+                  scope="col"
+                  className="px-2 py-2 text-right"
+                  aria-sort={
+                    sortKey === 'elapsedMs'
+                      ? direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                >
+                  <button
+                    type="button"
+                    className={thSortButtonClasses}
+                    onClick={() => setSort('elapsedMs')}
+                  >
+                    Elapsed (<abbr title="milliseconds">ms</abbr>){sortIndicator('elapsedMs')}
                   </button>
                 </th>
-                <th className="px-2 py-2 text-right">Expanded</th>
-                <th className="px-2 py-2 text-right">Generated</th>
-                <th className="px-2 py-2">
-                  <button type="button" onClick={() => setSort('status')}>
-                    Status
+                <th scope="col" className="px-2 py-2 text-right">
+                  Expanded
+                </th>
+                <th scope="col" className="px-2 py-2 text-right">
+                  Generated
+                </th>
+                <th
+                  scope="col"
+                  className="px-2 py-2"
+                  aria-sort={
+                    sortKey === 'status'
+                      ? direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                >
+                  <button
+                    type="button"
+                    className={thSortButtonClasses}
+                    onClick={() => setSort('status')}
+                  >
+                    Status{sortIndicator('status')}
                   </button>
                 </th>
               </tr>
@@ -148,9 +254,15 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
                     {result.levelId}
                   </td>
                   <td className="px-2 py-2">{result.algorithmId}</td>
-                  <td className="px-2 py-2 text-right">{result.metrics.elapsedMs}</td>
-                  <td className="px-2 py-2 text-right">{result.metrics.expanded}</td>
-                  <td className="px-2 py-2 text-right">{result.metrics.generated}</td>
+                  <td className="px-2 py-2 text-right">
+                    {result.metrics.elapsedMs.toLocaleString()}
+                  </td>
+                  <td className="px-2 py-2 text-right">
+                    {result.metrics.expanded.toLocaleString()}
+                  </td>
+                  <td className="px-2 py-2 text-right">
+                    {result.metrics.generated.toLocaleString()}
+                  </td>
                   <td className="px-2 py-2">{result.status}</td>
                 </tr>
               ))}

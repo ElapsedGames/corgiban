@@ -28,10 +28,15 @@ function statusLabel(status: SolverRunStatus): string {
 
 export function SolverProgress({ status, progress, lastResult, error }: SolverProgressProps) {
   return (
-    <section className="space-y-3 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-3">
+    <section
+      aria-label="Solver status"
+      className="space-y-3 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-3"
+    >
       <div className="flex items-center justify-between text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
         <span>Status</span>
-        <span>{statusLabel(status)}</span>
+        <span aria-live="polite" aria-atomic="true">
+          {statusLabel(status)}
+        </span>
       </div>
 
       {progress ? (
@@ -89,7 +94,9 @@ export function SolverProgress({ status, progress, lastResult, error }: SolverPr
         </div>
       ) : null}
 
-      {error ? <p className="text-xs font-semibold text-red-300">{error}</p> : null}
+      {error ? (
+        <p className="break-words text-xs font-semibold text-red-600 dark:text-red-300">{error}</p>
+      ) : null}
     </section>
   );
 }

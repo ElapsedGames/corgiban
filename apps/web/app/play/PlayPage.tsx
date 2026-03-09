@@ -14,6 +14,7 @@ import type { Direction } from '@corgiban/shared';
 import type { AlgorithmId } from '@corgiban/solver';
 
 import { GameCanvas } from '../canvas/GameCanvas';
+import { Button } from '../ui/Button';
 import { ReplayController } from '../replay/replayController.client';
 import type { AppDispatch, RootState } from '../state';
 import { cancelSolve, handleLevelChange, retryWorker, startSolve } from '../state';
@@ -314,78 +315,126 @@ export function PlayPage() {
     onNextLevel: handleNextLevel,
   });
 
+  const solvedNextLevelRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (solved) {
+      solvedNextLevelRef.current?.focus();
+    }
+  }, [solved]);
+
   const canvasState = replayShadowState ?? gameState;
 
   return (
-    <main className="page-shell">
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <main id="main-content" className="page-shell play-shell" aria-label="Play Corgiban">
+      <header className="flex flex-col gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-muted)]">Play</p>
           <h1 className="page-title">Corgiban</h1>
           <p className="page-subtitle">
-            Use arrow keys or WASD to move. U to undo, R to restart, N for next level.
+            Use arrow keys or WASD to move.{' '}
+            <span className="whitespace-nowrap">U to undo, R to restart, N for next level.</span>
           </p>
-        </div>
-        <div className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] px-4 py-3 text-sm">
-          <div className="text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
-            Current level
-          </div>
-          <div className="font-semibold">{levelDefinition.name}</div>
         </div>
       </header>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <SidePanel
-          levelName={levelDefinition.name}
-          levelId={levelDefinition.id}
-          stats={stats}
-          moves={history}
-          isSolved={solved}
-          canGoToPreviousLevel={canGoToPreviousLevel}
-          onPreviousLevel={handlePreviousLevel}
-          onRestart={handleRestart}
-          onUndo={handleUndo}
-          onNextLevel={handleNextLevel}
-        />
+      {solved ? (
+        <div role="status" aria-live="polite" className="sr-only">
+          Level solved!
+        </div>
+      ) : null}
 
-        <div className="flex flex-col gap-6">
-          <section className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-4 shadow-lg">
-            <div className="mb-3 flex items-center justify-between text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
-              <span>Board</span>
-              <span>
+      <div className="mt-8 grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)_22rem]">
+        <div className="order-2 flex min-w-0 flex-col gap-6 lg:order-1">
+          <SidePanel
+            levelName={levelDefinition.name}
+            levelId={levelDefinition.id}
+            stats={stats}
+            moves={history}
+            isSolved={solved}
+            canGoToPreviousLevel={canGoToPreviousLevel}
+            onPreviousLevel={handlePreviousLevel}
+            onRestart={handleRestart}
+            onUndo={handleUndo}
+            onNextLevel={handleNextLevel}
+          />
+
+          <BottomControls onApplySequence={handleApplySequence} />
+        </div>
+
+        <div className="order-1 flex min-w-0 flex-col gap-6 lg:order-2">
+          <section
+            aria-labelledby="board-heading"
+            className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg lg:p-6"
+          >
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p
+                  id="board-heading"
+                  className="text-xs uppercase tracking-wide text-[color:var(--color-muted)]"
+                >
+                  Board
+                </p>
+                <h2 className="mt-1 text-xl font-semibold text-[color:var(--color-fg)]">
+                  {levelDefinition.name}
+                </h2>
+                <p className="mt-1 text-sm text-[color:var(--color-muted)]">{levelDefinition.id}</p>
+              </div>
+              <span
+                className="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[color:var(--color-muted)]"
+                aria-label={`${levelRuntime.width} columns by ${levelRuntime.height} rows`}
+              >
                 {levelRuntime.width} x {levelRuntime.height}
               </span>
             </div>
-            <div className="flex justify-center rounded-[var(--radius-md)] bg-[color:var(--color-bg)] p-3">
-              <GameCanvas state={canvasState} className="max-w-full" cellSize={32} />
+            {solved ? (
+              <div className="mb-3 flex flex-wrap items-center gap-3 rounded-[var(--radius-md)] bg-emerald-500/15 px-3 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                <span className="flex items-center gap-2">
+                  <span aria-hidden="true">&#10003;</span>
+                  Puzzle solved!
+                </span>
+                <Button
+                  ref={solvedNextLevelRef}
+                  size="sm"
+                  onClick={handleNextLevel}
+                  className="shrink-0"
+                >
+                  Next Level
+                </Button>
+              </div>
+            ) : null}
+            <div className="flex justify-center rounded-[var(--radius-md)] bg-[color:var(--color-bg)] p-2 sm:p-3 lg:p-4">
+              <GameCanvas state={canvasState} className="max-w-full" cellSize={56} />
             </div>
           </section>
+        </div>
 
-          <BottomControls onApplySequence={handleApplySequence} />
-
-          <SolverPanel
-            recommendation={solver.recommendation}
-            selectedAlgorithmId={solver.selectedAlgorithmId}
-            status={solver.status}
-            progress={solver.progress}
-            lastResult={solver.lastResult}
-            error={solver.error}
-            workerHealth={solver.workerHealth}
-            replayState={solver.replayState}
-            replayIndex={solver.replayIndex}
-            replayTotalSteps={solver.replayTotalSteps}
-            replaySpeed={replaySpeed}
-            onSelectAlgorithm={handleSelectAlgorithm}
-            onRun={handleRunSolver}
-            onCancel={handleCancelSolver}
-            onApply={handleApplySolution}
-            onAnimate={handleAnimateSolution}
-            onReplayPlayPause={handleReplayPlayPause}
-            onReplayStepBack={handleReplayStepBack}
-            onReplayStepForward={handleReplayStepForward}
-            onReplaySpeedChange={handleReplaySpeedChange}
-            onRetryWorker={handleRetryWorker}
-          />
+        <div className="order-3 flex min-w-0 flex-col gap-6 lg:col-span-2 xl:col-span-1">
+          <div className="xl:sticky xl:top-24">
+            <SolverPanel
+              recommendation={solver.recommendation}
+              selectedAlgorithmId={solver.selectedAlgorithmId}
+              status={solver.status}
+              progress={solver.progress}
+              lastResult={solver.lastResult}
+              error={solver.error}
+              workerHealth={solver.workerHealth}
+              replayState={solver.replayState}
+              replayIndex={solver.replayIndex}
+              replayTotalSteps={solver.replayTotalSteps}
+              replaySpeed={replaySpeed}
+              onSelectAlgorithm={handleSelectAlgorithm}
+              onRun={handleRunSolver}
+              onCancel={handleCancelSolver}
+              onApply={handleApplySolution}
+              onAnimate={handleAnimateSolution}
+              onReplayPlayPause={handleReplayPlayPause}
+              onReplayStepBack={handleReplayStepBack}
+              onReplayStepForward={handleReplayStepForward}
+              onReplaySpeedChange={handleReplaySpeedChange}
+              onRetryWorker={handleRetryWorker}
+            />
+          </div>
         </div>
       </div>
     </main>

@@ -534,7 +534,7 @@ describe('BenchmarkAnalyticsPanel', () => {
 
     expect(container.textContent).toContain('Run at least one suite to generate analytics.');
 
-    const exportButton = findButton(container, 'Export comparison snapshot');
+    const exportButton = findButton(container, 'Export Comparison Snapshot');
     expect(exportButton).not.toBeNull();
     expect(exportButton?.hasAttribute('disabled')).toBe(true);
 
@@ -543,6 +543,19 @@ describe('BenchmarkAnalyticsPanel', () => {
     });
 
     expect(onExportSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('renders an sr-only caption with suite count when at least one suite exists', async () => {
+    const { container } = await renderPanel({
+      results: [createResult('suite-a', 25, 'unsolved'), createResult('suite-b', 40, 'solved')],
+    });
+
+    const caption = container.querySelector('caption');
+    expect(caption).not.toBeNull();
+    expect(caption?.textContent).toContain('Suite analytics and comparison');
+    expect(caption?.textContent).toContain('2');
+    expect(caption?.textContent).toContain('suite');
+    expect(caption?.className).toContain('sr-only');
   });
 
   it('exports comparable suites using the most recent comparable suite as the default baseline', async () => {
@@ -561,7 +574,7 @@ describe('BenchmarkAnalyticsPanel', () => {
     expect(container.textContent).toContain('Comparable');
     expect(container.textContent).not.toContain('Not comparable');
 
-    const exportButton = findButton(container, 'Export comparison snapshot');
+    const exportButton = findButton(container, 'Export Comparison Snapshot');
     expect(exportButton?.hasAttribute('disabled')).toBe(false);
 
     await act(async () => {
@@ -624,7 +637,7 @@ describe('BenchmarkAnalyticsPanel', () => {
     expect(container.textContent).toContain('-10.0');
 
     await act(async () => {
-      findButton(container, 'Export comparison snapshot')?.click();
+      findButton(container, 'Export Comparison Snapshot')?.click();
     });
 
     expect(onExportSnapshot).toHaveBeenCalledTimes(1);
@@ -651,7 +664,7 @@ describe('BenchmarkAnalyticsPanel', () => {
     expect(container.textContent).toContain('n/a');
 
     await act(async () => {
-      findButton(container, 'Export comparison snapshot')?.click();
+      findButton(container, 'Export Comparison Snapshot')?.click();
     });
 
     expect(onExportSnapshot).toHaveBeenCalledTimes(1);
@@ -716,7 +729,7 @@ describe('BenchmarkAnalyticsPanel', () => {
     expect(container.textContent).not.toContain('2 runs');
 
     await act(async () => {
-      findButton(container, 'Export comparison snapshot')?.click();
+      findButton(container, 'Export Comparison Snapshot')?.click();
     });
 
     expect(onExportSnapshot).toHaveBeenCalledTimes(1);
@@ -774,7 +787,7 @@ describe('BenchmarkAnalyticsPanel', () => {
     const updatedSelect = container.querySelector('select');
     expect(updatedSelect?.value).toBe('');
 
-    const exportButton = findButton(container, 'Export comparison snapshot');
+    const exportButton = findButton(container, 'Export Comparison Snapshot');
     expect(exportButton?.hasAttribute('disabled')).toBe(false);
     expect(container.textContent).toContain('suite-b');
 

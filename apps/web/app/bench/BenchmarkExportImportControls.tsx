@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 import { Button } from '../ui/Button';
 
 export type BenchmarkExportImportControlsProps = {
@@ -23,9 +25,16 @@ export function BenchmarkExportImportControls({
   onImportLevelPack,
   onClearResults,
 }: BenchmarkExportImportControlsProps) {
+  const headingId = useId();
+
   return (
-    <section className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg">
-      <h2 className="text-lg font-semibold">Import / Export</h2>
+    <section
+      aria-labelledby={headingId}
+      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+    >
+      <h2 id={headingId} className="text-lg font-semibold">
+        Import / Export
+      </h2>
       <p className="mt-1 text-sm text-[color:var(--color-muted)]">
         Share benchmark history reports and level packs. File System Access API is used when
         available.

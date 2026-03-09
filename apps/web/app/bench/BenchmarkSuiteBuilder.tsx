@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 import type { AlgorithmId } from '@corgiban/solver';
 
 import type { BenchmarkSuiteConfig } from '../ports/benchmarkPort';
@@ -45,12 +47,18 @@ export function BenchmarkSuiteBuilder({
   onCancel,
 }: BenchmarkSuiteBuilderProps) {
   const isRunning = status === 'running' || status === 'cancelling';
+  const headingId = useId();
 
   return (
-    <section className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg">
+    <section
+      aria-labelledby={headingId}
+      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+    >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold">Suite Builder</h2>
+          <h2 id={headingId} className="text-lg font-semibold">
+            Suite Builder
+          </h2>
           <p className="text-sm text-[color:var(--color-muted)]">
             Select levels, algorithms, and budgets for this benchmark suite.
           </p>
@@ -70,9 +78,9 @@ export function BenchmarkSuiteBuilder({
           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-[color:var(--color-muted)]">
             Levels
           </legend>
-          <div className="max-h-48 space-y-2 overflow-auto pr-1 text-sm">
+          <div className="max-h-48 space-y-2 overflow-auto pr-1 text-sm" tabIndex={0}>
             {availableLevels.map((level) => (
-              <label key={level.id} className="flex items-center gap-2">
+              <label key={level.id} className="flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
                   checked={suite.levelIds.includes(level.id)}
@@ -91,7 +99,10 @@ export function BenchmarkSuiteBuilder({
           </legend>
           <div className="space-y-2 text-sm">
             {availableAlgorithms.map((algorithm) => (
-              <label key={algorithm.id} className="flex items-center gap-2">
+              <label
+                key={algorithm.id}
+                className={`flex items-center gap-2 ${algorithm.disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+              >
                 <input
                   type="checkbox"
                   checked={suite.algorithmIds.includes(algorithm.id)}
@@ -109,7 +120,9 @@ export function BenchmarkSuiteBuilder({
         <Input
           label="Repetitions"
           type="number"
+          inputMode="numeric"
           min={1}
+          max={1000}
           step={1}
           value={suite.repetitions}
           onChange={(event) => onSetRepetitions(Number(event.target.value))}
@@ -117,7 +130,9 @@ export function BenchmarkSuiteBuilder({
         <Input
           label="Warm-up Repetitions"
           type="number"
+          inputMode="numeric"
           min={0}
+          max={100}
           step={1}
           value={suite.warmupRepetitions}
           onChange={(event) => onSetWarmupRepetitions?.(Number(event.target.value))}
@@ -126,7 +141,9 @@ export function BenchmarkSuiteBuilder({
         <Input
           label="Time Budget (ms)"
           type="number"
+          inputMode="numeric"
           min={1}
+          max={300000}
           step={1}
           value={suite.timeBudgetMs}
           onChange={(event) => onSetTimeBudgetMs(Number(event.target.value))}
@@ -134,7 +151,9 @@ export function BenchmarkSuiteBuilder({
         <Input
           label="Node Budget"
           type="number"
+          inputMode="numeric"
           min={1}
+          max={100000000}
           step={1}
           value={suite.nodeBudget}
           onChange={(event) => onSetNodeBudget(Number(event.target.value))}

@@ -32,6 +32,13 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
   );
 }
 
+// Module-level state tracks how many dialogs are currently open so the scroll
+// lock is only removed when the last dialog closes (prevents a race when two
+// dialogs are open simultaneously).
+let openDialogCount = 0;
+let savedBodyOverflow = '';
+let savedHtmlOverflow = '';
+
 export type DialogProps = {
   open: boolean;
   title: string;
@@ -45,16 +52,53 @@ export function Dialog({ open, title, description, onClose, children, actions }:
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  // Track the element that had focus before the dialog opened so we can
+  // restore it when the dialog closes (WCAG 2.4.3 / APG modal pattern).
+  const triggerRef = useRef<Element | null>(null);
 
   // Move focus into the dialog when it opens so screen readers and keyboard
-  // users land inside the modal immediately.
+  // users land inside the modal immediately. Save the pre-open active element
+  // so focus can be restored when the dialog closes.
   useEffect(() => {
     if (!open) return;
+    // Capture the element that currently has focus before we move away from it.
+    triggerRef.current = document.activeElement;
     const dialog = dialogRef.current;
     if (!dialog) return;
     // Focus the first focusable element; fall back to the dialog container itself.
     const focusable = getFocusableElements(dialog)[0];
     (focusable ?? dialog).focus();
+    return () => {
+      // Restore focus to the trigger when the dialog unmounts (i.e. closes).
+      if (triggerRef.current instanceof HTMLElement) {
+        triggerRef.current.focus();
+      }
+      triggerRef.current = null;
+    };
+  }, [open]);
+
+  // Lock body scroll while the dialog is open so the background page does not
+  // scroll behind the modal overlay (standard modal UX / WCAG 2.1 2.1.2).
+  // Both <body> and <html> are locked because iOS Safari ignores overflow:hidden
+  // on <body> alone and requires it on the root element.
+  // A module-level counter prevents a race when multiple dialogs are open at
+  // the same time: the lock is only released when the last open dialog closes.
+  useEffect(() => {
+    if (!open) return;
+    openDialogCount += 1;
+    if (openDialogCount === 1) {
+      savedBodyOverflow = document.body.style.overflow;
+      savedHtmlOverflow = document.documentElement.style.overflow;
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    }
+    return () => {
+      openDialogCount -= 1;
+      if (openDialogCount === 0) {
+        document.body.style.overflow = savedBodyOverflow;
+        document.documentElement.style.overflow = savedHtmlOverflow;
+      }
+    };
   }, [open]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {

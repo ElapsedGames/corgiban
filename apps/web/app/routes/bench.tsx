@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { isRouteErrorResponse, useRouteError } from '@remix-run/react';
+import { isRouteErrorResponse, Link, useRouteError } from '@remix-run/react';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 
 import {
@@ -52,7 +52,6 @@ import {
   type MutablePersistencePort,
   type MutableSolverPort,
 } from '../state/mutableDependencies';
-import { useThemeSync } from '../useThemeSync';
 
 const useRouteStoreEffect = typeof document === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -81,7 +80,6 @@ function createBenchRouteStoreOwner(): BenchRouteStoreOwner {
 }
 
 function BenchRoutePage() {
-  useThemeSync();
   const dispatch = useDispatch<AppDispatch>();
   const bench = useSelector((state: RootState) => state.bench);
   const debug = useSelector((state: RootState) => state.settings.debug);
@@ -123,11 +121,16 @@ function BenchRoutePage() {
     void exportTextFile({
       suggestedName: 'corgiban-benchmark-history.json',
       content: JSON.stringify(payload, null, 2),
-    }).catch((error) => {
-      dispatch(
-        benchErrorRecorded(error instanceof Error ? error.message : 'Failed to export report.'),
-      );
-    });
+    })
+      .then(() => {
+        dispatch(benchErrorRecorded(null));
+        dispatch(benchNoticeRecorded('Benchmark history exported successfully.'));
+      })
+      .catch((error) => {
+        dispatch(
+          benchErrorRecorded(error instanceof Error ? error.message : 'Failed to export report.'),
+        );
+      });
   }, [bench.results, dispatch]);
 
   const handleImportReport = useCallback(() => {
@@ -155,11 +158,18 @@ function BenchRoutePage() {
     void exportTextFile({
       suggestedName: 'corgiban-level-pack.json',
       content: JSON.stringify(payload, null, 2),
-    }).catch((error) => {
-      dispatch(
-        benchErrorRecorded(error instanceof Error ? error.message : 'Failed to export level pack.'),
-      );
-    });
+    })
+      .then(() => {
+        dispatch(benchErrorRecorded(null));
+        dispatch(benchNoticeRecorded('Level pack exported successfully.'));
+      })
+      .catch((error) => {
+        dispatch(
+          benchErrorRecorded(
+            error instanceof Error ? error.message : 'Failed to export level pack.',
+          ),
+        );
+      });
   }, [bench.suite.levelIds, dispatch]);
 
   const handleImportLevelPack = useCallback(() => {
@@ -182,13 +192,18 @@ function BenchRoutePage() {
       void exportTextFile({
         suggestedName: 'corgiban-benchmark-comparison.json',
         content: JSON.stringify(snapshot, null, 2),
-      }).catch((error) => {
-        dispatch(
-          benchErrorRecorded(
-            error instanceof Error ? error.message : 'Failed to export comparison snapshot.',
-          ),
-        );
-      });
+      })
+        .then(() => {
+          dispatch(benchErrorRecorded(null));
+          dispatch(benchNoticeRecorded('Comparison snapshot exported successfully.'));
+        })
+        .catch((error) => {
+          dispatch(
+            benchErrorRecorded(
+              error instanceof Error ? error.message : 'Failed to export comparison snapshot.',
+            ),
+          );
+        });
     },
     [dispatch],
   );
@@ -270,24 +285,36 @@ export default function BenchRoute() {
 
 export function ErrorBoundary() {
   const error = useRouteError();
-
-  if (isRouteErrorResponse(error)) {
-    return (
-      <main className="page-shell">
-        <h1 className="page-title">Bench</h1>
-        <p className="page-subtitle">
-          {error.status} {error.statusText}
-        </p>
-      </main>
-    );
-  }
-
-  const message = error instanceof Error ? error.message : 'Unknown error';
+  const isHttp = isRouteErrorResponse(error);
+  const message = isHttp
+    ? `${error.status}${error.statusText ? ` ${error.statusText}` : ''}`
+    : error instanceof Error
+      ? error.message
+      : 'Unknown error';
 
   return (
-    <main className="page-shell">
+    <main id="main-content" className="page-shell">
       <h1 className="page-title">Bench</h1>
       <p className="page-subtitle">{message}</p>
+      <section className="route-card" aria-label="Recovery navigation">
+        <p className="text-sm text-[color:var(--color-muted)]">
+          Return to a working page and try again.
+        </p>
+        <nav aria-label="Recovery links" className="mt-4 flex flex-wrap gap-3 text-sm">
+          <Link
+            className="rounded px-2 py-1 font-semibold text-[color:var(--color-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+            to="/"
+          >
+            Home
+          </Link>
+          <Link
+            className="rounded px-2 py-1 font-semibold text-[color:var(--color-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+            to="/bench"
+          >
+            Try Bench again
+          </Link>
+        </nav>
+      </section>
     </main>
   );
 }

@@ -345,6 +345,22 @@ implementations after commit.
 
 See ADR-0025 (`docs/adr/0025-route-store-ssr-safe-port-bootstrap.md`).
 
+### 3.23 App-shell theme ownership: **root-owned pre-paint theme bootstrap**
+
+**Decision:** Keep light/dark theme ownership in the root app shell. Resolve the initial `<html>`
+class before paint from persisted browser preference with `prefers-color-scheme` fallback, and do
+not duplicate theme ownership in route-scoped Redux stores.
+
+**Why**
+
+- Keeps theme ownership single-sourced across `/`, `/play`, `/bench`, `/lab`, `/dev/ui-kit`, and
+  root error surfaces.
+- Avoids hydration flash when the user prefers dark mode on first paint or hard reload.
+- Keeps route-scoped Redux stores focused on gameplay, solver, and benchmark settings instead of
+  app-shell concerns.
+
+See ADR-0026 (`docs/adr/0026-app-shell-theme-ownership.md`).
+
 ## 4. Monorepo layout
 
 ```
@@ -361,6 +377,7 @@ See ADR-0025 (`docs/adr/0025-route-store-ssr-safe-port-bootstrap.md`).
       /replay
       /routes
       /state
+      /theme
       /ui
       /styles
       root.tsx
@@ -954,7 +971,8 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 
 ### 11.1 Pages
 
-- `/play` (default)
+- `/` (landing page with app-level entry points into the main workflows)
+- `/play` (interactive play surface)
 - `/bench`
 - `/dev/ui-kit` (design system showcase)
 - `/lab` (Level Lab route with format parsing, route-local tool state, and worker-backed checks)
@@ -962,7 +980,9 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 
 ### 11.2 Component structure (initial)
 
-- `LayoutShell`
+- `Document` (shared html/head/body wrapper, pre-paint theme bootstrap, skip link, root error shell)
+- `AppNav` (global navigation + light/dark theme toggle)
+- `IndexPage` (landing-page entry points and product summary)
 - `SidePanel` (level info, restart, move history)
 - `GameCanvas`
 - `BottomControls` (sequence input, playback)
@@ -1004,7 +1024,7 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 - `benchSlice`
   - suite config, active benchmark status/progress, results, diagnostics, perf entries
 - `settingsSlice`
-  - tileAnimationDuration, solverReplaySpeed, solver time/node budget defaults, theme, debug flags
+  - tileAnimationDuration, solverReplaySpeed, solver time/node budget defaults, debug flags
 
 ### 12.2 Side effects
 
@@ -1022,8 +1042,9 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
   in browser-backed ports after commit so SSR/render stays pure and browser resources are not
   created before the route mounts. This preserves one stable store instance per route; route
   modules replace ports, not store identity. See ADR-0025.
-- `/play` and `/bench` also sync `settings.theme` to `document.documentElement` after commit; the
-  SSR app shell defaults `<html>` to `light` so hydration matches the current settings default.
+- The root app shell owns the light/dark theme class on `<html>`, resolves the initial value
+  before paint from persisted preference with `prefers-color-scheme` fallback, and exposes the
+  toggle through the shared app navigation. Route-scoped Redux stores do not manage theme.
 - `/lab` intentionally stays outside Redux thunk orchestration; it creates route-local
   `SolverPort` / `BenchmarkPort` refs and coordinates one-click solve/bench flows directly inside
   `LabPage`.
@@ -1180,6 +1201,7 @@ Current accepted ADRs:
 - ADR-0023: Level Lab route-local state ownership and direct port orchestration
 - ADR-0024: Offscreen sprite-atlas worker with main-thread fallback
 - ADR-0025: SSR-safe route store bootstrap via mutable ports
+- ADR-0026: App-shell theme ownership
 
 ---
 

@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 import type { Direction } from '@corgiban/shared';
 
 import { SequenceInput, type SequenceApplyResult } from './SequenceInput';
@@ -7,10 +9,17 @@ export type BottomControlsProps = {
 };
 
 export function BottomControls({ onApplySequence }: BottomControlsProps) {
+  const headingId = useId();
+
   return (
-    <section className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg">
+    <section
+      aria-labelledby={headingId}
+      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+    >
       <div className="mb-4">
-        <h2 className="text-lg font-semibold">Sequence input</h2>
+        <h2 id={headingId} className="text-lg font-semibold">
+          Sequence input
+        </h2>
         <p className="text-sm text-[color:var(--color-muted)]">
           Paste a UDLR string to apply multiple moves in order.
         </p>

@@ -20,16 +20,19 @@ export function MoveHistory({ moves }: MoveHistoryProps) {
 
   return (
     <div className="space-y-3">
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {moves.length} move{moves.length === 1 ? '' : 's'} made
+      </div>
       <div className="flex items-center justify-between text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
         <span>Move history</span>
         <span>{moves.length} total</span>
       </div>
-      <ol className="grid grid-cols-3 gap-2 text-sm">
+      <ol aria-label="Move history" className="grid grid-cols-3 gap-2 text-sm">
         {recentMoves.map((move, index) => {
           const absoluteIndex = offset + index + 1;
           const badgeClasses = move.pushed
-            ? 'bg-amber-500/20 text-amber-200'
-            : 'bg-slate-500/20 text-slate-200';
+            ? 'bg-amber-500/20 text-amber-700 dark:text-amber-200'
+            : 'bg-slate-500/20 text-slate-600 dark:text-slate-200';
 
           return (
             <li

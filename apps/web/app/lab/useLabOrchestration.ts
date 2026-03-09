@@ -79,6 +79,7 @@ export function useLabOrchestration(): LabOrchestrationState {
     const parsed = initialLabRef.current?.parsed ?? createInitialLabData().parsed;
     return {
       message: 'Parsed successfully.',
+      isError: false,
       levelName: parsed.level.name,
       levelId: parsed.level.id,
     };
@@ -129,6 +130,7 @@ export function useLabOrchestration(): LabOrchestrationState {
     setInput(parsed.normalizedInput);
     setParseState({
       message,
+      isError: false,
       levelName: parsed.level.name,
       levelId: parsed.level.id,
     });
@@ -155,6 +157,7 @@ export function useLabOrchestration(): LabOrchestrationState {
     } catch (error) {
       setParseState({
         message: error instanceof Error ? error.message : 'Failed to parse level input.',
+        isError: true,
         levelName: activeLevel.name,
         levelId: activeLevel.id,
       });
@@ -371,6 +374,7 @@ export function useLabOrchestration(): LabOrchestrationState {
     }).catch((error) => {
       setParseState((current) => ({
         ...current,
+        isError: true,
         message: error instanceof Error ? error.message : 'Failed to export lab payload.',
       }));
     });
@@ -386,6 +390,7 @@ export function useLabOrchestration(): LabOrchestrationState {
       .catch((error) => {
         setParseState((current) => ({
           ...current,
+          isError: true,
           message: error instanceof Error ? error.message : 'Failed to import lab payload.',
         }));
       });

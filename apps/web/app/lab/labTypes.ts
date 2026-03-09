@@ -1,5 +1,6 @@
 export type ParseState = {
   message: string;
+  isError: boolean;
   levelName: string;
   levelId: string;
 };

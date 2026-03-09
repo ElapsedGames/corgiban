@@ -179,6 +179,16 @@ describe('BenchmarkResultsTable', () => {
     });
   });
 
+  it('renders an sr-only caption with row count when results are present', () => {
+    const html = renderToStaticMarkup(
+      <BenchmarkResultsTable results={[createResult(), createResult({ id: 'result-2' })]} />,
+    );
+
+    expect(html).toContain('Benchmark run results');
+    expect(html).toContain('2 rows');
+    expect(html).toContain('Click column headers to sort');
+  });
+
   it('compares primitive values and formats timestamps', () => {
     expect(compareBenchmarkValues('a', 'b')).toBeLessThan(0);
     expect(compareBenchmarkValues('z', 'a')).toBeGreaterThan(0);

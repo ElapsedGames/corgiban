@@ -139,6 +139,20 @@ export function renderCanvasFrame(
   draw(ctx as CanvasRenderingContext2D, plan, atlas);
 }
 
+function buildCanvasLabel(state: GameState): string {
+  const { staticGrid } = state.level;
+  const boxes = state.boxes;
+  let remaining = 0;
+  for (let i = 0; i < boxes.length; i++) {
+    const idx = boxes[i];
+    if (idx !== undefined && staticGrid[idx] !== 2) {
+      remaining++;
+    }
+  }
+  const total = boxes.length;
+  return `Game board: ${remaining} of ${total} box${total === 1 ? '' : 'es'} remaining`;
+}
+
 export function GameCanvas({ state, cellSize = 32, className }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [dpr, setDpr] = useState(1);
@@ -198,5 +212,7 @@ export function GameCanvas({ state, cellSize = 32, className }: GameCanvasProps)
     );
   }, [activeAtlasKey, atlas, dpr, responsiveCellSize, state]);
 
-  return <canvas ref={canvasRef} className={className} role="img" aria-label="Game board" />;
+  return (
+    <canvas ref={canvasRef} className={className} role="img" aria-label={buildCanvasLabel(state)} />
+  );
 }

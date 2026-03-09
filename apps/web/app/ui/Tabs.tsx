@@ -57,7 +57,7 @@ export function Tabs({ items, value, onChange, ariaLabel, className }: TabsProps
       {items.map((item, index) => {
         const selected = item.id === value;
         const tabClasses = [
-          'rounded-[var(--radius-md)] px-3 py-1.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]',
+          'rounded-[var(--radius-md)] px-3 py-1.5 text-sm font-semibold motion-safe:transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]',
           selected
             ? 'bg-[color:var(--color-accent)] text-white'
             : 'text-[color:var(--color-muted)] hover:text-[color:var(--color-fg)]',

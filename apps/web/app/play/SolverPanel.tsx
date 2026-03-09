@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AlgorithmId } from '@corgiban/solver';
 import { ALGORITHM_IDS, DEFAULT_ALGORITHM_ID, isImplementedAlgorithmId } from '@corgiban/solver';
@@ -76,9 +77,9 @@ function SolverBudgetSettings() {
   const solverNodeBudget = useSelector((state: RootState) => state.settings.solverNodeBudget);
 
   return (
-    <div className="mt-4 grid gap-3 md:grid-cols-2">
+    <div className="mt-5 grid gap-3 md:grid-cols-2">
       <Input
-        label="Default Time Budget (ms)"
+        label="Time Budget (ms)"
         type="number"
         min={1}
         step={1}
@@ -88,7 +89,7 @@ function SolverBudgetSettings() {
         }}
       />
       <Input
-        label="Default Node Budget"
+        label="Node Budget"
         type="number"
         min={1}
         step={1}
@@ -124,6 +125,7 @@ export function SolverPanel({
   onReplaySpeedChange,
   onRetryWorker,
 }: SolverPanelProps) {
+  const headingId = useId();
   const preferredAlgorithmId =
     selectedAlgorithmId ?? recommendation?.algorithmId ?? FALLBACK_ALGORITHM_ID;
   const resolvedAlgorithmId = isImplementedAlgorithmId(preferredAlgorithmId)
@@ -131,9 +133,14 @@ export function SolverPanel({
     : FALLBACK_ALGORITHM_ID;
 
   return (
-    <section className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg">
+    <section
+      aria-labelledby={headingId}
+      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+    >
       <div className="mb-4">
-        <h2 className="text-lg font-semibold">Solver</h2>
+        <h2 id={headingId} className="text-lg font-semibold">
+          Solver
+        </h2>
         <p className="text-sm text-[color:var(--color-muted)]">
           {recommendationLabel(recommendation)}
         </p>
@@ -160,6 +167,8 @@ export function SolverPanel({
 
       <SolverBudgetSettings />
 
+      <hr className="my-5 border-[color:var(--color-border)]" />
+
       <SolverControls
         status={status}
         replayState={replayState}
@@ -179,7 +188,7 @@ export function SolverPanel({
         onRetryWorker={onRetryWorker}
       />
 
-      <div className="mt-4">
+      <div className="mt-5">
         <SolverProgress status={status} progress={progress} lastResult={lastResult} error={error} />
       </div>
     </section>

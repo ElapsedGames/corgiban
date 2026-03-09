@@ -11,10 +11,14 @@ const testState = vi.hoisted(() => ({
   solverPanelProps: null as null | Record<string, unknown>,
   sidePanelProps: null as null | Record<string, unknown>,
   bottomControlsProps: null as null | Record<string, unknown>,
+  gameCanvasProps: null as null | Record<string, unknown>,
 }));
 
 vi.mock('../../canvas/GameCanvas', () => ({
-  GameCanvas: () => <div data-testid="game-canvas-stub" />,
+  GameCanvas: (props: Record<string, unknown>) => {
+    testState.gameCanvasProps = props;
+    return <div data-testid="game-canvas-stub" />;
+  },
 }));
 
 vi.mock('../SidePanel', () => ({
@@ -54,15 +58,18 @@ describe('PlayPage', () => {
     testState.solverPanelProps = null;
     testState.sidePanelProps = null;
     testState.bottomControlsProps = null;
+    testState.gameCanvasProps = null;
   });
 
   it('renders the play shell and forwards solver selection changes to Redux state', () => {
     const { store, html } = renderPage();
 
     expect(html).toContain('Corgiban');
-    expect(html).toContain('Current level');
+    expect(html).toContain('board-heading');
+    expect(html).toContain('play-shell');
     expect(testState.solverPanelProps).not.toBeNull();
     expect(testState.sidePanelProps?.canGoToPreviousLevel).toBe(false);
+    expect(testState.gameCanvasProps?.cellSize).toBe(56);
 
     const onSelectAlgorithm = testState.solverPanelProps?.onSelectAlgorithm as
       | ((algorithmId: string) => void)
@@ -314,4 +321,8 @@ describe('PlayPage', () => {
     expect(store.getState().solver.replayState).toBe('idle');
     expect(store.getState().solver.replayIndex).toBe(0);
   });
+
+  it.todo(
+    'moves focus to the "Next Level" button in the solved banner when the puzzle is solved (requires JSDOM and @testing-library/react to exercise useEffect)',
+  );
 });

@@ -1,3 +1,6 @@
+import { useId } from 'react';
+
+import { Button } from '../ui/Button';
 import type { BenchPerfEntry } from '../state/benchSlice';
 
 export type BenchmarkPerfPanelProps = {
@@ -6,23 +9,25 @@ export type BenchmarkPerfPanelProps = {
 };
 
 export function BenchmarkPerfPanel({ entries, onClear }: BenchmarkPerfPanelProps) {
+  const headingId = useId();
+
   return (
-    <section className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg">
+    <section
+      aria-labelledby={headingId}
+      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+    >
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Performance</h2>
+          <h2 id={headingId} className="text-lg font-semibold">
+            Performance
+          </h2>
           <p className="text-sm text-[color:var(--color-muted)]">
             Observed benchmark performance measures ({entries.length}).
           </p>
         </div>
-        <button
-          type="button"
-          className="text-sm font-semibold text-[color:var(--color-accent)]"
-          onClick={onClear}
-          disabled={entries.length === 0}
-        >
+        <Button variant="ghost" size="sm" onClick={onClear} disabled={entries.length === 0}>
           Clear
-        </button>
+        </Button>
       </div>
 
       {entries.length === 0 ? (
@@ -32,11 +37,21 @@ export function BenchmarkPerfPanel({ entries, onClear }: BenchmarkPerfPanelProps
       ) : (
         <div className="max-h-60 overflow-auto">
           <table className="min-w-full text-sm">
+            <caption className="sr-only">
+              Performance measures, {entries.length} {entries.length === 1 ? 'entry' : 'entries'}.
+              Most recent first.
+            </caption>
             <thead>
               <tr className="border-b border-[color:var(--color-border)] text-left text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
-                <th className="px-2 py-2">Name</th>
-                <th className="px-2 py-2 text-right">Duration (ms)</th>
-                <th className="px-2 py-2 text-right">Start (ms)</th>
+                <th scope="col" className="px-2 py-2">
+                  Name
+                </th>
+                <th scope="col" className="px-2 py-2 text-right">
+                  Duration (<abbr title="milliseconds">ms</abbr>)
+                </th>
+                <th scope="col" className="px-2 py-2 text-right">
+                  Start (<abbr title="milliseconds">ms</abbr>)
+                </th>
               </tr>
             </thead>
             <tbody>

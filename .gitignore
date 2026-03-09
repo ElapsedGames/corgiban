@@ -35,6 +35,7 @@ docs/_generated/**
 
 # Local artifacts
 artifacts/
+.claude/scheduled_tasks.lock
 
 # WASM build artifacts (packages/solver-kernels, Phase 6+)
 packages/solver-kernels/pkg/

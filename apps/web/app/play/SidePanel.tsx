@@ -33,10 +33,17 @@ export function SidePanel({
         <p className="text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
           Current level
         </p>
-        <h2 className="text-xl font-semibold text-[color:var(--color-fg)]">{levelName}</h2>
-        <p className="text-xs text-[color:var(--color-muted)]">{levelId}</p>
+        <h2
+          className="truncate text-xl font-semibold text-[color:var(--color-fg)]"
+          title={levelName}
+        >
+          {levelName}
+        </h2>
+        <p className="truncate text-xs text-[color:var(--color-muted)]" title={levelId}>
+          {levelId}
+        </p>
         {isSolved ? (
-          <span className="mt-2 inline-flex rounded-full bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-200">
+          <span className="mt-2 inline-flex rounded-full bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
             Solved
           </span>
         ) : null}
@@ -53,18 +60,28 @@ export function SidePanel({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={onRestart}>Restart</Button>
-        <Button variant="secondary" onClick={onUndo} disabled={moves.length === 0}>
+      <div role="group" aria-label="Game controls" className="grid grid-cols-2 gap-2">
+        <Button className="w-full" onClick={onRestart}>
+          Restart
+        </Button>
+        <Button
+          className="w-full"
+          variant="secondary"
+          onClick={onUndo}
+          disabled={moves.length === 0}
+        >
           Undo
         </Button>
-        {canGoToPreviousLevel ? (
-          <Button variant="ghost" onClick={onPreviousLevel}>
-            Previous level
-          </Button>
-        ) : null}
-        <Button variant="ghost" onClick={onNextLevel}>
-          Next level
+        <Button
+          className="w-full"
+          variant="ghost"
+          onClick={onPreviousLevel}
+          disabled={!canGoToPreviousLevel}
+        >
+          Previous
+        </Button>
+        <Button className="w-full" variant="ghost" onClick={onNextLevel}>
+          Next Level
         </Button>
       </div>
 

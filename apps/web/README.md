@@ -4,24 +4,26 @@ Remix application containing the product UI, routes, and orchestration.
 
 ## Responsibilities
 
-- Remix routes: `/play`, `/bench`, `/lab`, and `/dev/ui-kit`
+- Remix routes: `/`, `/play`, `/bench`, `/lab`, and `/dev/ui-kit`
+- Root app shell: shared navigation, skip link, and light/dark theme bootstrap/toggle
 - UI composition (React components) and Tailwind styling
-- State orchestration (Redux Toolkit) and workflow/thunks
+- Route-scoped state orchestration (Redux Toolkit) and workflow/thunks
 - Canvas host + animation playback scheduling (RAF time accumulator, shadow GameState outside Redux)
 - Worker clients (via ports/adapters) for solver + benchmarks
 - Persistence adapters (IndexedDB, File System Access export/import)
 
 ## Current status (Phase 6 adapters + tooling integration)
 
-- Routes: `/play` (interactive), `/bench` (benchmark workflows), `/lab` (level editor and worker checks), and `/dev/ui-kit` (design system).
-- State: RTK store includes `game`, `solver`, `bench`, and `settings` slices.
+- Routes: `/` (landing page), `/play` (interactive), `/bench` (benchmark workflows), `/lab` (level editor and worker checks), and `/dev/ui-kit` (design system).
+- State: route-scoped RTK stores use `game`, `solver`, `bench`, and `settings` slices where applicable; the root app shell keeps theme ownership outside Redux.
 - `/play` and `/bench` use route-scoped RTK stores; `/lab` intentionally keeps authoring,
   preview, and one-click worker status local to `LabPage` and talks to worker ports directly.
 - `/play` and `/bench` create those route-scoped stores with mutable no-op ports during render,
   then replace them with browser-backed worker/persistence ports after commit so SSR stays pure and
   each route keeps a stable store instance across hydration.
-- `/play` and `/bench` sync `settings.theme` to the root `<html>` class after commit; the SSR app
-  shell defaults to `light` so hydration matches the current settings default.
+- The root app shell owns the light/dark `<html>` class, resolves the initial theme before paint
+  from persisted preference with `prefers-color-scheme` fallback, and exposes the toggle in
+  `AppNav`.
 - Play:
   - GameState is derived from move history using core helpers.
   - Canvas rendering can use OffscreenCanvas sprite-atlas pre-rendering via a worker when

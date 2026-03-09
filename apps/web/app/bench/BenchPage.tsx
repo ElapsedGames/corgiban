@@ -74,9 +74,14 @@ export function BenchPage({
   const isSuiteActive = status === 'running' || status === 'cancelling';
 
   return (
-    <main className="page-shell">
-      <header>
-        <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-muted)]">Bench</p>
+    <main id="main-content" className="page-shell">
+      <header aria-label="Benchmark Suite page header">
+        <p
+          aria-hidden="true"
+          className="mb-1 text-xs uppercase tracking-[0.2em] text-[color:var(--color-muted)]"
+        >
+          Bench
+        </p>
         <h1 className="page-title">Benchmark Suite</h1>
         <p className="page-subtitle">
           Run solver benchmarks across multiple levels and review execution outcomes separately from

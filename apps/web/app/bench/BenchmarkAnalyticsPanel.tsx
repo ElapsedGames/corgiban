@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 
 import type { BenchmarkRunRecord } from '../ports/benchmarkPort';
 import { Button } from '../ui/Button';
@@ -24,6 +24,18 @@ function metricText(value: number | null): string {
   return value === null ? 'n/a' : value.toFixed(1);
 }
 
+function deltaPercentText(value: number | null): string {
+  if (value === null) return 'n/a';
+  const formatted = (value * 100).toFixed(1);
+  return value > 0 ? `+${formatted}%` : `${formatted}%`;
+}
+
+function deltaMetricText(value: number | null): string {
+  if (value === null) return 'n/a';
+  const formatted = value.toFixed(1);
+  return value > 0 ? `+${formatted}` : formatted;
+}
+
 function comparisonLabel(
   suiteRunId: string,
   baselineSuiteRunId: string | null,
@@ -42,6 +54,7 @@ export function BenchmarkAnalyticsPanel({
   results,
   onExportSnapshot,
 }: BenchmarkAnalyticsPanelProps) {
+  const headingId = useId();
   const suites = useMemo(() => toSuiteAnalytics(results), [results]);
   const [baselineSuiteRunId, setBaselineSuiteRunId] = useState<string>('');
   const defaultBaselineSuiteRunId = getDefaultBaselineSuiteRunId(suites);
@@ -66,10 +79,15 @@ export function BenchmarkAnalyticsPanel({
   const nonComparableSuites = comparisons.filter((comparison) => !comparison.comparable);
 
   return (
-    <section className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg">
+    <section
+      aria-labelledby={headingId}
+      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+    >
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Analytics & Comparison</h2>
+          <h2 id={headingId} className="text-lg font-semibold">
+            Analytics & Comparison
+          </h2>
           <p className="text-sm text-[color:var(--color-muted)]">
             Compare persisted suite runs only when their stored run inputs, solver options, warm-up
             settings, and environment metadata match exactly.
@@ -80,7 +98,7 @@ export function BenchmarkAnalyticsPanel({
           onClick={snapshot ? () => onExportSnapshot(snapshot) : undefined}
           disabled={!snapshot}
         >
-          Export comparison snapshot
+          Export Comparison Snapshot
         </Button>
       </div>
 
@@ -129,17 +147,39 @@ export function BenchmarkAnalyticsPanel({
 
           <div className="overflow-auto">
             <table className="min-w-full border-collapse text-sm">
+              <caption className="sr-only">
+                Suite analytics and comparison. {suites.length}{' '}
+                {suites.length === 1 ? 'suite' : 'suites'} recorded.
+              </caption>
               <thead>
                 <tr className="border-b border-[color:var(--color-border)] text-left text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
-                  <th className="px-2 py-2">Suite</th>
-                  <th className="px-2 py-2 text-right">Runs</th>
-                  <th className="px-2 py-2 text-right">Success</th>
-                  <th className="px-2 py-2 text-right">p50 (ms)</th>
-                  <th className="px-2 py-2 text-right">p95 (ms)</th>
-                  <th className="px-2 py-2 text-right">Comparison</th>
-                  <th className="px-2 py-2 text-right">Delta success</th>
-                  <th className="px-2 py-2 text-right">Delta p50</th>
-                  <th className="px-2 py-2 text-right">Delta p95</th>
+                  <th scope="col" className="px-2 py-2">
+                    Suite
+                  </th>
+                  <th scope="col" className="px-2 py-2 text-right">
+                    Runs
+                  </th>
+                  <th scope="col" className="px-2 py-2 text-right">
+                    Success
+                  </th>
+                  <th scope="col" className="px-2 py-2 text-right">
+                    <abbr title="50th percentile elapsed time in milliseconds">p50 (ms)</abbr>
+                  </th>
+                  <th scope="col" className="px-2 py-2 text-right">
+                    <abbr title="95th percentile elapsed time in milliseconds">p95 (ms)</abbr>
+                  </th>
+                  <th scope="col" className="px-2 py-2 text-right">
+                    Comparison
+                  </th>
+                  <th scope="col" className="px-2 py-2 text-right">
+                    Delta success
+                  </th>
+                  <th scope="col" className="px-2 py-2 text-right">
+                    <abbr title="Delta 50th percentile">Delta p50</abbr>
+                  </th>
+                  <th scope="col" className="px-2 py-2 text-right">
+                    <abbr title="Delta 95th percentile">Delta p95</abbr>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -165,15 +205,13 @@ export function BenchmarkAnalyticsPanel({
                         )}
                       </td>
                       <td className="px-2 py-2 text-right">
-                        {comparison.deltaSuccessRate === null
-                          ? 'n/a'
-                          : percentText(comparison.deltaSuccessRate)}
+                        {deltaPercentText(comparison.deltaSuccessRate)}
                       </td>
                       <td className="px-2 py-2 text-right">
-                        {metricText(comparison.deltaP50ElapsedMs)}
+                        {deltaMetricText(comparison.deltaP50ElapsedMs)}
                       </td>
                       <td className="px-2 py-2 text-right">
-                        {metricText(comparison.deltaP95ElapsedMs)}
+                        {deltaMetricText(comparison.deltaP95ElapsedMs)}
                       </td>
                     </tr>
                   );

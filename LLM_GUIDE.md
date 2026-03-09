@@ -150,7 +150,7 @@ Map the layers like this:
   - persistence repositories (IndexedDB/localStorage adapters)
   - logging/telemetry adapters
 
-Rule: Adapters must not import storage/persistence directly. Adapters call workflows; workflows call ports; ports use adapters.
+Rule: Adapters must not import storage/persistence directly. Adapters call workflows; workflows call ports; ports use adapters. Narrow exception: the root app-shell theme bootstrap may read browser storage directly so the `<html>` theme class is resolved before paint. Keep that logic isolated to `apps/web/app/theme/*`; do not generalize it to feature-level state or adapters.
 
 ### 4.2 Package boundary rules (hard)
 
@@ -311,10 +311,9 @@ Validate both directions:
   during render/SSR and replace those ports with browser-backed implementations after commit;
   preserve one stable route-store instance across hydration and do not create workers or
   persistence adapters during route render.
-- Keep the SSR app shell `<html>` theme class aligned with the current `settings.theme` default
-  (`light` today). Route surfaces with route-scoped stores should sync `settings.theme` to
-  `document.documentElement` after commit from inside the mounted provider rather than mutating the
-  root theme class during SSR/render.
+- The root app shell owns the light/dark `<html>` theme class. Resolve the initial theme before
+  paint from persisted browser preference with `prefers-color-scheme` fallback, and do not
+  duplicate theme ownership in route-scoped Redux stores.
 - `/lab` keeps authored text, preview state, and one-click solve/bench status in route-local
   React state + direct port refs; do not promote that tool-state into Redux until a concrete
   cross-route workflow requires it and an ADR documents the change.

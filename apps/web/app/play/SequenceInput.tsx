@@ -44,34 +44,42 @@ function parseSequence(input: string): ParsedSequence {
   return { directions };
 }
 
+type MessageState = {
+  text: string;
+  isError: boolean;
+};
+
 export function SequenceInput({ onApplySequence }: SequenceInputProps) {
   const [value, setValue] = useState('');
-  const [message, setMessage] = useState<string | null>(null);
+  const [messageState, setMessageState] = useState<MessageState | null>(null);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const parsed = parseSequence(value);
     if (parsed.error) {
-      setMessage(parsed.error);
+      setMessageState({ text: parsed.error, isError: true });
       return;
     }
 
     const result = onApplySequence(parsed.directions);
     if (result.applied === 0) {
-      setMessage('No moves applied.');
+      setMessageState({ text: 'No moves applied.', isError: true });
       return;
     }
 
     if (result.stoppedAt !== null) {
-      setMessage(`Stopped at step ${result.stoppedAt + 1} of ${parsed.directions.length}.`);
+      setMessageState({
+        text: `Stopped at step ${result.stoppedAt + 1} of ${parsed.directions.length}.`,
+        isError: false,
+      });
     } else {
-      setMessage(`Applied ${result.applied} moves.`);
+      setMessageState({ text: `Applied ${result.applied} moves.`, isError: false });
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-      <div className="flex-1">
+    <form onSubmit={handleSubmit} className="flex w-full flex-col gap-3">
+      <div className="w-full">
         <Input
           label="Sequence input"
           placeholder="UDLR sequence"
@@ -80,9 +88,17 @@ export function SequenceInput({ onApplySequence }: SequenceInputProps) {
           hint="Whitespace is ignored. Invalid characters are rejected."
         />
       </div>
-      <div className="flex flex-col gap-2">
-        <Button type="submit">Apply moves</Button>
-        {message ? <p className="text-xs text-[color:var(--color-muted)]">{message}</p> : null}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <Button type="submit">Apply Moves</Button>
+        {messageState ? (
+          <p
+            className="text-xs text-[color:var(--color-muted)] sm:max-w-[24rem]"
+            aria-live={messageState.isError ? 'assertive' : 'polite'}
+            role={messageState.isError ? 'alert' : undefined}
+          >
+            {messageState.text}
+          </p>
+        ) : null}
       </div>
     </form>
   );

@@ -3,10 +3,10 @@ import { expect, test } from '@playwright/test';
 test('play route applies sequence input and supports restart and next level', async ({ page }) => {
   await page.goto('/play');
   await expect(page.getByRole('heading', { name: 'Corgiban' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Previous level' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Previous' })).toBeDisabled();
 
-  await page.getByLabel('Sequence input').fill('R');
-  await page.getByRole('button', { name: 'Apply moves' }).click();
+  await page.getByRole('textbox', { name: 'Sequence input' }).fill('R');
+  await page.getByRole('button', { name: 'Apply Moves' }).click();
 
   await expect(page.getByText('Applied 1 moves.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Undo' })).toBeEnabled();
@@ -18,22 +18,22 @@ test('play route applies sequence input and supports restart and next level', as
     page.getByText('No moves yet. Use the keyboard or sequence input to start.'),
   ).toBeVisible();
 
-  await page.getByRole('button', { name: 'Next level' }).click();
-  await expect(page.getByRole('heading', { level: 2, name: 'Classic 2' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Previous level' })).toBeVisible();
+  await page.getByRole('button', { name: 'Next Level' }).click();
+  await expect(page.getByTitle('Classic 2')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Previous' })).toBeEnabled();
 
-  await page.getByRole('button', { name: 'Previous level' }).click();
-  await expect(page.getByRole('heading', { level: 2, name: 'Classic 1' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Previous level' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Previous' }).click();
+  await expect(page.getByTitle('Classic 1')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Previous' })).toBeDisabled();
 });
 
 test('play route runs solver and enables apply solution', async ({ page }) => {
   await page.goto('/play');
   await expect(page.getByRole('heading', { name: 'Corgiban' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Run solve' }).click();
+  await page.getByRole('button', { name: 'Run Solve' }).click();
 
-  const applySolution = page.getByRole('button', { name: 'Apply solution' });
+  const applySolution = page.getByRole('button', { name: 'Apply Solution' });
   await expect(applySolution).toBeEnabled({ timeout: 120_000 });
 
   await applySolution.click();

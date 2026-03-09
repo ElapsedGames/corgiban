@@ -436,7 +436,7 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run solve');
+    await clickButton(container, 'Run Solve');
 
     expect(container.textContent).toContain('running');
     expect(container.textContent).toContain('expanded=9 generated=11 elapsed=4.5 ms');
@@ -459,7 +459,7 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run solve');
+    await clickButton(container, 'Run Solve');
     await flushPromises();
 
     expect(container.textContent).toContain('cancelled: Solver run cancelled.');
@@ -475,7 +475,7 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run solve');
+    await clickButton(container, 'Run Solve');
     await flushPromises();
 
     expect(container.textContent).toContain('cancelled: Worker cancelled solve.');
@@ -487,7 +487,7 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run solve');
+    await clickButton(container, 'Run Solve');
     await flushPromises();
 
     expect(container.textContent).toContain('failed: Solver exploded.');
@@ -507,12 +507,12 @@ describe('LabPage', () => {
     expect(container.textContent).toContain('Moves: 1 | Pushes: 0');
 
     await act(async () => {
-      findButton(container, 'Run solve').click();
+      findButton(container, 'Run Solve').click();
     });
     await flushPromises();
 
     await act(async () => {
-      findButton(container, 'Apply solution').click();
+      findButton(container, 'Apply Solution').click();
     });
 
     expect(container.textContent).toContain('Moves: 2 | Pushes: 1');
@@ -524,7 +524,7 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run solve');
+    await clickButton(container, 'Run Solve');
 
     await setTextareaValue(container, ['#####', '#@$.#', '#####'].join('\n'));
     await clickButton(container, 'Parse Level');
@@ -547,9 +547,9 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run solve');
+    await clickButton(container, 'Run Solve');
 
-    await clickButton(container, 'Cancel solve');
+    await clickButton(container, 'Cancel Solve');
 
     expect(mocks.solverPort.cancelSolve).toHaveBeenCalledWith('lab-solve-1');
     expect(container.textContent).toContain('cancelled: Solver run cancelled by user.');
@@ -579,7 +579,7 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run bench');
+    await clickButton(container, 'Run Bench');
 
     await clickButton(container, 'Import JSON');
     await flushPromises();
@@ -601,7 +601,7 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run bench');
+    await clickButton(container, 'Run Bench');
     await flushPromises();
 
     expect(container.textContent).toContain('solved (8.0 ms)');
@@ -618,7 +618,7 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run bench');
+    await clickButton(container, 'Run Bench');
     await flushPromises();
 
     expect(container.textContent).toContain('cancelled: Benchmark run cancelled.');
@@ -634,7 +634,7 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run bench');
+    await clickButton(container, 'Run Bench');
     await flushPromises();
 
     expect(container.textContent).toContain('cancelled: Worker cancelled bench.');
@@ -646,7 +646,7 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run bench');
+    await clickButton(container, 'Run Bench');
     await flushPromises();
 
     expect(container.textContent).toContain('failed: Benchmark run did not return a result.');
@@ -657,7 +657,7 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run bench');
+    await clickButton(container, 'Run Bench');
     await flushPromises();
 
     expect(container.textContent).toContain('failed: Bench exploded.');
@@ -691,7 +691,7 @@ describe('LabPage', () => {
 
     const { container } = await renderPage();
 
-    await clickButton(container, 'Run solve');
+    await clickButton(container, 'Run Solve');
     expect(container.textContent).toContain('running');
 
     // Paste invalid content and attempt to parse - this should fail
@@ -707,5 +707,114 @@ describe('LabPage', () => {
     await flushPromises();
 
     expect(container.textContent).toContain('solved (5.0 ms)');
+  });
+
+  // --- P5 feature coverage ---
+
+  it('shows "Solving..." label and aria-busy on the Run Solve button while a solve is in flight', async () => {
+    const deferredSolve = createDeferred<ReturnType<typeof makeSolverResult>>();
+    mocks.solverPort.startSolve.mockReturnValueOnce(deferredSolve.promise);
+
+    const { container } = await renderPage();
+
+    await clickButton(container, 'Run Solve');
+
+    const runSolveBtn = findButton(container, 'Solving...');
+    expect(runSolveBtn.textContent).toContain('Solving...');
+    expect(runSolveBtn.getAttribute('aria-busy')).toBe('true');
+
+    deferredSolve.resolve(makeSolverResult('R'));
+    await flushPromises();
+
+    // After completion the label reverts and aria-busy is no longer true
+    const idleBtn = findButton(container, 'Run Solve');
+    expect(idleBtn.textContent).toContain('Run Solve');
+    expect(idleBtn.getAttribute('aria-busy')).not.toBe('true');
+  });
+
+  it('shows "Running Bench..." label and aria-busy on the Run Bench button while a bench is in flight', async () => {
+    const deferredBench = createDeferred<ReturnType<typeof makeBenchRecord>[]>();
+    mocks.benchmarkPort.runSuite.mockReturnValueOnce(deferredBench.promise);
+
+    const { container } = await renderPage();
+
+    await clickButton(container, 'Run Bench');
+
+    const runBenchBtn = findButton(container, 'Running Bench...');
+    expect(runBenchBtn.textContent).toContain('Running Bench...');
+    expect(runBenchBtn.getAttribute('aria-busy')).toBe('true');
+
+    deferredBench.resolve([makeBenchRecord()]);
+    await flushPromises();
+
+    // After completion the label reverts and aria-busy is no longer true
+    const idleBtn = findButton(container, 'Run Bench');
+    expect(idleBtn.textContent).toContain('Run Bench');
+    expect(idleBtn.getAttribute('aria-busy')).not.toBe('true');
+  });
+
+  it('applies red error styling and role="alert" to the parse message when parsing fails', async () => {
+    const { container } = await renderPage();
+
+    await setTextareaValue(container, 'this is not valid xsb input !!!!!');
+    await clickButton(container, 'Parse Level');
+
+    // The message paragraph should carry role="alert" on an error
+    const alertEl = container.querySelector('[role="alert"]');
+    expect(alertEl).not.toBeNull();
+    expect(alertEl?.textContent).toBeTruthy();
+
+    // Red error class is present (dark-mode variant is stripped in jsdom but base class is present)
+    expect(alertEl?.className).toContain('text-red-');
+  });
+
+  it('clears role="alert" on the parse message after a successful parse', async () => {
+    const { container } = await renderPage();
+
+    // First cause an error
+    await setTextareaValue(container, 'bad input!!!!');
+    await clickButton(container, 'Parse Level');
+    expect(container.querySelector('[role="alert"]')).not.toBeNull();
+
+    // Then parse a valid level
+    await setTextareaValue(container, ['#####', '#@$.#', '#####'].join('\n'));
+    await clickButton(container, 'Parse Level');
+
+    // role="alert" should be gone after a successful parse
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('switches aria-live from polite to assertive on parse error and back to polite on success', async () => {
+    const { container } = await renderPage();
+
+    // Initially the parse message element should use aria-live="polite"
+    const msgEl = () => container.querySelector('[aria-live]');
+    expect(msgEl()?.getAttribute('aria-live')).toBe('polite');
+
+    // After a failed parse it should switch to assertive
+    await setTextareaValue(container, 'not valid xsb !!!!!');
+    await clickButton(container, 'Parse Level');
+    expect(msgEl()?.getAttribute('aria-live')).toBe('assertive');
+
+    // After a successful parse it should revert to polite
+    await setTextareaValue(container, ['#####', '#@$.#', '#####'].join('\n'));
+    await clickButton(container, 'Parse Level');
+    expect(msgEl()?.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('focuses the solution input automatically when a solve completes with a solution', async () => {
+    mocks.solverPort.startSolve.mockResolvedValueOnce(makeSolverResult('RR'));
+
+    const { container } = await renderPage();
+
+    await clickButton(container, 'Run Solve');
+    await flushPromises();
+
+    // The readonly solution input should now be present and focused
+    const solutionInput = container.querySelector('input[readonly]') as HTMLInputElement | null;
+    expect(solutionInput).not.toBeNull();
+    expect(solutionInput?.value).toBe('RR');
+    // autoFocus causes it to be the active element in jsdom
+    expect(document.activeElement).toBe(solutionInput);
   });
 });
