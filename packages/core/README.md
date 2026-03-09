@@ -5,6 +5,7 @@ Pure, deterministic game engine and level runtime representation.
 ## Responsibilities
 
 - Parsing/serializing CORG level encoding (editor-friendly rows -> runtime) via `parseLevel`/`serializeLevel`
+  where empty floor accepts both `E` and literal space, and serialization prefers literal space
 - External format adapters (XSB/SOK/SLC) live in `packages/formats`, not `core/encoding`
 - Core model types (cells, directions, positions, runtime state)
 - Pure engine operations:
@@ -33,6 +34,7 @@ No other workspace packages. No DOM, no Web APIs, no React.
   (for example via a `nowMs` callback in calling layers)
 - `parseLevel` must enforce size constraints defined in `packages/shared/src/constraints.ts` (`MAX_GRID_WIDTH`, `MAX_GRID_HEIGHT`, `MAX_BOXES`) and reject malformed input with a descriptive error
 - `parseLevel` normalizes rows by stripping common leading whitespace and right-padding ragged rows with spaces (spaces are floor)
+- `parseLevel` accepts both `E` and literal space for empty floor cells; `serializeLevel` emits literal space as the preferred canonical form
 - `parseLevel` rejects tabs and levels with no non-empty rows
 - `parseLevel` rejects levels with all boxes on targets at start
 

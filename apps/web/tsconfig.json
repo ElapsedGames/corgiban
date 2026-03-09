@@ -6,7 +6,7 @@
     "outDir": "dist-types",
     "types": ["vite/client"]
   },
-  "include": ["app/**/*", "vite.config.ts"],
+  "include": ["app/**/*", "functions/**/*", "scripts/**/*", "vite.config.ts", "wrangler.jsonc"],
   "references": [
     { "path": "../../packages/shared" },
     { "path": "../../packages/formats" },

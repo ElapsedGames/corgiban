@@ -47,7 +47,7 @@ describe('AppNav', () => {
     expect(html).toContain('href="/play"');
     expect(html).toContain('href="/bench"');
     expect(html).toContain('href="/lab"');
-    expect(html).toContain('href="/dev/ui-kit"');
+    expect(html).not.toContain('href="/dev/ui-kit"');
     expect(html).toContain('Light');
   });
 

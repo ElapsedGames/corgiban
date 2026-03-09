@@ -25,8 +25,8 @@ export function LabPreviewPanel({ previewState, onReset }: LabPreviewPanelProps)
         moves stay local here; worker runs always reset from the authored level state.
       </p>
 
-      <div className="mt-4 overflow-auto rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-3">
-        <GameCanvas state={previewState} />
+      <div className="mt-4 flex justify-center overflow-auto rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-3">
+        <GameCanvas state={previewState} className="max-w-full" />
       </div>
 
       <div className="mt-3 space-y-1">

@@ -34,7 +34,7 @@ describe('serializeLevel', () => {
       initialBoxes: Uint32Array.from([2, 4]),
     };
 
-    expect(serializeLevel(level)).toEqual(['WQB', 'WSE']);
+    expect(serializeLevel(level)).toEqual(['WQB', 'WS ']);
   });
 
   it('round-trips parse -> serialize -> parse', () => {
@@ -70,7 +70,17 @@ describe('serializeLevel', () => {
       initialBoxes: Uint32Array.from([]),
     };
 
-    expect(serializeLevel(level)).toEqual(['WTEW', 'EPTE']);
+    expect(serializeLevel(level)).toEqual(['WT W', ' PT ']);
+  });
+
+  it('prefers spaces instead of E for empty floor cells', () => {
+    const definition: LevelDefinition = {
+      id: 'space-floor',
+      name: 'Space Floor',
+      rows: ['WWWW', 'WPBW', 'WETW', 'WWWW'],
+    };
+
+    expect(serializeLevel(parseLevel(definition))).toEqual(['WWWW', 'WPBW', 'W TW', 'WWWW']);
   });
 
   it('throws when staticGrid size does not match width*height', () => {

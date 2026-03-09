@@ -19,7 +19,7 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: 'pnpm -C apps/web preview',
+    command: 'pnpm -C apps/web preview:cloudflare',
     url: baseURL,
     timeout: 300_000,
     reuseExistingServer: false,

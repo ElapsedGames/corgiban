@@ -24,14 +24,8 @@ export function LabPage() {
   } = useLabOrchestration();
 
   return (
-    <main id="main-content" className="page-shell">
-      <header aria-label="Level Lab">
-        <p
-          aria-hidden="true"
-          className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-muted)]"
-        >
-          Lab
-        </p>
+    <main id="main-content" className="page-shell play-shell">
+      <header aria-label="Level Lab" className="page-header">
         <h1 className="page-title">Level Lab</h1>
         <p className="page-subtitle">
           Edit row encodings, preview gameplay, run worker-backed solve and bench checks, and
@@ -39,7 +33,7 @@ export function LabPage() {
         </p>
       </header>
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+      <div className="mt-3 grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <LabEditorPanel
           format={format}
           input={input}

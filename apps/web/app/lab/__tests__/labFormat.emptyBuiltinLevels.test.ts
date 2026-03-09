@@ -6,7 +6,7 @@ describe('labFormat default fallback', () => {
     vi.resetModules();
   });
 
-  it('returns a parseable fallback XSB level when builtin levels are empty', async () => {
+  it('returns a parseable fallback CORG level when builtin levels are empty', async () => {
     vi.doMock('@corgiban/levels', async () => {
       const actual = await vi.importActual<typeof import('@corgiban/levels')>('@corgiban/levels');
       return {
@@ -18,11 +18,11 @@ describe('labFormat default fallback', () => {
     const { defaultLabLevelText, parseLabInput } = await import('../labFormat');
 
     const text = defaultLabLevelText();
-    const parsed = parseLabInput('xsb', text);
+    const parsed = parseLabInput('corg', text);
 
-    expect(text).toContain('#.@ #');
-    expect(text).toContain('# $ #');
+    expect(text).toContain('WP  W');
+    expect(text).toContain('W B W');
     expect(parsed.level.rows.length).toBeGreaterThan(0);
-    expect(parsed.normalizedFormat).toBe('xsb');
+    expect(parsed.normalizedFormat).toBe('corg');
   });
 });

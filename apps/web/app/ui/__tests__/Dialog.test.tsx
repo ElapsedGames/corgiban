@@ -26,7 +26,7 @@ function DisableDialogButtonsOnMount() {
 
 async function renderIntoDocument(element: ReactElement) {
   const container = document.createElement('div');
-  document.body.append(container);
+  document.body.appendChild(container);
 
   const root = createRoot(container);
   mountedRoots.push(root);
@@ -281,7 +281,7 @@ describe('Dialog', () => {
     document.documentElement.style.overflow = 'scroll';
 
     const dialogContainer = document.createElement('div');
-    document.body.append(dialogContainer);
+    document.body.appendChild(dialogContainer);
     const dialogRoot = createRoot(dialogContainer);
     mountedRoots.push(dialogRoot);
 
@@ -302,12 +302,12 @@ describe('Dialog', () => {
 
   it('keeps scroll lock active while a second dialog is still open', async () => {
     const containerA = document.createElement('div');
-    document.body.append(containerA);
+    document.body.appendChild(containerA);
     const rootA = createRoot(containerA);
     mountedRoots.push(rootA);
 
     const containerB = document.createElement('div');
-    document.body.append(containerB);
+    document.body.appendChild(containerB);
     const rootB = createRoot(containerB);
     mountedRoots.push(rootB);
 
@@ -337,7 +337,7 @@ describe('Dialog', () => {
   it('restores focus to the trigger element when the dialog closes', async () => {
     // Render a trigger button outside the dialog container.
     const triggerContainer = document.createElement('div');
-    document.body.append(triggerContainer);
+    document.body.appendChild(triggerContainer);
     const triggerRoot = createRoot(triggerContainer);
     mountedRoots.push(triggerRoot);
 
@@ -353,7 +353,7 @@ describe('Dialog', () => {
 
     // Open the dialog -- focus moves into the dialog.
     const dialogContainer = document.createElement('div');
-    document.body.append(dialogContainer);
+    document.body.appendChild(dialogContainer);
     const dialogRoot = createRoot(dialogContainer);
     mountedRoots.push(dialogRoot);
 

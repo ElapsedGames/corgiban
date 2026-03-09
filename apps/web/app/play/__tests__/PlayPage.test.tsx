@@ -321,8 +321,4 @@ describe('PlayPage', () => {
     expect(store.getState().solver.replayState).toBe('idle');
     expect(store.getState().solver.replayIndex).toBe(0);
   });
-
-  it.todo(
-    'moves focus to the "Next Level" button in the solved banner when the puzzle is solved (requires JSDOM and @testing-library/react to exercise useEffect)',
-  );
 });

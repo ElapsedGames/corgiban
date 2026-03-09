@@ -56,6 +56,12 @@ If an ADR is superseded, link bidirectionally:
 - ADR-0026 (`0026-app-shell-theme-ownership.md`) is the source of truth for the shared root
   navigation + theme toggle contract. Theme bootstrap is resolved in the app shell before paint;
   route-scoped Redux stores do not own theme.
+- ADR-0027 (`0027-host-pluggable-remix-server-boundary.md`) is the source of truth for keeping
+  shared server rendering host-neutral. Use `@remix-run/server-runtime` / `@remix-run/react`
+  types in routes/root, and keep host-specific packages confined to adapter files and scripts.
+- ADR-0028 (`0028-cloudflare-pages-runtime-adapter.md`) is the source of truth for the current
+  Cloudflare Pages deployment target. Cloudflare-specific code stays in the Pages adapter layer;
+  route/browser logic remains host-agnostic unless values are passed through load context.
 - Not every review-sensitive contract has a standalone ADR. The explicit monotonic-clock failure
   path is documented in `LLM_GUIDE.md`, `docs/Architecture.md`, `packages/solver/README.md`, and
   `docs/review-notes.md`.
@@ -88,3 +94,5 @@ If an ADR is superseded, link bidirectionally:
 - `0024-offscreen-sprite-atlas-worker-fallback.md`
 - `0025-route-store-ssr-safe-port-bootstrap.md`
 - `0026-app-shell-theme-ownership.md`
+- `0027-host-pluggable-remix-server-boundary.md`
+- `0028-cloudflare-pages-runtime-adapter.md`

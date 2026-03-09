@@ -4,7 +4,7 @@ This document captures manual proof steps for top-level offline navigation when 
 
 ## Preconditions
 
-1. Build and preview the production app: `pnpm test:smoke` (or `pnpm build` then `pnpm -C apps/web preview`).
+1. Build and preview the production app: `pnpm test:smoke` (or `pnpm build` then `pnpm -C apps/web preview:cloudflare`).
 2. Open `/play` while online and wait for service worker readiness.
 3. Confirm service worker registration in DevTools Application tab.
 

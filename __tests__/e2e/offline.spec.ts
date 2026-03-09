@@ -4,6 +4,8 @@ test('pwa service worker keeps /play available offline after first load', async 
   page,
   context,
 }) => {
+  const playMain = page.getByRole('main', { name: 'Play Corgiban' });
+
   const manifestResponse = await page.request.get('/manifest.webmanifest');
   expect(manifestResponse.ok()).toBe(true);
   const manifest = (await manifestResponse.json()) as { name?: string };
@@ -13,7 +15,7 @@ test('pwa service worker keeps /play available offline after first load', async 
   expect(serviceWorkerAssetResponse.ok()).toBe(true);
 
   await page.goto('/play');
-  await expect(page.getByRole('heading', { name: 'Corgiban' })).toBeVisible();
+  await expect(playMain).toBeVisible();
 
   const registrationError = await page.evaluate(() => {
     return (
@@ -56,7 +58,7 @@ test('pwa service worker keeps /play available offline after first load', async 
 
   // Prime one successful online navigation before toggling offline mode.
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Corgiban' })).toBeVisible();
+  await expect(playMain).toBeVisible();
 
   const serviceWorkerControlled = await page.evaluate(async () => {
     if (!('serviceWorker' in navigator)) {
@@ -93,8 +95,8 @@ test('pwa service worker keeps /play available offline after first load', async 
       .catch(() => false);
 
     if (topLevelOfflineNavigation) {
-      await expect(page.getByRole('heading', { name: 'Corgiban' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Run solve' })).toBeVisible();
+      await expect(playMain).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Run Solve' })).toBeVisible();
       offlineAppShellAvailable = true;
     } else {
       // Some browser/harness combinations can surface ERR_INTERNET_DISCONNECTED before
@@ -104,7 +106,7 @@ test('pwa service worker keeps /play available offline after first load', async 
         return await new Promise<{
           loaded: boolean;
           timedOut: boolean;
-          containsAppShellHeading: boolean;
+          containsPlayShellCopy: boolean;
           hasRunSolveButton: boolean;
         }>((resolve) => {
           const probeFrame = document.createElement('iframe');
@@ -116,7 +118,7 @@ test('pwa service worker keeps /play available offline after first load', async 
             resolve({
               loaded: false,
               timedOut: true,
-              containsAppShellHeading: false,
+              containsPlayShellCopy: false,
               hasRunSolveButton: false,
             });
           }, 10_000);
@@ -127,7 +129,7 @@ test('pwa service worker keeps /play available offline after first load', async 
             resolve({
               loaded: false,
               timedOut: false,
-              containsAppShellHeading: false,
+              containsPlayShellCopy: false,
               hasRunSolveButton: false,
             });
           };
@@ -136,13 +138,13 @@ test('pwa service worker keeps /play available offline after first load', async 
             window.clearTimeout(timeoutId);
             const frameDocument = probeFrame.contentDocument;
             const frameText = frameDocument?.documentElement.textContent ?? '';
-            const containsAppShellHeading = frameText.includes('Corgiban');
-            const hasRunSolveButton = frameText.includes('Run solve');
+            const containsPlayShellCopy = frameText.includes('Current level');
+            const hasRunSolveButton = frameText.includes('Run Solve');
             probeFrame.remove();
             resolve({
               loaded: true,
               timedOut: false,
-              containsAppShellHeading,
+              containsPlayShellCopy,
               hasRunSolveButton,
             });
           };
@@ -153,16 +155,16 @@ test('pwa service worker keeps /play available offline after first load', async 
 
       if (!iframeOfflineNavigation.timedOut) {
         expect(iframeOfflineNavigation.loaded).toBe(true);
-        expect(iframeOfflineNavigation.containsAppShellHeading).toBe(true);
+        expect(iframeOfflineNavigation.containsPlayShellCopy).toBe(true);
         expect(iframeOfflineNavigation.hasRunSolveButton).toBe(true);
         offlineAppShellAvailable = true;
       }
     }
 
     if (offlineAppShellAvailable) {
-      await expect(page.getByRole('heading', { name: 'Corgiban' })).toBeVisible();
+      await expect(playMain).toBeVisible();
       await page.getByLabel('Sequence input').fill('R');
-      await page.getByRole('button', { name: 'Apply moves' }).click();
+      await page.getByRole('button', { name: 'Apply Moves' }).click();
       await expect(page.getByText('Applied 1 moves.')).toBeVisible();
     } else {
       test.info().annotations.push({

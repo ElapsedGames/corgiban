@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Left ear -->
+  <path d="M5 18 L1 3 L13 13 Z" fill="#b8692a"/>
+  <!-- Right ear -->
+  <path d="M27 18 L31 3 L19 13 Z" fill="#b8692a"/>
+  <!-- Inner ear -->
+  <path d="M6 17 L3 6 L12 13 Z" fill="#e8a87c"/>
+  <path d="M26 17 L29 6 L20 13 Z" fill="#e8a87c"/>
+  <!-- Head -->
+  <ellipse cx="16" cy="20" rx="13" ry="11" fill="#d4884a"/>
+  <!-- Muzzle -->
+  <ellipse cx="16" cy="24" rx="8" ry="6" fill="#f2d6a0"/>
+  <!-- Left eye -->
+  <circle cx="11.5" cy="18" r="2.2" fill="#1a0d00"/>
+  <circle cx="12.2" cy="17.3" r="0.7" fill="white"/>
+  <!-- Right eye -->
+  <circle cx="20.5" cy="18" r="2.2" fill="#1a0d00"/>
+  <circle cx="21.2" cy="17.3" r="0.7" fill="white"/>
+  <!-- Nose -->
+  <ellipse cx="16" cy="22" rx="2.5" ry="1.8" fill="#1a0d00"/>
+  <!-- Mouth -->
+  <path d="M13.5 24.5 Q16 27 18.5 24.5" stroke="#9b6030" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+</svg>

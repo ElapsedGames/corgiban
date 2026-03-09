@@ -37,6 +37,8 @@ pnpm test:coverage   # Vitest with enforced coverage thresholds
 pnpm test:smoke      # Playwright smoke tests (routes incl. /lab, /play, /bench persistence, offline shell)
 pnpm dev             # start Remix dev server
 pnpm build           # build Remix app
+pnpm -C apps/web preview          # Cloudflare Pages-style production preview for apps/web
+pnpm -C apps/web deploy:cloudflare # deploy apps/web through the current Cloudflare Pages adapter
 pnpm issue:new --type bug --severity medium --area ui --title "Describe the problem"
 pnpm issue:close --id BUG-001 --fixed-by "Your Name" --resolution "Short closure note"
 pnpm issue:generate  # regenerate KNOWN_ISSUES.md after issue edits
@@ -49,7 +51,8 @@ node tools/scripts/profile-worker-validation.mjs  # optional: protocol validatio
 Playwright note: install browsers once with `pnpm exec playwright install chromium` before running
 `pnpm test:smoke` locally.
 `pnpm test:smoke` builds the Remix app and runs Playwright against a production preview server
-without reusing an existing local server process.
+without reusing an existing local server process. That production preview path now goes through the
+Cloudflare Pages adapter (`pnpm -C apps/web preview:cloudflare`, which wraps `wrangler pages dev`).
 If port `43173` is already in use, set `PLAYWRIGHT_PORT` (for example
 `PLAYWRIGHT_PORT=4273 pnpm test:smoke` on POSIX shells or
 `$env:PLAYWRIGHT_PORT='4273'; pnpm test:smoke` in PowerShell).

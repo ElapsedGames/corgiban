@@ -12,7 +12,6 @@ const navLinks = [
   { end: false, label: 'Play', to: '/play' },
   { end: false, label: 'Benchmark', to: '/bench' },
   { end: false, label: 'Lab', to: '/lab' },
-  { end: false, label: 'UI Kit', to: '/dev/ui-kit' },
 ] as const;
 
 function getNavLinkClassName(isActive: boolean): string {
@@ -30,6 +29,7 @@ export function AppNav({ isThemeReady, onToggleTheme, theme }: AppNavProps) {
         <div className="app-nav__cluster">
           <NavLink className="app-nav__brand" end to="/">
             Corgiban
+            <span className="app-nav__alpha-badge">Alpha</span>
           </NavLink>
           <nav aria-label="Primary" className="app-nav__links">
             {navLinks.map((link) => (

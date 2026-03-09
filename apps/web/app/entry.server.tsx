@@ -1,50 +1,19 @@
-import { PassThrough } from 'node:stream';
-import type { EntryContext } from '@remix-run/node';
-import { createReadableStreamFromReadable } from '@remix-run/node';
-import { RemixServer } from '@remix-run/react';
-import { renderToPipeableStream } from 'react-dom/server';
+import type { HandleDocumentRequestFunction } from '@remix-run/server-runtime';
 
-const ABORT_DELAY = 5000;
+import { renderDocumentResponse } from './server/renderDocumentResponse';
 
-export default function handleRequest(
+const handleRequest: HandleDocumentRequestFunction = (
   request: Request,
   responseStatusCode: number,
   responseHeaders: Headers,
-  remixContext: EntryContext,
-) {
-  return new Promise<Response>((resolve, reject) => {
-    let shellRendered = false;
-    const { pipe, abort } = renderToPipeableStream(
-      <RemixServer context={remixContext} url={request.url} />,
-      {
-        onShellReady() {
-          shellRendered = true;
-          const body = new PassThrough();
-          const stream = createReadableStreamFromReadable(body);
-
-          responseHeaders.set('Content-Type', 'text/html');
-
-          resolve(
-            new Response(stream, {
-              status: responseStatusCode,
-              headers: responseHeaders,
-            }),
-          );
-
-          pipe(body);
-        },
-        onShellError(error: unknown) {
-          reject(error);
-        },
-        onError(error: unknown) {
-          responseStatusCode = 500;
-          if (shellRendered) {
-            console.error(error);
-          }
-        },
-      },
-    );
-
-    setTimeout(abort, ABORT_DELAY);
+  remixContext,
+  _loadContext,
+) =>
+  renderDocumentResponse({
+    request,
+    responseStatusCode,
+    responseHeaders,
+    remixContext,
   });
-}
+
+export default handleRequest;

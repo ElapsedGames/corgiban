@@ -27,11 +27,26 @@ function statusLabel(status: SolverRunStatus): string {
 }
 
 export function SolverProgress({ status, progress, lastResult, error }: SolverProgressProps) {
+  const isRunning = status === 'running' || status === 'cancelling';
+  const isSucceeded = status === 'succeeded' && lastResult?.status === 'solved';
+  const isFailed =
+    status === 'failed' ||
+    status === 'cancelled' ||
+    (status === 'succeeded' && lastResult?.status !== 'solved');
+
+  const sectionClass = [
+    'space-y-3 rounded-[var(--radius-md)] border p-3',
+    isRunning
+      ? 'solver-panel--running'
+      : isSucceeded
+        ? 'solver-panel--succeeded'
+        : isFailed
+          ? 'solver-panel--failed'
+          : 'border-[color:var(--color-border)] bg-[color:var(--color-bg)]',
+  ].join(' ');
+
   return (
-    <section
-      aria-label="Solver status"
-      className="space-y-3 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-3"
-    >
+    <section aria-label="Solver status" className={sectionClass}>
       <div className="flex items-center justify-between text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
         <span>Status</span>
         <span aria-live="polite" aria-atomic="true">

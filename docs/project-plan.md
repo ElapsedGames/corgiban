@@ -56,13 +56,17 @@ GameCanvas.tsx
 play.tsx
 bench.tsx
 dev.ui-kit.tsx
+/server
 /state
 /styles
 tokens.css
 root.tsx
 entry.client.tsx
 entry.server.tsx
+/functions
+/scripts
 vite.config.ts (Remix in Vite mode)
+wrangler.jsonc
 tailwind.config.ts
 vitest.config.ts
 
@@ -832,9 +836,10 @@ Deferred notes:
 Phase 7 - UX and route-responsibility pass (in progress)
 Decision dependencies: capture an ADR if route ownership, store ownership, or cross-route workflow contracts change materially.
 
-Status: In progress (root app-shell theme ownership, shared navigation, landing page, and the
-route-level information-architecture/accessibility refresh have landed; explicit cross-route
-handoff flows and `pnpm best-practices` report wiring remain pending).
+Status: In progress (root app-shell theme ownership, shared navigation, landing page, the
+route-level information-architecture/accessibility refresh, and the initial `/lab` authoring-flow
+promotion for CORG-first format conversion have landed; explicit cross-route handoff flows and
+`pnpm best-practices` report wiring remain pending).
 
 1. Define explicit route charters, entry points, and non-goals for `/play`, `/lab`, and `/bench`:
    - `/play`: primary gameplay, undo/restart/history, replay, lightweight solver help, and quick open/import actions
@@ -984,7 +989,7 @@ Phase 11 - Race Mode and multi-runner play (planned)
   - /play solver panel shows algorithm recommendation (for example, "Recommended: bfsPush (7 boxes)") and allows override
   - /play solver panel can start/cancel a solve; progress updates; result can be applied/animated
   - /play solver panel shows Retry button when worker is crashed; clicking it recreates the worker
-  - /lab route loads level editor controls, supports parsing CORG/XSB/SOK/SLC input, offers keyboard preview controls, and can run one-click worker solve/bench checks
+  - /lab route loads level editor controls, defaults to a CORG authoring surface, supports parsing and converting CORG/XSB/SOK/SLC input, offers keyboard preview controls, and can run one-click worker solve/bench checks
   - /bench route loads and can run a small benchmark suite; results persist in IndexedDB across page reloads
   - /bench supports warm-up repetitions and excludes warm-up runs from measured persisted results
   - /bench analytics panel surfaces success rate and p50/p95 elapsed-time comparisons across suites

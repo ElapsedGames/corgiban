@@ -361,6 +361,35 @@ not duplicate theme ownership in route-scoped Redux stores.
 
 See ADR-0026 (`docs/adr/0026-app-shell-theme-ownership.md`).
 
+### 3.24 Deployment runtime boundary: **Host-pluggable Remix server rendering**
+
+**Decision:** Keep shared server document rendering host-neutral and isolate host-specific wiring to
+thin deployment adapters.
+
+**Why**
+
+- The product already does its heavy work in browser workers; the host mainly serves the app shell.
+- Shared server rendering in `apps/web/app/server/*` and `apps/web/app/entry.server.tsx` can be
+  reused across Remix-compatible hosts.
+- Route/root modules should not need host-package imports just because deployment changes.
+
+See ADR-0027 (`docs/adr/0027-host-pluggable-remix-server-boundary.md`).
+
+### 3.25 Deployment target: **Cloudflare Pages adapter**
+
+**Decision:** Standardize the current deployment target on Cloudflare Pages through a thin adapter
+layer that builds on the host-pluggable boundary above.
+
+**Why**
+
+- Cloudflare keeps DNS, custom-domain routing, and deployment in one system for
+  `corgiban.elapsedgames.com`.
+- The Pages adapter fits the current domain-management plan without changing browser-first app
+  behavior.
+- Keeping Cloudflare specifics in adapter files preserves the host-neutral app layer.
+
+See ADR-0028 (`docs/adr/0028-cloudflare-pages-runtime-adapter.md`).
+
 ## 4. Monorepo layout
 
 ```
@@ -376,6 +405,7 @@ See ADR-0026 (`docs/adr/0026-app-shell-theme-ownership.md`).
       /ports
       /replay
       /routes
+      /server
       /state
       /theme
       /ui
@@ -383,7 +413,10 @@ See ADR-0026 (`docs/adr/0026-app-shell-theme-ownership.md`).
       root.tsx
       entry.client.tsx
       entry.server.tsx
+    /functions
+    /scripts
     vite.config.ts   (Remix in Vite mode)
+    wrangler.jsonc   (Cloudflare Pages deployment adapter)
     tailwind.config.ts
     vitest.config.ts
 
@@ -567,7 +600,8 @@ A level is defined in an editor-friendly and human-readable format, but compiled
 - `levels: LevelDefinition[]`
 
 Row normalization: `parseLevel` handles CORG only (strips common leading whitespace and right-pads
-ragged rows with spaces; spaces are floor). External format normalization lives in
+ragged rows with spaces; spaces are floor). Empty floor accepts both `E` and literal space, and
+core CORG serialization prefers literal space. External format normalization lives in
 `packages/formats`.
 
 #### 5.1.1 Format interop (packages/formats)
@@ -995,6 +1029,10 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 - `apps/web` uses Remix route modules and route-level boundaries from the start.
 - Worker integration remains unchanged (Remix UI dispatches through the same worker clients/ports).
 - Domain packages (`core`, `solver`, `worker`, `benchmarks`) remain framework-agnostic.
+- Deployment/runtime specifics stay in the app deployment layer:
+  `functions/[[path]].ts`, `wrangler.jsonc`, and host-specific preview/deploy scripts.
+- Shared Remix document rendering lives in `app/server/*` and `entry.server.tsx`.
+- Route modules stay runtime-neutral unless values are passed in through Remix load context.
 - Workers are client-only: never create workers from Remix loaders/actions or server entrypoints.
 - Worker creation is allowed only in `*.client.ts` modules; do not rely on dynamic-import
   escape hatches from server-reachable modules.
@@ -1057,6 +1095,9 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 
 - `/lab` owns authored input text, parsed metadata, preview `GameState`, and single-run
   solve/bench status in local React state.
+- `/lab` format switching is a route-local parse -> serialize conversion step, not a passive label
+  change. The active textarea content is re-emitted in the selected format, and CORG output
+  promotes to JSON when row-only text would drop level metadata.
 - Successful parse/import commits bump an authored revision token so stale worker results are
   ignored after the active level changes.
 - Failed parses leave the authored revision unchanged; in-flight solve/bench runs continue against
@@ -1126,6 +1167,9 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 - install Playwright browser (Chromium)
 - Playwright smoke (`pnpm test:smoke`, production preview path, including the preview build)
 - encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
+- Deploy target: Cloudflare Pages using `apps/web/functions/[[path]].ts` as the host adapter and
+  `wrangler.jsonc` for Pages build metadata/custom-domain deployment settings. Shared document
+  rendering remains host-neutral in `apps/web/app/server/*` and `entry.server.tsx`.
 
 ### 14.2 Quality gates
 
@@ -1202,6 +1246,8 @@ Current accepted ADRs:
 - ADR-0024: Offscreen sprite-atlas worker with main-thread fallback
 - ADR-0025: SSR-safe route store bootstrap via mutable ports
 - ADR-0026: App-shell theme ownership
+- ADR-0027: Host-pluggable Remix server boundary
+- ADR-0028: Cloudflare Pages runtime adapter
 
 ---
 

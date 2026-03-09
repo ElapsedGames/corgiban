@@ -10,7 +10,13 @@ import {
 
 import { exportTextFile, importTextFile } from '../bench/fileAccess.client';
 import { makeRunId } from '../runId';
-import { defaultLabLevelText, parseLabInput, type LabInputFormat } from './labFormat';
+import {
+  LAB_INPUT_FORMAT_LABELS,
+  convertLabInputFormat,
+  defaultLabLevelText,
+  parseLabInput,
+  type LabInputFormat,
+} from './labFormat';
 import { subscribeLabKeyboardControls } from './labKeyboard';
 import { createLabPayload, parseLabPayload } from './labPayload';
 import { toDirectionArray } from './labStatus';
@@ -46,7 +52,7 @@ function createInitialLabData(): InitialLabData {
 
   return {
     defaultInput,
-    parsed: parseLabInput('xsb', defaultInput),
+    parsed: parseLabInput('corg', defaultInput),
   };
 }
 
@@ -73,7 +79,7 @@ export function useLabOrchestration(): LabOrchestrationState {
     activeBenchRunRef,
   });
 
-  const [format, setFormat] = useState<LabInputFormat>('xsb');
+  const [format, setFormatState] = useState<LabInputFormat>('corg');
   const [input, setInput] = useState(initialLabRef.current.defaultInput);
   const [parseState, setParseState] = useState<ParseState>(() => {
     const parsed = initialLabRef.current?.parsed ?? createInitialLabData().parsed;
@@ -126,7 +132,7 @@ export function useLabOrchestration(): LabOrchestrationState {
     const nextRuntime = parseLevel(parsed.level);
     setActiveLevel(parsed.level);
     setPreviewState(createGame(nextRuntime));
-    setFormat(parsed.normalizedFormat);
+    setFormatState(parsed.normalizedFormat);
     setInput(parsed.normalizedInput);
     setParseState({
       message,
@@ -157,6 +163,31 @@ export function useLabOrchestration(): LabOrchestrationState {
     } catch (error) {
       setParseState({
         message: error instanceof Error ? error.message : 'Failed to parse level input.',
+        isError: true,
+        levelName: activeLevel.name,
+        levelId: activeLevel.id,
+      });
+    }
+  };
+
+  const setFormat = (nextFormat: LabInputFormat) => {
+    if (nextFormat === format) {
+      return;
+    }
+
+    try {
+      const converted = convertLabInputFormat(format, nextFormat, input);
+      setFormatState(nextFormat);
+      setInput(converted.normalizedInput);
+      setParseState({
+        message: `Converted input to ${LAB_INPUT_FORMAT_LABELS[nextFormat]}. Parse Level to apply it.`,
+        isError: false,
+        levelName: activeLevel.name,
+        levelId: activeLevel.id,
+      });
+    } catch (error) {
+      setParseState({
+        message: error instanceof Error ? error.message : 'Failed to convert level input.',
         isError: true,
         levelName: activeLevel.name,
         levelId: activeLevel.id,

@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import { MAX_IMPORT_BYTES } from '@corgiban/shared';
 
-import { defaultLabLevelText, parseLabInput } from '../labFormat';
+import { convertLabInputFormat, defaultLabLevelText, parseLabInput } from '../labFormat';
 
 describe('labFormat.parseLabInput', () => {
-  it('returns default lab text that can be parsed as XSB', () => {
+  it('returns default lab text that can be parsed as CORG', () => {
     const text = defaultLabLevelText();
-    const parsed = parseLabInput('xsb', text);
+    const parsed = parseLabInput('corg', text);
 
     expect(text.length).toBeGreaterThan(0);
-    expect(text).not.toContain(';');
+    expect(text).toContain('W');
     expect(parsed.level.rows.length).toBeGreaterThan(0);
   });
 
@@ -18,6 +18,7 @@ describe('labFormat.parseLabInput', () => {
     const parsed = parseLabInput('corg', 'WWWW\nWPBW\nWETW\nWWWW');
     expect(parsed.level.rows[0]).toBe('WWWW');
     expect(parsed.level.id).toBe('lab-level');
+    expect(parsed.normalizedInput).toBe('WWWW\nWPBW\nW TW\nWWWW');
   });
 
   it('parses CORG JSON input and preserves metadata fields', () => {
@@ -34,6 +35,7 @@ describe('labFormat.parseLabInput', () => {
     expect(parsed.level.name).toBe('Custom Lab');
     expect(parsed.level.knownSolution).toBe('UDLR');
     expect(parsed.normalizedInput).toContain('\n  "id": "custom-lab-id"');
+    expect(parsed.normalizedInput).toContain('\n    "W TW"');
   });
 
   it('uses fallback metadata when CORG JSON omits optional fields', () => {
@@ -65,7 +67,7 @@ describe('labFormat.parseLabInput', () => {
         {
           id: 'lab-level',
           name: 'Lab Level',
-          rows: ['WWWW', 'WPBW', 'WETW', 'WWWW'],
+          rows: ['WWWW', 'WPBW', 'W TW', 'WWWW'],
           knownSolution: null,
         },
         null,
@@ -78,7 +80,7 @@ describe('labFormat.parseLabInput', () => {
     const parsed = parseLabInput('corg', 'WWWW\r\nWPBW\r\nWETW\r\nWWWW');
 
     expect(parsed.level.rows).toEqual(['WWWW', 'WPBW', 'WETW', 'WWWW']);
-    expect(parsed.normalizedInput).toBe('WWWW\nWPBW\nWETW\nWWWW');
+    expect(parsed.normalizedInput).toBe('WWWW\nWPBW\nW TW\nWWWW');
   });
 
   it('rejects oversized CORG JSON input before JSON parsing', () => {
@@ -168,5 +170,23 @@ describe('labFormat.parseLabInput', () => {
     expect(() => parseLabInput('slc-xml', multiLevel)).toThrow(
       'Multi-level input is not supported in the lab editor. Input contains 2 levels; paste a single level only.',
     );
+  });
+
+  it('converts valid textarea content between input formats', () => {
+    const converted = convertLabInputFormat('xsb', 'sok-0.17', '#####\n#.@ #\n# $ #\n# . #\n#####');
+
+    expect(converted.normalizedFormat).toBe('sok-0.17');
+    expect(converted.normalizedInput).toContain('Title: XSB 1');
+    expect(converted.level.id).toBe('lab-001-level');
+  });
+
+  it('converts to CORG JSON when metadata would otherwise be lost', () => {
+    const converted = convertLabInputFormat('xsb', 'corg', '#####\n#.@ #\n# $ #\n# . #\n#####');
+
+    expect(converted.normalizedFormat).toBe('corg');
+    expect(converted.normalizedInput).toContain('"id": "lab-001-level"');
+    expect(converted.normalizedInput).toContain('"name": "XSB 1"');
+    expect(converted.normalizedInput).toContain('"rows": [');
+    expect(converted.normalizedInput).not.toContain('E');
   });
 });

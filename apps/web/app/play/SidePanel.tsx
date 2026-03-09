@@ -43,7 +43,8 @@ export function SidePanel({
           {levelId}
         </p>
         {isSolved ? (
-          <span className="mt-2 inline-flex rounded-full bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
+          <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-bold text-white shadow-sm dark:bg-emerald-600">
+            <span aria-hidden="true">&#10003;</span>
             Solved
           </span>
         ) : null}
@@ -74,13 +75,13 @@ export function SidePanel({
         </Button>
         <Button
           className="w-full"
-          variant="ghost"
+          variant="secondary"
           onClick={onPreviousLevel}
           disabled={!canGoToPreviousLevel}
         >
           Previous
         </Button>
-        <Button className="w-full" variant="ghost" onClick={onNextLevel}>
+        <Button className="w-full" variant="secondary" onClick={onNextLevel}>
           Next Level
         </Button>
       </div>

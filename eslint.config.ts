@@ -133,6 +133,7 @@ export default [
       '**/coverage/**',
       '**/artifacts/**',
       '**/.claude/**',
+      '**/.wrangler/**',
       '**/docs/_generated/**',
     ],
   },

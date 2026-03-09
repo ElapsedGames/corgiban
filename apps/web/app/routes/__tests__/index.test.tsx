@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
-import { renderToStaticMarkup } from 'react-dom/server';
 import type { ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@remix-run/react', () => ({
   Link: ({
@@ -31,24 +31,27 @@ describe('IndexRoute', () => {
     expect(html).toContain('id="main-content"');
   });
 
-  it('renders the page heading', () => {
+  it('renders the landing-page hero copy', () => {
     const html = renderToStaticMarkup(<IndexRoute />);
 
     expect(html).toContain('Corgiban');
+    expect(html).toContain('Deterministic Sokoban play');
   });
 
-  it('links to the Play, Benchmark, Lab, and UI Kit routes', () => {
+  it('renders entry points for the main workflows', () => {
     const html = renderToStaticMarkup(<IndexRoute />);
 
     expect(html).toContain('href="/play"');
     expect(html).toContain('href="/bench"');
     expect(html).toContain('href="/lab"');
-    expect(html).toContain('href="/dev/ui-kit"');
+    expect(html).not.toContain('href="/dev/ui-kit"');
   });
 
   it('renders the shared package version', () => {
     const html = renderToStaticMarkup(<IndexRoute />);
 
+    expect(html).toContain('aria-label="Main workflows"');
+    expect(html).toContain('Shared package version:');
     expect(html).toContain('0.0.0');
   });
 });

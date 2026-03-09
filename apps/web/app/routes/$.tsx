@@ -1,4 +1,8 @@
-import { json, type LoaderFunctionArgs, type MetaFunction } from '@remix-run/node';
+import {
+  json,
+  type LoaderFunctionArgs,
+  type ServerRuntimeMetaFunction as MetaFunction,
+} from '@remix-run/server-runtime';
 import { Link, useLocation } from '@remix-run/react';
 
 export const meta: MetaFunction = () => [{ title: '404 Not Found | Corgiban' }];

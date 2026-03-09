@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('root route links to play, bench, lab, and ui kit routes', async ({ page }) => {
+test('root route links to the main play, bench, and lab workflows', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Corgiban' })).toBeVisible();
   const routeNav = page.getByRole('navigation', { name: 'App routes' });
@@ -8,7 +8,7 @@ test('root route links to play, bench, lab, and ui kit routes', async ({ page })
   await expect(routeNav.getByRole('link', { name: 'Play' })).toBeVisible();
   await expect(routeNav.getByRole('link', { name: 'Benchmark' })).toBeVisible();
   await expect(routeNav.getByRole('link', { name: 'Lab' })).toBeVisible();
-  await expect(routeNav.getByRole('link', { name: 'UI Kit' })).toBeVisible();
+  await expect(routeNav.getByRole('link', { name: 'UI Kit' })).toHaveCount(0);
 });
 
 test('ui kit route supports tab and dialog interactions', async ({ page }) => {

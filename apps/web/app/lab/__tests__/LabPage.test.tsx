@@ -84,6 +84,8 @@ vi.mock('../../runId', () => ({
 }));
 
 const mountedRoots: Root[] = [];
+const SIMPLE_VALID_CORG_INPUT = ['WWWWW', 'WPBTW', 'WWWWW'].join('\n');
+const WALKABLE_CORG_INPUT = ['WWWWWWW', 'WP BTW', 'W     W', 'WWWWWWW'].join('\n');
 
 function makeSolverResult(solutionMoves: string) {
   return {
@@ -153,7 +155,7 @@ function makeBenchRecord() {
 
 async function renderPage() {
   const container = document.createElement('div');
-  document.body.append(container);
+  document.body.appendChild(container);
 
   const root = createRoot(container);
   mountedRoots.push(root);
@@ -196,6 +198,14 @@ function findTextarea(container: HTMLElement): HTMLTextAreaElement {
   return textarea;
 }
 
+function findFormatSelect(container: HTMLElement): HTMLSelectElement {
+  const select = container.querySelector('select');
+  if (!(select instanceof HTMLSelectElement)) {
+    throw new Error('Format select not found.');
+  }
+  return select;
+}
+
 async function setTextareaValue(container: HTMLElement, value: string) {
   const textarea = findTextarea(container);
   await act(async () => {
@@ -206,6 +216,16 @@ async function setTextareaValue(container: HTMLElement, value: string) {
     valueSetter?.call(textarea, value);
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     textarea.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+async function setFormatValue(container: HTMLElement, value: string) {
+  const select = findFormatSelect(container);
+  await act(async () => {
+    const valueSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+    valueSetter?.call(select, value);
+    select.dispatchEvent(new Event('input', { bubbles: true }));
+    select.dispatchEvent(new Event('change', { bubbles: true }));
   });
 }
 
@@ -353,7 +373,7 @@ describe('LabPage', () => {
     mocks.exportTextFile.mockResolvedValueOnce(undefined);
 
     const { container } = await renderPage();
-    const customInput = ['#####', '#@$.#', '#####'].join('\n');
+    const customInput = SIMPLE_VALID_CORG_INPUT;
     await setTextareaValue(container, customInput);
 
     await clickButton(container, 'Export JSON');
@@ -368,11 +388,41 @@ describe('LabPage', () => {
       expect.objectContaining({
         type: 'corgiban-lab-level',
         version: 1,
-        format: 'xsb',
+        format: 'corg',
         content: customInput,
       }),
     );
     expect(typeof payload.exportedAtIso).toBe('string');
+  });
+
+  it('converts the textarea content to the newly selected input format', async () => {
+    const { container } = await renderPage();
+
+    await setFormatValue(container, 'sok-0.17');
+
+    const textarea = findTextarea(container);
+    const formatSelect = findFormatSelect(container);
+
+    expect(formatSelect.value).toBe('sok-0.17');
+    expect(textarea.value).toContain('Title: Lab Level');
+    expect(container.textContent).toContain(
+      'Converted input to SOK 0.17. Parse Level to apply it.',
+    );
+    expect(container.textContent).toContain('Moves: 0 | Pushes: 0');
+  });
+
+  it('keeps the previous input format selected when conversion fails', async () => {
+    const { container } = await renderPage();
+
+    await setTextareaValue(container, 'this is not valid xsb input !!!!!');
+    await setFormatValue(container, 'xsb');
+
+    const formatSelect = findFormatSelect(container);
+    const textarea = findTextarea(container);
+
+    expect(formatSelect.value).toBe('corg');
+    expect(textarea.value).toBe('this is not valid xsb input !!!!!');
+    expect(container.textContent).toContain('Unknown token "t" at row 1, col 1.');
   });
 
   it.each([
@@ -497,7 +547,7 @@ describe('LabPage', () => {
     mocks.solverPort.startSolve.mockResolvedValueOnce(makeSolverResult('RR'));
 
     const { container } = await renderPage();
-    await setTextareaValue(container, ['#######', '#@ $. #', '#     #', '#######'].join('\n'));
+    await setTextareaValue(container, WALKABLE_CORG_INPUT);
 
     await act(async () => {
       findButton(container, 'Parse Level').click();
@@ -526,7 +576,7 @@ describe('LabPage', () => {
 
     await clickButton(container, 'Run Solve');
 
-    await setTextareaValue(container, ['#####', '#@$.#', '#####'].join('\n'));
+    await setTextareaValue(container, SIMPLE_VALID_CORG_INPUT);
     await clickButton(container, 'Parse Level');
 
     expect(mocks.solverPort.cancelSolve).toHaveBeenCalledWith('lab-solve-1');
@@ -665,7 +715,7 @@ describe('LabPage', () => {
 
   it('resets preview state from both keyboard and button reset actions', async () => {
     const { container } = await renderPage();
-    await setTextareaValue(container, ['#######', '#@ $. #', '#     #', '#######'].join('\n'));
+    await setTextareaValue(container, WALKABLE_CORG_INPUT);
 
     await clickButton(container, 'Parse Level');
 
@@ -777,7 +827,7 @@ describe('LabPage', () => {
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
 
     // Then parse a valid level
-    await setTextareaValue(container, ['#####', '#@$.#', '#####'].join('\n'));
+    await setTextareaValue(container, SIMPLE_VALID_CORG_INPUT);
     await clickButton(container, 'Parse Level');
 
     // role="alert" should be gone after a successful parse
@@ -797,7 +847,7 @@ describe('LabPage', () => {
     expect(msgEl()?.getAttribute('aria-live')).toBe('assertive');
 
     // After a successful parse it should revert to polite
-    await setTextareaValue(container, ['#####', '#@$.#', '#####'].join('\n'));
+    await setTextareaValue(container, SIMPLE_VALID_CORG_INPUT);
     await clickButton(container, 'Parse Level');
     expect(msgEl()?.getAttribute('aria-live')).toBe('polite');
   });

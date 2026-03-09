@@ -11,6 +11,7 @@ Remix application containing the product UI, routes, and orchestration.
 - Canvas host + animation playback scheduling (RAF time accumulator, shadow GameState outside Redux)
 - Worker clients (via ports/adapters) for solver + benchmarks
 - Persistence adapters (IndexedDB, File System Access export/import)
+- Shared Remix server document rendering plus deployment adapters (currently Cloudflare Pages)
 
 ## Current status (Phase 6 adapters + tooling integration)
 
@@ -59,9 +60,14 @@ Remix application containing the product UI, routes, and orchestration.
   - App-generated benchmark report exports include `exportedAtIso` convenience metadata; app-
     generated level-pack exports include both `levelIds` and `levels` plus `exportedAtIso`.
 - Lab:
-  - `/lab` provides format-aware single-level parsing (CORG/XSB/SOK/SLC), canvas preview, and
-    one-click worker solve/bench checks. Multi-level XSB/SOK/SLC payloads are rejected with an
-    explicit error so the editor always operates on one committed level at a time.
+  - `/lab` provides a CORG-first authoring surface plus format-aware single-level parsing
+    (CORG/XSB/SOK/SLC), canvas preview, and one-click worker solve/bench checks. Multi-level
+    XSB/SOK/SLC payloads are rejected with an explicit error so the editor always operates on one
+    committed level at a time.
+  - Changing the format selector converts the current authored text through validated parse ->
+    serialize steps instead of only relabeling the textarea. When CORG row text would lose level
+    metadata, the route promotes the authored text to CORG JSON so `id`, `name`, and
+    `knownSolution` survive the conversion.
   - Lab import/export uses a strict versioned JSON payload contract (`corgiban-lab-level`,
     version `1`): required `type`, `version`, `format`, and `content`; optional
     `exportedAtIso`; unknown top-level fields are rejected on import.
@@ -72,6 +78,14 @@ Remix application containing the product UI, routes, and orchestration.
 - Offline/PWA:
   - Workbox-backed service worker registration is enabled in production builds.
   - Dev-only PWA worker registration can be enabled with `VITE_ENABLE_PWA_DEV=1` for local smoke validation.
+- Hosting/deploy:
+  - Browser gameplay, solver, benchmark, and persistence logic remain client-side and host-agnostic.
+  - `app/server/*` and `app/entry.server.tsx` define the shared Remix document-render path.
+  - `apps/web/functions/[[path]].ts`, `wrangler.jsonc`, and `preview:cloudflare` /
+    `deploy:cloudflare` scripts form the current Cloudflare Pages adapter layer.
+  - `pnpm -C apps/web preview` aliases `preview:cloudflare`, which runs `wrangler pages dev`
+    against `build/client` for local production-style preview.
+  - Deploy uses `pnpm -C apps/web deploy:cloudflare`.
 - Replay: controller is wired to solver playback controls.
 - Store lifecycle: route-scoped stores inject ports and dispose worker/persistence resources on
   unmount for `/play` and `/bench`; `/lab` applies the same dispose discipline with direct
@@ -98,6 +112,19 @@ Worker creation and browser-only APIs must be used in client-only contexts:
   publishing `globalThis.__corgibanSolverKernelUrls`.
 - Dynamic imports and `useEffect()` are **not** approved escape hatches for worker construction
 - Never import worker runtime code from Remix loaders/actions
+
+## Hosting boundary
+
+- Keep Cloudflare-specific code in:
+  - `apps/web/functions/`
+  - `apps/web/wrangler.jsonc`
+  - `apps/web/scripts/preview-cloudflare.mjs`
+- Keep shared server rendering in:
+  - `apps/web/app/server/`
+  - `apps/web/app/entry.server.tsx`
+- Route modules and the root document should stay runtime-neutral and use
+  `@remix-run/server-runtime` / `@remix-run/react` imports. When deployment-specific values are
+  ever needed, thread them through Remix load context instead of importing host packages directly.
 
 ## Troubleshooting
 

@@ -22,7 +22,7 @@ Exported from `src/index.ts`:
 ## LevelDefinition conventions
 
 - `rows` tokens: `W`, `E`, `T`, `P`, `B`, `S`, `Q`, and space
-- Space is empty floor; `S` = target + box, `Q` = target + player (parsing details, not new cell kinds)
+- Empty floor accepts both `E` and literal space; literal space is the preferred canonical/serialized form. `S` = target + box, `Q` = target + player (parsing details, not new cell kinds)
 - Rows may be ragged on the right and optionally indented; core `parseLevel` strips common leading whitespace and pads missing cells with spaces
 - `knownSolution` accepts `UDLR` and `udlr` only; case is preserved for round-trip fidelity (lowercase = move, uppercase = push in SOK convention)
 - After normalization, `null` means no usable known solution (absent, empty, or failed validation); `undefined` only means the field was not present in the source pre-normalization

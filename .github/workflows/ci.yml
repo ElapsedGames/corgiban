@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -48,7 +51,7 @@ jobs:
 
       - name: Upload Playwright artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
           path: |

@@ -2,7 +2,7 @@ import { useId } from 'react';
 
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
-import { type LabInputFormat } from './labFormat';
+import { LAB_INPUT_FORMAT_LABELS, type LabInputFormat } from './labFormat';
 import type { ParseState } from './labTypes';
 
 type LabEditorPanelProps = {
@@ -43,10 +43,10 @@ export function LabEditorPanel({
           value={format}
           onChange={(event) => onFormatChange(event.target.value as LabInputFormat)}
         >
-          <option value="corg">CORG</option>
-          <option value="xsb">XSB</option>
-          <option value="sok-0.17">SOK 0.17</option>
-          <option value="slc-xml">SLC XML</option>
+          <option value="corg">{LAB_INPUT_FORMAT_LABELS.corg}</option>
+          <option value="xsb">{LAB_INPUT_FORMAT_LABELS.xsb}</option>
+          <option value="sok-0.17">{LAB_INPUT_FORMAT_LABELS['sok-0.17']}</option>
+          <option value="slc-xml">{LAB_INPUT_FORMAT_LABELS['slc-xml']}</option>
         </Select>
 
         <div className="flex flex-wrap items-end gap-2">

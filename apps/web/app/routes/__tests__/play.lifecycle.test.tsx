@@ -40,7 +40,7 @@ const mountedRoots: Root[] = [];
 
 async function renderRoute() {
   const container = document.createElement('div');
-  document.body.append(container);
+  document.body.appendChild(container);
 
   const root = createRoot(container);
   mountedRoots.push(root);

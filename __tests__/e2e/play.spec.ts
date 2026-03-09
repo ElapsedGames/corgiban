@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test';
 
 test('play route applies sequence input and supports restart and next level', async ({ page }) => {
   await page.goto('/play');
-  await expect(page.getByRole('heading', { name: 'Corgiban' })).toBeVisible();
+  await expect(page.getByRole('main', { name: 'Play Corgiban' })).toBeVisible();
+  await expect(page.getByTitle('Classic 1').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Previous' })).toBeDisabled();
 
   await page.getByRole('textbox', { name: 'Sequence input' }).fill('R');
@@ -29,7 +30,8 @@ test('play route applies sequence input and supports restart and next level', as
 
 test('play route runs solver and enables apply solution', async ({ page }) => {
   await page.goto('/play');
-  await expect(page.getByRole('heading', { name: 'Corgiban' })).toBeVisible();
+  await expect(page.getByRole('main', { name: 'Play Corgiban' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Solver' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Run Solve' }).click();
 

@@ -16,5 +16,5 @@ test('unknown routes render the 404 page and link back to play', async ({ page }
     .getByRole('link', { name: 'Play' })
     .click();
   await expect(page).toHaveURL(/\/play$/);
-  await expect(page.getByRole('heading', { name: 'Corgiban' })).toBeVisible();
+  await expect(page.getByRole('main', { name: 'Play Corgiban' })).toBeVisible();
 });

@@ -17,7 +17,7 @@ const palette = {
   wall: '#1f2937',
   target: '#22d3ee',
   box: '#f59e0b',
-  boxOnTarget: '#fb923c',
+  boxOnTarget: '#22c55e',
   player: '#38bdf8',
 };
 

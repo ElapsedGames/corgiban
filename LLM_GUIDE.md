@@ -311,6 +311,13 @@ Validate both directions:
   during render/SSR and replace those ports with browser-backed implementations after commit;
   preserve one stable route-store instance across hydration and do not create workers or
   persistence adapters during route render.
+- Hosting/runtime adapters stay isolated to the web app deployment layer.
+  Host-specific files live under `apps/web/functions/*`, `apps/web/wrangler.jsonc`, and
+  `preview:<host>` / `deploy:<host>` scripts. Keep `apps/web/app/server/*` and
+  `apps/web/app/entry.server.tsx` host-neutral so they can be reused by multiple Remix hosts.
+- Route modules and the root document should use `@remix-run/server-runtime` /
+  `@remix-run/react` imports, not host packages such as `@remix-run/cloudflare`. If runtime-
+  specific values are needed, pass them through explicit Remix load context.
 - The root app shell owns the light/dark `<html>` theme class. Resolve the initial theme before
   paint from persisted browser preference with `prefers-color-scheme` fallback, and do not
   duplicate theme ownership in route-scoped Redux stores.

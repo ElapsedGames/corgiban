@@ -44,7 +44,7 @@ export function serializeLevel(level: LevelRuntime): string[] {
         continue;
       }
 
-      rowText += isTarget(staticGrid[index]) ? 'T' : 'E';
+      rowText += isTarget(staticGrid[index]) ? 'T' : ' ';
     }
     rows.push(rowText);
   }

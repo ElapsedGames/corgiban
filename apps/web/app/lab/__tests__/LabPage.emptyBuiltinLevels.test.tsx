@@ -21,9 +21,9 @@ describe('LabPage empty builtin fallback behavior', () => {
 
     expect(html).toContain('Level Lab');
     expect(html).toContain('Parsed successfully.');
-    expect(html).toContain('XSB 1');
-    expect(html).toContain('lab-001-level');
-    expect(html).toContain('#.@ #');
-    expect(html).toContain('# $ #');
+    expect(html).toContain('Lab Level');
+    expect(html).toContain('lab-level');
+    expect(html).toContain('WP  W');
+    expect(html).toContain('W B W');
   });
 });

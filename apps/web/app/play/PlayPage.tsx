@@ -279,7 +279,24 @@ export function PlayPage() {
       return;
     }
     replayControllerRef.current?.loadSolution(latestSolutionDirections, true);
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      document.getElementById('game-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }, [latestSolutionDirections]);
+
+  useEffect(() => {
+    if (solver.replayState !== 'done') {
+      return;
+    }
+    if (latestSolutionDirections.length === 0) {
+      return;
+    }
+    dispatch(restart());
+    gameStateRef.current = createGame(levelRuntime);
+    handleApplySequence(latestSolutionDirections);
+    setReplayShadowState(null);
+    dispatch(clearReplay());
+  }, [solver.replayState, latestSolutionDirections, dispatch, levelRuntime, handleApplySequence]);
 
   const handleReplayPlayPause = useCallback(() => {
     const controller = replayControllerRef.current;
@@ -327,24 +344,13 @@ export function PlayPage() {
 
   return (
     <main id="main-content" className="page-shell play-shell" aria-label="Play Corgiban">
-      <header className="flex flex-col gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-muted)]">Play</p>
-          <h1 className="page-title">Corgiban</h1>
-          <p className="page-subtitle">
-            Use arrow keys or WASD to move.{' '}
-            <span className="whitespace-nowrap">U to undo, R to restart, N for next level.</span>
-          </p>
-        </div>
-      </header>
-
       {solved ? (
         <div role="status" aria-live="polite" className="sr-only">
           Level solved!
         </div>
       ) : null}
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)_22rem]">
+      <div className="mt-3 grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)_22rem]">
         <div className="order-2 flex min-w-0 flex-col gap-6 lg:order-1">
           <SidePanel
             levelName={levelDefinition.name}
@@ -364,6 +370,7 @@ export function PlayPage() {
 
         <div className="order-1 flex min-w-0 flex-col gap-6 lg:order-2">
           <section
+            id="game-board"
             aria-labelledby="board-heading"
             className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg lg:p-6"
           >
@@ -397,7 +404,7 @@ export function PlayPage() {
                   ref={solvedNextLevelRef}
                   size="sm"
                   onClick={handleNextLevel}
-                  className="shrink-0"
+                  className="ml-auto shrink-0"
                 >
                   Next Level
                 </Button>
@@ -406,6 +413,9 @@ export function PlayPage() {
             <div className="flex justify-center rounded-[var(--radius-md)] bg-[color:var(--color-bg)] p-2 sm:p-3 lg:p-4">
               <GameCanvas state={canvasState} className="max-w-full" cellSize={56} />
             </div>
+            <p className="mt-3 text-center text-xs text-[color:var(--color-muted)]">
+              Arrow keys or WASD to move | U to undo | R to restart | N for next level
+            </p>
           </section>
         </div>
 

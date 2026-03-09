@@ -5,7 +5,9 @@ solver execution, and benchmark-driven iteration.
 
 Domain packages stay framework-agnostic (`core`, `solver`, `benchmarks`). The Remix app in
 `apps/web` orchestrates UI state and adapters, while `packages/worker` keeps heavy compute off the
-main thread with versioned, runtime-validated protocol messages.
+main thread with versioned, runtime-validated protocol messages. The current deployment target is
+Cloudflare Pages via a thin adapter layer inside `apps/web`, while shared Remix document rendering
+stays host-neutral.
 
 ## Project State
 
@@ -22,7 +24,7 @@ Current routes:
 
 - `/play`: playable level flow with keyboard controls, history, undo/restart, solver run/cancel, progress, apply/animate solution, and worker retry flow.
 - `/bench`: benchmark suite builder (including warm-up reps), run/cancel controls, progress + diagnostics, persisted results table, analytics/comparison panel, and benchmark import/export flows.
-- `/lab`: Level Lab route for parsing CORG/XSB/SOK/SLC input, previewing levels, and running one-click worker solve/bench checks.
+- `/lab`: Level Lab route for authoring and converting CORG/XSB/SOK/SLC input, previewing levels, and running one-click worker solve/bench checks.
 - `/dev/ui-kit`: UI primitive validation route.
 
 ## Goals
@@ -49,6 +51,12 @@ Playwright setup (once per machine):
 
 ```bash
 pnpm exec playwright install chromium
+```
+
+Production-style preview uses the Cloudflare Pages adapter path:
+
+```bash
+pnpm -C apps/web preview
 ```
 
 ## Validation Commands
