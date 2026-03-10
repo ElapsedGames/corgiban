@@ -62,6 +62,12 @@ If an ADR is superseded, link bidirectionally:
 - ADR-0028 (`0028-cloudflare-pages-runtime-adapter.md`) is the source of truth for the current
   Cloudflare Pages deployment target. Cloudflare-specific code stays in the Pages adapter layer;
   route/browser logic remains host-agnostic unless values are passed through load context.
+- ADR-0029 (`0029-play-route-primary-entrypoint.md`) is the source of truth for the play-first
+  route contract. `/` redirects to `/play`, the shared brand link returns there, and `/dev/ui-kit`
+  stays a direct-access validation route rather than a primary workflow destination.
+- ADR-0030 (`0030-app-local-board-skin-registry.md`) is the source of truth for board visual
+  theming. Keep board skins in app-local TS data so the fallback draw path and sprite-atlas worker
+  share the same explicit `skinId` / `mode` contract.
 - Not every review-sensitive contract has a standalone ADR. The explicit monotonic-clock failure
   path is documented in `LLM_GUIDE.md`, `docs/Architecture.md`, `packages/solver/README.md`, and
   `docs/review-notes.md`.
@@ -96,3 +102,5 @@ If an ADR is superseded, link bidirectionally:
 - `0026-app-shell-theme-ownership.md`
 - `0027-host-pluggable-remix-server-boundary.md`
 - `0028-cloudflare-pages-runtime-adapter.md`
+- `0029-play-route-primary-entrypoint.md`
+- `0030-app-local-board-skin-registry.md`

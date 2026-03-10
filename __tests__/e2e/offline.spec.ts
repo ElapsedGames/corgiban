@@ -8,8 +8,14 @@ test('pwa service worker keeps /play available offline after first load', async 
 
   const manifestResponse = await page.request.get('/manifest.webmanifest');
   expect(manifestResponse.ok()).toBe(true);
-  const manifest = (await manifestResponse.json()) as { name?: string };
+  const manifest = (await manifestResponse.json()) as {
+    name?: string;
+    scope?: string;
+    start_url?: string;
+  };
   expect(manifest.name).toBe('Corgiban');
+  expect(manifest.start_url).toBe('/play');
+  expect(manifest.scope).toBe('/');
 
   const serviceWorkerAssetResponse = await page.request.get('/sw.js');
   expect(serviceWorkerAssetResponse.ok()).toBe(true);

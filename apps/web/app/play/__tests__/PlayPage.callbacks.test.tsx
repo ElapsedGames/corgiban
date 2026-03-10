@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Provider } from 'react-redux';
+import { applyMove, createGame, parseLevel } from '@corgiban/core';
 import { builtinLevels } from '@corgiban/levels';
 
 const callbackState = vi.hoisted(() => ({
@@ -71,9 +72,19 @@ vi.mock('../useKeyboardControls', () => ({
 }));
 
 import { createAppStore } from '../../state/store';
-import { move } from '../../state/gameSlice';
+import { move, nextLevel } from '../../state/gameSlice';
 import { solveRunCompleted, solveRunStarted } from '../../state/solverSlice';
 import { PlayPage } from '../PlayPage';
+
+const keyboardFixtureLevel = builtinLevels.find((level) => {
+  const game = createGame(parseLevel(level));
+  const rightMove = applyMove(game, 'R');
+  const downMove = applyMove(game, 'D');
+  if (!rightMove.changed || downMove.changed) {
+    return false;
+  }
+  return applyMove(rightMove.state, 'L').changed;
+});
 
 function renderPage(store = createAppStore()) {
   callbackState.refCallCount = 0;
@@ -101,7 +112,12 @@ describe('PlayPage callback behavior', () => {
   });
 
   it('applies a valid keyboard move and increments move stats', () => {
-    const store = renderPage();
+    const store = createAppStore();
+    expect(keyboardFixtureLevel).toBeTruthy();
+    store.dispatch(
+      nextLevel({ levelId: keyboardFixtureLevel?.id ?? store.getState().game.levelId }),
+    );
+    renderPage(store);
     callbackState.keyboardHandlers?.onMove('R');
 
     expect(store.getState().game.stats.moves).toBe(1);
@@ -109,7 +125,12 @@ describe('PlayPage callback behavior', () => {
   });
 
   it('ignores blocked keyboard moves while still stopping replay', () => {
-    const store = renderPage();
+    const store = createAppStore();
+    expect(keyboardFixtureLevel).toBeTruthy();
+    store.dispatch(
+      nextLevel({ levelId: keyboardFixtureLevel?.id ?? store.getState().game.levelId }),
+    );
+    renderPage(store);
     callbackState.keyboardHandlers?.onMove('D');
 
     expect(store.getState().game.stats.moves).toBe(0);
@@ -128,7 +149,12 @@ describe('PlayPage callback behavior', () => {
   });
 
   it('restarts level state through keyboard controls', () => {
-    const store = renderPage();
+    const store = createAppStore();
+    expect(keyboardFixtureLevel).toBeTruthy();
+    store.dispatch(
+      nextLevel({ levelId: keyboardFixtureLevel?.id ?? store.getState().game.levelId }),
+    );
+    renderPage(store);
     callbackState.keyboardHandlers?.onMove('R');
     callbackState.keyboardHandlers?.onMove('L');
     expect(store.getState().game.stats.moves).toBe(2);

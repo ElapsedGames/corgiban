@@ -20,7 +20,7 @@ function createRecord(overrides: Partial<BenchmarkRunRecord> = {}): BenchmarkRun
     suiteRunId: overrides.suiteRunId ?? 'suite-1',
     runId: overrides.runId ?? 'run-1',
     sequence: overrides.sequence ?? 1,
-    levelId: overrides.levelId ?? 'classic-001',
+    levelId: overrides.levelId ?? 'corgiban-test-18',
     algorithmId,
     repetition: overrides.repetition ?? 1,
     warmup: overrides.warmup ?? false,
@@ -66,7 +66,7 @@ function createRecord(overrides: Partial<BenchmarkRunRecord> = {}): BenchmarkRun
 describe('benchmark comparison helpers', () => {
   it('maps run records to comparable inputs', () => {
     const record = createRecord({
-      levelId: 'classic-002',
+      levelId: 'corgiban-test-22',
       repetition: 3,
       options: {
         heuristicId: 'assignment',
@@ -77,7 +77,7 @@ describe('benchmark comparison helpers', () => {
     });
 
     expect(toComparableRunInput(record)).toEqual({
-      levelId: 'classic-002',
+      levelId: 'corgiban-test-22',
       repetition: 3,
       solver: {
         algorithmId: 'bfsPush',
@@ -118,7 +118,7 @@ describe('benchmark comparison helpers', () => {
       runId: 'run-b',
       sequence: 1,
       repetition: 1,
-      levelId: 'classic-002',
+      levelId: 'corgiban-test-22',
     });
 
     const original = buildSuiteComparisonInfo([left, right]);
@@ -173,7 +173,7 @@ describe('benchmark comparison helpers', () => {
       createRecord({
         id: 'record-b',
         runId: 'run-b',
-        levelId: 'classic-002',
+        levelId: 'corgiban-test-22',
         repetition: 2,
       }),
       createRecord({
@@ -184,15 +184,15 @@ describe('benchmark comparison helpers', () => {
       createRecord({
         id: 'record-a',
         runId: 'run-a',
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         repetition: 1,
       }),
     ]);
 
     expect(info.fingerprint).toBeNull();
     expect(info.inputs.map((input) => `${input.levelId}:${input.repetition}`)).toEqual([
-      'classic-001:1',
-      'classic-002:2',
+      'corgiban-test-18:1',
+      'corgiban-test-22:2',
     ]);
     expect(info.issues).toEqual(['Missing comparable metadata for run run-missing.']);
   });
@@ -213,14 +213,24 @@ describe('benchmark comparison helpers', () => {
 
   it('sorts inputs by repetition ascending (numeric) when levelIds are equal', () => {
     // repetition 10 must sort after repetition 2 numerically (not "10" < "2" lexicographically)
-    const rep2 = createRecord({ id: 'r-2', runId: 'run-2', levelId: 'classic-001', repetition: 2 });
+    const rep2 = createRecord({
+      id: 'r-2',
+      runId: 'run-2',
+      levelId: 'corgiban-test-18',
+      repetition: 2,
+    });
     const rep10 = createRecord({
       id: 'r-10',
       runId: 'run-10',
-      levelId: 'classic-001',
+      levelId: 'corgiban-test-18',
       repetition: 10,
     });
-    const rep1 = createRecord({ id: 'r-1', runId: 'run-1', levelId: 'classic-001', repetition: 1 });
+    const rep1 = createRecord({
+      id: 'r-1',
+      runId: 'run-1',
+      levelId: 'corgiban-test-18',
+      repetition: 1,
+    });
 
     const info = buildSuiteComparisonInfo([rep10, rep2, rep1]);
 
@@ -233,7 +243,7 @@ describe('benchmark comparison helpers', () => {
     const recordAlpha = createRecord({
       id: 'r-alpha',
       runId: 'run-alpha',
-      levelId: 'classic-001',
+      levelId: 'corgiban-test-18',
       repetition: 1,
       comparableMetadata: {
         solver: { algorithmId: 'bfsPush', timeBudgetMs: 1_000 },
@@ -245,7 +255,7 @@ describe('benchmark comparison helpers', () => {
     const recordBeta = createRecord({
       id: 'r-beta',
       runId: 'run-beta',
-      levelId: 'classic-001',
+      levelId: 'corgiban-test-18',
       repetition: 1,
       comparableMetadata: {
         solver: { algorithmId: 'bfsPush', timeBudgetMs: 2_000 },

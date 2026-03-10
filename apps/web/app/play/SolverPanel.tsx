@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AlgorithmId } from '@corgiban/solver';
 import { ALGORITHM_IDS, DEFAULT_ALGORITHM_ID, isImplementedAlgorithmId } from '@corgiban/solver';
@@ -6,6 +6,7 @@ import { ALGORITHM_IDS, DEFAULT_ALGORITHM_ID, isImplementedAlgorithmId } from '@
 import type { WorkerHealth } from '../ports/solverPort';
 import type { AppDispatch, RootState } from '../state';
 import { setSolverNodeBudget, setSolverTimeBudgetMs } from '../state/settingsSlice';
+import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import type {
   ReplayState,
@@ -15,7 +16,7 @@ import type {
   SolverRunStatus,
 } from '../state/solverSlice';
 import { Select } from '../ui/Select';
-import { SolverControls } from './SolverControls';
+import { REPLAY_SPEED_OPTIONS, SolverControls, inlineSelectClass } from './SolverControls';
 import { SolverProgress } from './SolverProgress';
 
 export type SolverPanelProps = {
@@ -30,6 +31,7 @@ export type SolverPanelProps = {
   replayIndex: number;
   replayTotalSteps: number;
   replaySpeed: number;
+  mobileRunLocked: boolean;
   onSelectAlgorithm: (algorithmId: AlgorithmId) => void;
   onRun: () => void;
   onCancel: () => void;
@@ -45,6 +47,7 @@ export type SolverPanelProps = {
 const FALLBACK_ALGORITHM_ID =
   ALGORITHM_IDS.find((algorithmId) => isImplementedAlgorithmId(algorithmId)) ??
   DEFAULT_ALGORITHM_ID;
+export const MOBILE_RUNNING_INDICATOR_DELAY_MS = 750;
 
 function formatAlgorithmLabel(algorithmId: AlgorithmId): string {
   if (isImplementedAlgorithmId(algorithmId)) {
@@ -114,6 +117,7 @@ export function SolverPanel({
   replayIndex,
   replayTotalSteps,
   replaySpeed,
+  mobileRunLocked,
   onSelectAlgorithm,
   onRun,
   onCancel,
@@ -126,71 +130,210 @@ export function SolverPanel({
   onRetryWorker,
 }: SolverPanelProps) {
   const headingId = useId();
+  const mobileHeadingId = `${headingId}-mobile`;
+  const desktopHeadingId = `${headingId}-desktop`;
   const preferredAlgorithmId =
     selectedAlgorithmId ?? recommendation?.algorithmId ?? FALLBACK_ALGORITHM_ID;
   const resolvedAlgorithmId = isImplementedAlgorithmId(preferredAlgorithmId)
     ? preferredAlgorithmId
     : FALLBACK_ALGORITHM_ID;
+  const isRunning = status === 'running' || status === 'cancelling';
+  const hasSolution = Boolean(lastResult?.solutionMoves);
+  const mobileReplaySelectClass = `${inlineSelectClass} min-h-[42px] w-full px-4 py-2 text-sm`;
+  const mobileRunNotice = status === 'cancelling' ? 'Stopping solver...' : 'Solver running...';
+  const mobileRunMetrics = progress
+    ? `${Math.round(progress.elapsedMs)} ms`
+    : activeRunLabel(status);
+  const [showMobileRunningNotice, setShowMobileRunningNotice] = useState(false);
+
+  function activeRunLabel(currentStatus: SolverRunStatus): string {
+    return currentStatus === 'cancelling' ? 'Cancelling' : 'Working';
+  }
+
+  useEffect(() => {
+    if (!isRunning) {
+      setShowMobileRunningNotice(false);
+      return;
+    }
+
+    setShowMobileRunningNotice(false);
+    const timeoutId = window.setTimeout(() => {
+      setShowMobileRunningNotice(true);
+    }, MOBILE_RUNNING_INDICATOR_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isRunning]);
 
   return (
-    <section
-      aria-labelledby={headingId}
-      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
-    >
-      <div className="mb-4">
-        <h2 id={headingId} className="text-lg font-semibold">
-          Solver
-        </h2>
-        <p className="text-sm text-[color:var(--color-muted)]">
-          {recommendationLabel(recommendation)}
-        </p>
-      </div>
+    <>
+      <section
+        aria-labelledby={mobileHeadingId}
+        className="rounded-app-lg border border-border bg-panel p-4 shadow-lg lg:hidden"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id={mobileHeadingId} className="text-lg font-semibold">
+              Solver
+            </h2>
+            <p className="text-sm text-muted">Run Solve currently works for most smaller levels.</p>
+          </div>
+        </div>
 
-      <div className="mb-4">
-        <Select
-          label="Algorithm"
-          value={resolvedAlgorithmId}
-          onChange={(event) => onSelectAlgorithm(event.target.value as AlgorithmId)}
-          hint="Unavailable algorithms stay visible but are disabled until implemented."
-        >
-          {ALGORITHM_IDS.map((algorithmId) => (
-            <option
-              key={algorithmId}
-              value={algorithmId}
-              disabled={!isImplementedAlgorithmId(algorithmId)}
-            >
-              {formatAlgorithmLabel(algorithmId)}
-            </option>
-          ))}
-        </Select>
-      </div>
+        {isRunning && showMobileRunningNotice ? (
+          <div
+            aria-live="polite"
+            className="mt-4 flex items-center gap-3 rounded-app-md border border-accent-border bg-accent-surface px-3 py-3 text-sm font-semibold text-accent"
+          >
+            <span
+              className="size-2 shrink-0 rounded-full bg-accent animate-pulse"
+              aria-hidden="true"
+            />
+            <span>{mobileRunNotice}</span>
+            <span className="ml-auto text-xs font-medium text-muted">{mobileRunMetrics}</span>
+          </div>
+        ) : null}
 
-      <SolverBudgetSettings />
+        {mobileRunLocked ? (
+          <div className="mt-4 rounded-app-md border border-error-border bg-error-surface px-3 py-3 text-sm text-error-text">
+            <p className="font-semibold">Solver did not complete this level.</p>
+            <p className="mt-1 text-xs font-medium">
+              Select another level before trying Run Solve again.
+            </p>
+          </div>
+        ) : null}
 
-      <hr className="my-5 border-[color:var(--color-border)]" />
+        {!mobileRunLocked || hasSolution || isRunning || workerHealth === 'crashed' ? (
+          <div
+            role="group"
+            aria-label="Mobile solver controls"
+            className="mt-4 grid grid-cols-2 gap-2"
+          >
+            {isRunning ? (
+              <Button className="w-full" size="md" variant="secondary" onClick={onCancel}>
+                Cancel
+              </Button>
+            ) : hasSolution ? (
+              <Button className="w-full" size="md" variant="tonal" onClick={onAnimate}>
+                Animate Solution
+              </Button>
+            ) : !mobileRunLocked ? (
+              <Button
+                className="w-full"
+                size="md"
+                onClick={onRun}
+                disabled={workerHealth === 'crashed'}
+              >
+                Run Solve
+              </Button>
+            ) : (
+              <div aria-hidden="true" />
+            )}
+            {hasSolution ? (
+              <div className="w-full">
+                <label className="sr-only" htmlFor="mobile-replay-speed-select">
+                  Mobile replay speed
+                </label>
+                <select
+                  id="mobile-replay-speed-select"
+                  aria-label="Mobile replay speed"
+                  className={mobileReplaySelectClass}
+                  value={String(replaySpeed)}
+                  onChange={(event) => {
+                    const nextSpeed = Number(event.target.value);
+                    if (!Number.isFinite(nextSpeed) || nextSpeed <= 0) {
+                      return;
+                    }
+                    onReplaySpeedChange(nextSpeed);
+                  }}
+                >
+                  {REPLAY_SPEED_OPTIONS.map((option) => (
+                    <option key={option.value} value={String(option.value)}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div aria-hidden="true" />
+            )}
+            {workerHealth === 'crashed' ? (
+              <Button
+                className="col-span-2 w-full"
+                size="md"
+                variant="secondary"
+                onClick={onRetryWorker}
+              >
+                Retry Worker
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
 
-      <SolverControls
-        status={status}
-        replayState={replayState}
-        workerHealth={workerHealth}
-        hasSolution={Boolean(lastResult?.solutionMoves)}
-        replayIndex={replayIndex}
-        replayTotalSteps={replayTotalSteps}
-        replaySpeed={replaySpeed}
-        onRun={onRun}
-        onCancel={onCancel}
-        onApply={onApply}
-        onAnimate={onAnimate}
-        onReplayPlayPause={onReplayPlayPause}
-        onReplayStepBack={onReplayStepBack}
-        onReplayStepForward={onReplayStepForward}
-        onReplaySpeedChange={onReplaySpeedChange}
-        onRetryWorker={onRetryWorker}
-      />
+      <section
+        aria-labelledby={desktopHeadingId}
+        className="hidden rounded-app-lg border border-border bg-panel p-5 shadow-lg lg:block"
+      >
+        <div className="mb-4">
+          <h2 id={desktopHeadingId} className="text-lg font-semibold">
+            Solver
+          </h2>
+          <p className="text-sm text-muted">{recommendationLabel(recommendation)}</p>
+        </div>
 
-      <div className="mt-5">
-        <SolverProgress status={status} progress={progress} lastResult={lastResult} error={error} />
-      </div>
-    </section>
+        <div className="mb-4">
+          <Select
+            label="Algorithm"
+            value={resolvedAlgorithmId}
+            onChange={(event) => onSelectAlgorithm(event.target.value as AlgorithmId)}
+            hint="Unavailable algorithms stay visible but are disabled until implemented."
+          >
+            {ALGORITHM_IDS.map((algorithmId) => (
+              <option
+                key={algorithmId}
+                value={algorithmId}
+                disabled={!isImplementedAlgorithmId(algorithmId)}
+              >
+                {formatAlgorithmLabel(algorithmId)}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <SolverBudgetSettings />
+
+        <hr className="my-5 border-border" />
+
+        <SolverControls
+          status={status}
+          replayState={replayState}
+          workerHealth={workerHealth}
+          hasSolution={hasSolution}
+          replayIndex={replayIndex}
+          replayTotalSteps={replayTotalSteps}
+          replaySpeed={replaySpeed}
+          onRun={onRun}
+          onCancel={onCancel}
+          onApply={onApply}
+          onAnimate={onAnimate}
+          onReplayPlayPause={onReplayPlayPause}
+          onReplayStepBack={onReplayStepBack}
+          onReplayStepForward={onReplayStepForward}
+          onReplaySpeedChange={onReplaySpeedChange}
+          onRetryWorker={onRetryWorker}
+        />
+
+        <div className="mt-5">
+          <SolverProgress
+            status={status}
+            progress={progress}
+            lastResult={lastResult}
+            error={error}
+          />
+        </div>
+      </section>
+    </>
   );
 }

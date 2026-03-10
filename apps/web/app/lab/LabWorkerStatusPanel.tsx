@@ -27,12 +27,12 @@ export function LabWorkerStatusPanel({
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+      className="rounded-app-lg border border-border bg-panel p-5 shadow-lg"
     >
       <h2 id={headingId} className="text-lg font-semibold">
         One-click Worker Checks
       </h2>
-      <p className="text-sm text-[color:var(--color-muted)]">
+      <p className="text-sm text-muted">
         Solve and benchmark runs execute through worker ports to keep the main thread responsive.
       </p>
 
@@ -52,13 +52,14 @@ export function LabWorkerStatusPanel({
           Cancel Solve
         </Button>
         <Button
-          variant="secondary"
+          variant="tonal"
           onClick={onApplySolution}
           disabled={solveState.status !== 'completed' || !solveState.solutionMoves}
         >
           Apply Solution
         </Button>
         <Button
+          variant="secondary"
           onClick={onRunBench}
           disabled={benchState.status === 'running'}
           aria-busy={benchState.status === 'running'}
@@ -68,7 +69,7 @@ export function LabWorkerStatusPanel({
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <div className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] p-3 text-sm">
+        <div className="rounded-app-md border border-border p-3 text-sm">
           <h3 className="font-semibold">Solve status</h3>
           <p
             aria-live={
@@ -81,12 +82,12 @@ export function LabWorkerStatusPanel({
                 ? 'alert'
                 : undefined
             }
-            className="mt-1 break-all text-[color:var(--color-muted)]"
+            className="mt-1 break-all text-muted"
           >
             {statusText(solveState)}
           </p>
           {solveState.status === 'running' ? (
-            <p className="mt-1 text-xs text-[color:var(--color-muted)]">
+            <p className="mt-1 text-xs text-muted">
               {`expanded=${solveState.expanded} generated=${solveState.generated} elapsed=${solveState.elapsedMs.toFixed(1)} ms`}
             </p>
           ) : null}
@@ -104,7 +105,7 @@ export function LabWorkerStatusPanel({
           ) : null}
         </div>
 
-        <div className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] p-3 text-sm">
+        <div className="rounded-app-md border border-border p-3 text-sm">
           <h3 className="font-semibold">Bench status</h3>
           <p
             aria-live={
@@ -117,12 +118,12 @@ export function LabWorkerStatusPanel({
                 ? 'alert'
                 : undefined
             }
-            className="mt-1 break-all text-[color:var(--color-muted)]"
+            className="mt-1 break-all text-muted"
           >
             {statusText(benchState)}
           </p>
           {benchState.status === 'completed' ? (
-            <p className="mt-1 text-xs text-[color:var(--color-muted)]">
+            <p className="mt-1 text-xs text-muted">
               {`runId=${benchState.runId} expanded=${benchState.expanded} generated=${benchState.generated}`}
             </p>
           ) : null}

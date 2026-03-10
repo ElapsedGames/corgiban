@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import type { ButtonHTMLAttributes } from 'react';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'tonal' | 'ghost' | 'destructive';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -10,14 +10,17 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const baseClasses =
-  'inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] font-semibold motion-safe:transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)] disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex items-center justify-center gap-2 rounded-app-md border font-semibold motion-safe:transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none';
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-[color:var(--color-accent)] text-white shadow-sm hover:bg-[color:var(--color-accent-strong)]',
-  secondary:
-    'border border-[color:var(--color-border-action)] bg-[color:var(--color-panel)] text-[color:var(--color-fg)] hover:border-[color:var(--color-accent)]',
-  ghost: 'bg-transparent text-[color:var(--color-fg)] hover:bg-[color:var(--color-border)]',
+    'border-accent-strong bg-accent text-accent-contrast shadow-sm hover:border-accent hover:bg-accent-strong hover:shadow-md',
+  secondary: 'border-border-action bg-panel text-fg shadow-sm hover:border-accent hover:bg-bg',
+  tonal:
+    'border-accent-border bg-accent-surface text-accent hover:border-accent hover:bg-accent/15',
+  ghost: 'border-transparent bg-transparent text-fg hover:bg-border/70',
+  destructive:
+    'border-error bg-error text-white shadow-sm hover:border-error-text hover:bg-error-text hover:shadow-md',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

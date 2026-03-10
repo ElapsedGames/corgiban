@@ -14,6 +14,7 @@ export function LabPage() {
     setFormat,
     setInput,
     applyParse,
+    movePreview,
     resetPreview,
     runSolve,
     cancelSolve,
@@ -46,7 +47,11 @@ export function LabPage() {
         />
 
         <div className="space-y-6">
-          <LabPreviewPanel previewState={previewState} onReset={resetPreview} />
+          <LabPreviewPanel
+            previewState={previewState}
+            onMove={movePreview}
+            onReset={resetPreview}
+          />
           <LabWorkerStatusPanel
             solveState={solveState}
             benchState={benchState}

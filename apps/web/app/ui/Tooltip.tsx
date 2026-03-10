@@ -18,7 +18,7 @@ export function Tooltip({ content, children }: TooltipProps) {
       <span
         id={tooltipId}
         role="tooltip"
-        className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-max -translate-x-1/2 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] px-2 py-1 text-xs text-[color:var(--color-fg)] opacity-0 shadow-lg motion-safe:transition group-hover:opacity-100 group-focus-within:opacity-100"
+        className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-max -translate-x-1/2 rounded-app-md border border-border bg-panel px-2 py-1 text-xs text-fg opacity-0 shadow-lg motion-safe:transition group-hover:opacity-100 group-focus-within:opacity-100"
       >
         {content}
       </span>

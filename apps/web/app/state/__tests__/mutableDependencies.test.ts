@@ -21,7 +21,7 @@ import {
 } from '../mutableDependencies';
 
 const levelRuntime = parseLevel({
-  id: 'classic-001',
+  id: 'corgiban-test-18',
   name: 'Classic 1',
   rows: ['WWWWW', 'WPETW', 'WBETW', 'WWWWW'],
 });
@@ -37,7 +37,7 @@ const benchmarkRecord: BenchmarkRunRecord = {
   suiteRunId: 'suite-1',
   runId: 'run-1',
   sequence: 1,
-  levelId: 'classic-001',
+  levelId: 'corgiban-test-18',
   algorithmId: 'bfsPush',
   repetition: 1,
   warmup: false,
@@ -82,7 +82,7 @@ const benchmarkRecord: BenchmarkRunRecord = {
 const benchmarkRequest: BenchmarkSuiteRunRequest = {
   suiteRunId: 'suite-1',
   suite: {
-    levelIds: ['classic-001'],
+    levelIds: ['corgiban-test-18'],
     algorithmIds: ['bfsPush'],
     repetitions: 1,
     timeBudgetMs: 1_000,

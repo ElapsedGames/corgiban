@@ -14,14 +14,14 @@ export function BenchmarkPerfPanel({ entries, onClear }: BenchmarkPerfPanelProps
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+      className="rounded-app-lg border border-border bg-panel p-5 shadow-lg"
     >
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
           <h2 id={headingId} className="text-lg font-semibold">
             Performance
           </h2>
-          <p className="text-sm text-[color:var(--color-muted)]">
+          <p className="text-sm text-muted">
             Observed benchmark performance measures ({entries.length}).
           </p>
         </div>
@@ -31,7 +31,7 @@ export function BenchmarkPerfPanel({ entries, onClear }: BenchmarkPerfPanelProps
       </div>
 
       {entries.length === 0 ? (
-        <p className="rounded-[var(--radius-md)] border border-dashed border-[color:var(--color-border)] px-3 py-4 text-sm text-[color:var(--color-muted)]">
+        <p className="rounded-app-md border border-dashed border-border px-3 py-4 text-sm text-muted">
           No performance measures captured yet.
         </p>
       ) : (
@@ -42,7 +42,7 @@ export function BenchmarkPerfPanel({ entries, onClear }: BenchmarkPerfPanelProps
               Most recent first.
             </caption>
             <thead>
-              <tr className="border-b border-[color:var(--color-border)] text-left text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
                 <th scope="col" className="px-2 py-2">
                   Name
                 </th>

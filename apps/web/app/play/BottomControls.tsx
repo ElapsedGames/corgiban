@@ -14,15 +14,13 @@ export function BottomControls({ onApplySequence }: BottomControlsProps) {
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+      className="rounded-app-lg border border-border bg-panel p-5 shadow-lg"
     >
       <div className="mb-4">
         <h2 id={headingId} className="text-lg font-semibold">
           Sequence input
         </h2>
-        <p className="text-sm text-[color:var(--color-muted)]">
-          Paste a UDLR string to apply multiple moves in order.
-        </p>
+        <p className="text-sm text-muted">Paste a UDLR string to apply multiple moves in order.</p>
       </div>
       <SequenceInput onApplySequence={onApplySequence} />
     </section>

@@ -46,7 +46,7 @@ import { createBenchmarkPort } from '../benchmarkPort.client';
 
 function createLevelRuntime() {
   return {
-    levelId: 'classic-001',
+    levelId: 'corgiban-test-18',
     width: 1,
     height: 1,
     staticGrid: new Uint8Array([0]),
@@ -101,7 +101,7 @@ function createClientMock(): BenchmarkClient {
 }
 
 const validSuite: BenchmarkSuiteConfig = {
-  levelIds: ['classic-001'],
+  levelIds: ['corgiban-test-18'],
   algorithmIds: ['bfsPush'],
   repetitions: 1,
   warmupRepetitions: 0,

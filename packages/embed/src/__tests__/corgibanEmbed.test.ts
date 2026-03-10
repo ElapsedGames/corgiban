@@ -1,4 +1,5 @@
 import { act } from 'react';
+import { builtinLevels } from '@corgiban/levels';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EMBED_ELEMENT_TAG, defineCorgibanEmbed } from '../corgibanEmbed';
@@ -21,6 +22,15 @@ function shadowText(element: HTMLElement): string {
   return element.shadowRoot?.textContent ?? '';
 }
 
+function builtinLevelName(levelId: string): string {
+  const level = builtinLevels.find((entry) => entry.id === levelId);
+  if (!level) {
+    throw new Error(`Missing built-in level for test id "${levelId}".`);
+  }
+
+  return level.name;
+}
+
 describe('corgibanEmbed', () => {
   beforeEach(() => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -35,19 +45,19 @@ describe('corgibanEmbed', () => {
     defineCorgibanEmbed();
 
     const element = document.createElement(EMBED_ELEMENT_TAG);
-    element.setAttribute('level-id', 'classic-002');
+    element.setAttribute('level-id', 'corgiban-test-22');
     await commitDomUpdate(() => {
       document.body.append(element);
     });
 
     expect(element.shadowRoot).toBeTruthy();
-    expect(shadowText(element)).toContain('Classic 2');
+    expect(shadowText(element)).toContain(builtinLevelName('corgiban-test-22'));
 
     await commitDomUpdate(() => {
-      element.setAttribute('level-id', 'classic-003');
+      element.setAttribute('level-id', 'corgiban-test-26');
     });
 
-    expect(shadowText(element)).toContain('Classic 3');
+    expect(shadowText(element)).toContain(builtinLevelName('corgiban-test-26'));
   });
 
   it('emits move and solved events', async () => {
@@ -87,7 +97,7 @@ describe('corgibanEmbed', () => {
     defineCorgibanEmbed();
 
     const element = document.createElement(EMBED_ELEMENT_TAG);
-    element.setAttribute('level-id', 'classic-001');
+    element.setAttribute('level-id', 'corgiban-test-18');
     element.setAttribute('show-solver', '');
 
     const handler = vi.fn();
@@ -118,7 +128,7 @@ describe('corgibanEmbed', () => {
     defineCorgibanEmbed();
 
     const element = document.createElement(EMBED_ELEMENT_TAG);
-    element.setAttribute('level-id', 'classic-003');
+    element.setAttribute('level-id', 'corgiban-test-26');
     element.setAttribute(
       'level-data',
       JSON.stringify({
@@ -136,7 +146,7 @@ describe('corgibanEmbed', () => {
     });
 
     expect(handler).not.toHaveBeenCalled();
-    expect(shadowText(element)).toContain('Classic 3');
+    expect(shadowText(element)).toContain(builtinLevelName('corgiban-test-26'));
     expect(shadowText(element)).not.toContain('Embedded level unavailable');
   });
 
@@ -144,7 +154,7 @@ describe('corgibanEmbed', () => {
     defineCorgibanEmbed();
 
     const element = document.createElement(EMBED_ELEMENT_TAG);
-    element.setAttribute('level-id', 'classic-999');
+    element.setAttribute('level-id', 'corgiban-test-999');
 
     const handler = vi.fn();
     element.addEventListener('corgiban:error', handler);
@@ -157,20 +167,20 @@ describe('corgibanEmbed', () => {
       expect.objectContaining({
         detail: expect.objectContaining({
           code: 'invalid-level-id',
-          levelId: 'classic-999',
-          message: 'Unknown level-id "classic-999".',
+          levelId: 'corgiban-test-999',
+          message: 'Unknown level-id "corgiban-test-999".',
         }),
       }),
     );
     expect(shadowText(element)).toContain('Embedded level unavailable');
-    expect(shadowText(element)).toContain('Unknown level-id "classic-999".');
+    expect(shadowText(element)).toContain('Unknown level-id "corgiban-test-999".');
   });
 
   it('falls back to level-data when level-id is unknown', async () => {
     defineCorgibanEmbed();
 
     const element = document.createElement(EMBED_ELEMENT_TAG);
-    element.setAttribute('level-id', 'classic-999');
+    element.setAttribute('level-id', 'corgiban-test-999');
     element.setAttribute(
       'level-data',
       JSON.stringify({
@@ -253,7 +263,7 @@ describe('corgibanEmbed', () => {
     defineCorgibanEmbed();
 
     const element = document.createElement(EMBED_ELEMENT_TAG);
-    element.setAttribute('level-id', 'classic-001');
+    element.setAttribute('level-id', 'corgiban-test-18');
     element.setAttribute(
       'level-data',
       JSON.stringify({
@@ -271,7 +281,7 @@ describe('corgibanEmbed', () => {
       rightButton?.click();
     });
 
-    expect(shadowText(element)).toContain('Classic 1');
+    expect(shadowText(element)).toContain(builtinLevelName('corgiban-test-18'));
     expect(shadowText(element)).toContain('Moves: 1 | Pushes: 0 | In progress');
 
     await commitDomUpdate(() => {
@@ -285,7 +295,7 @@ describe('corgibanEmbed', () => {
       );
     });
 
-    expect(shadowText(element)).toContain('Classic 1');
+    expect(shadowText(element)).toContain(builtinLevelName('corgiban-test-18'));
     expect(shadowText(element)).toContain('Moves: 1 | Pushes: 0 | In progress');
   });
 
@@ -293,7 +303,7 @@ describe('corgibanEmbed', () => {
     defineCorgibanEmbed();
 
     const element = document.createElement(EMBED_ELEMENT_TAG);
-    element.setAttribute('level-id', 'classic-001');
+    element.setAttribute('level-id', 'corgiban-test-18');
     await commitDomUpdate(() => {
       document.body.append(element);
     });
@@ -313,14 +323,14 @@ describe('corgibanEmbed', () => {
     });
 
     expect(element.shadowRoot).toBe(firstShadowRoot);
-    expect(shadowText(element)).toContain('Classic 1');
+    expect(shadowText(element)).toContain(builtinLevelName('corgiban-test-18'));
     expect(element.shadowRoot?.querySelectorAll('style')).toHaveLength(1);
     expect(element.shadowRoot?.querySelectorAll('[data-corgiban-embed-root]')).toHaveLength(1);
 
     await commitDomUpdate(() => {
-      element.setAttribute('level-id', 'classic-002');
+      element.setAttribute('level-id', 'corgiban-test-22');
     });
 
-    expect(shadowText(element)).toContain('Classic 2');
+    expect(shadowText(element)).toContain(builtinLevelName('corgiban-test-22'));
   });
 });

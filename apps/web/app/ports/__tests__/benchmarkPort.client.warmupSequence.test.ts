@@ -140,7 +140,7 @@ describe('createBenchmarkPort warmup sequencing', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-warmups',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 2,
         warmupRepetitions: 1,
@@ -148,7 +148,7 @@ describe('createBenchmarkPort warmup sequencing', () => {
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),

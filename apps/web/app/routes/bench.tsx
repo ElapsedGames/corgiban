@@ -297,18 +297,16 @@ export function ErrorBoundary() {
       <h1 className="page-title">Bench</h1>
       <p className="page-subtitle">{message}</p>
       <section className="route-card" aria-label="Recovery navigation">
-        <p className="text-sm text-[color:var(--color-muted)]">
-          Return to a working page and try again.
-        </p>
+        <p className="text-sm text-muted">Return to a working page and try again.</p>
         <nav aria-label="Recovery links" className="mt-4 flex flex-wrap gap-3 text-sm">
           <Link
-            className="rounded px-2 py-1 font-semibold text-[color:var(--color-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+            className="rounded px-2 py-1 font-semibold text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
             to="/"
           >
             Home
           </Link>
           <Link
-            className="rounded px-2 py-1 font-semibold text-[color:var(--color-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+            className="rounded px-2 py-1 font-semibold text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
             to="/bench"
           >
             Try Bench again

@@ -1,3 +1,10 @@
+import {
+  isBoardRenderMode,
+  isBoardSkinId,
+  type BoardRenderMode,
+  type BoardSkinId,
+} from './boardSkin';
+
 // This worker is an app-local canvas helper, not the shared run-scoped solver/benchmark
 // protocol from `packages/worker/protocol`, so it keeps a lightweight local validator here.
 export const SPRITE_KINDS = [
@@ -22,6 +29,8 @@ export type SpriteAtlas = {
 export type SpriteAtlasRequestMessage = {
   type: 'SPRITE_ATLAS_REQUEST';
   requestId: string;
+  skinId: BoardSkinId;
+  mode: BoardRenderMode;
   cellSize: number;
   dpr: number;
 };
@@ -29,6 +38,8 @@ export type SpriteAtlasRequestMessage = {
 export type SpriteAtlasReadyMessage = {
   type: 'SPRITE_ATLAS_READY';
   requestId: string;
+  skinId: BoardSkinId;
+  mode: BoardRenderMode;
   cellSize: number;
   dpr: number;
   sprites: SpriteAtlasRecord;
@@ -71,6 +82,8 @@ export function isSpriteAtlasRequestMessage(value: unknown): value is SpriteAtla
     isObjectRecord(value) &&
     value.type === 'SPRITE_ATLAS_REQUEST' &&
     isNonEmptyString(value.requestId) &&
+    isBoardSkinId(value.skinId) &&
+    isBoardRenderMode(value.mode) &&
     isPositiveFiniteNumber(value.cellSize) &&
     isPositiveFiniteNumber(value.dpr)
   );
@@ -81,6 +94,8 @@ export function isSpriteAtlasReadyMessage(value: unknown): value is SpriteAtlasR
     isObjectRecord(value) &&
     value.type === 'SPRITE_ATLAS_READY' &&
     isNonEmptyString(value.requestId) &&
+    isBoardSkinId(value.skinId) &&
+    isBoardRenderMode(value.mode) &&
     isPositiveFiniteNumber(value.cellSize) &&
     isPositiveFiniteNumber(value.dpr) &&
     isSpriteAtlasRecord(value.sprites)

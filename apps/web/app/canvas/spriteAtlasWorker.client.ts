@@ -1,5 +1,7 @@
+import { resolveBoardPalette } from './boardSkin';
 import { SPRITE_KINDS, isSpriteAtlasRequestMessage } from './spriteAtlas.types';
 import type {
+  SpriteAtlasRequestMessage,
   SpriteAtlasErrorMessage,
   SpriteAtlasReadyMessage,
   SpriteAtlasWorkerMessage,
@@ -9,16 +11,6 @@ import type {
 type WorkerScopeLike = {
   addEventListener: (type: 'message', listener: (event: { data: unknown }) => void) => void;
   postMessage: (message: SpriteAtlasWorkerMessage, transfer?: Transferable[]) => void;
-};
-
-const palette = {
-  background: '#0b1120',
-  floor: '#111827',
-  wall: '#1f2937',
-  target: '#22d3ee',
-  box: '#f59e0b',
-  boxOnTarget: '#22c55e',
-  player: '#38bdf8',
 };
 
 const INVALID_REQUEST_ID = 'invalid-request';
@@ -32,7 +24,13 @@ function postWorkerError(scope: WorkerScopeLike, requestId: string, message: str
   scope.postMessage(errorMessage);
 }
 
-function drawSprite(kind: SpriteKind, cellSize: number, dpr: number): ImageBitmap {
+function drawSprite(
+  kind: SpriteKind,
+  cellSize: number,
+  dpr: number,
+  request: SpriteAtlasRequestMessage,
+): ImageBitmap {
+  const palette = resolveBoardPalette(request.skinId, request.mode);
   const canvas = new OffscreenCanvas(
     Math.max(1, Math.round(cellSize * dpr)),
     Math.max(1, Math.round(cellSize * dpr)),
@@ -91,18 +89,20 @@ scope.addEventListener('message', (event) => {
 
   try {
     const sprites = {
-      floor: drawSprite('floor', request.cellSize, request.dpr),
-      wall: drawSprite('wall', request.cellSize, request.dpr),
-      target: drawSprite('target', request.cellSize, request.dpr),
-      box: drawSprite('box', request.cellSize, request.dpr),
-      boxOnTarget: drawSprite('boxOnTarget', request.cellSize, request.dpr),
-      player: drawSprite('player', request.cellSize, request.dpr),
-      playerOnTarget: drawSprite('playerOnTarget', request.cellSize, request.dpr),
+      floor: drawSprite('floor', request.cellSize, request.dpr, request),
+      wall: drawSprite('wall', request.cellSize, request.dpr, request),
+      target: drawSprite('target', request.cellSize, request.dpr, request),
+      box: drawSprite('box', request.cellSize, request.dpr, request),
+      boxOnTarget: drawSprite('boxOnTarget', request.cellSize, request.dpr, request),
+      player: drawSprite('player', request.cellSize, request.dpr, request),
+      playerOnTarget: drawSprite('playerOnTarget', request.cellSize, request.dpr, request),
     };
 
     const message: SpriteAtlasReadyMessage = {
       type: 'SPRITE_ATLAS_READY',
       requestId: request.requestId,
+      skinId: request.skinId,
+      mode: request.mode,
       cellSize: request.cellSize,
       dpr: request.dpr,
       sprites,

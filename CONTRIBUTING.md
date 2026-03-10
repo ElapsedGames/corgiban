@@ -32,6 +32,7 @@ pnpm typecheck       # tsc project references
 pnpm lint            # ESLint (correctness + boundary checks)
 pnpm format          # Prettier (auto-format)
 pnpm format:check    # Prettier (check formatting)
+pnpm style:check     # apps/web styling contract (tokens + semantic Tailwind utilities)
 pnpm test            # Vitest workspace (unit tests)
 pnpm test:coverage   # Vitest with enforced coverage thresholds
 pnpm test:smoke      # Playwright smoke tests (routes incl. /lab, /play, /bench persistence, offline shell)
@@ -43,6 +44,7 @@ pnpm issue:new --type bug --severity medium --area ui --title "Describe the prob
 pnpm issue:close --id BUG-001 --fixed-by "Your Name" --resolution "Short closure note"
 pnpm issue:generate  # regenerate KNOWN_ISSUES.md after issue edits
 pnpm issue:check     # verify KNOWN_ISSUES.md is in sync
+pnpm levels:rank     # benchmark built-in levels and suggest launch ordering
 pnpm graph:deps      # optional dependency graph -> docs/_generated/dep-graph.svg
 pnpm best-practices  # optional placeholder CLI; report artifact wiring is still tracked in DEBT-007
 node tools/scripts/profile-worker-validation.mjs  # optional: protocol validation profiling report
@@ -56,6 +58,12 @@ Cloudflare Pages adapter (`pnpm -C apps/web preview:cloudflare`, which wraps `wr
 If port `43173` is already in use, set `PLAYWRIGHT_PORT` (for example
 `PLAYWRIGHT_PORT=4273 pnpm test:smoke` on POSIX shells or
 `$env:PLAYWRIGHT_PORT='4273'; pnpm test:smoke` in PowerShell).
+For first-time Cloudflare dashboard setup and the branch/PR deploy flow, see
+`docs/cloudflare-pages-deployment.md`.
+
+Styling note: when changing `apps/web` tokens, Tailwind theme mappings, shared UI primitives, or
+Tailwind-class-heavy route/components, review `apps/web/app/styles/README.md` and run
+`pnpm style:check`.
 
 Dev server note: use `pnpm dev -- --clearScreen=false` (single argument). Passing `--clearScreen false` can be treated as a positional projectDir and result in "Remix Vite plugin not found in Vite config".
 
@@ -70,6 +78,9 @@ Optional architecture tooling:
 Optional runtime toggle: set `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` when running `/play` to
 exercise solver-client `light-progress` outbound validation for `SOLVE_PROGRESS` (default is strict).
 For manual PWA/offline checks outside Playwright, run dev with `VITE_ENABLE_PWA_DEV=1`.
+When editing the shipped built-in catalog in `packages/levels/src/corgibanTestLevels.ts`, run
+`pnpm levels:rank` to benchmark the current order, suggest an easier-to-harder launch sequence,
+and catch levels that exceed the default per-level budget.
 Optional solver-kernel preload wiring: set any of
 `VITE_SOLVER_KERNEL_REACHABILITY_URL`, `VITE_SOLVER_KERNEL_HASHING_URL`, or
 `VITE_SOLVER_KERNEL_ASSIGNMENT_URL` to point worker bootstraps at optional WASM kernels. Use
@@ -95,7 +106,9 @@ Hooks install automatically on `pnpm install` via `simple-git-hooks` (the `prepa
 
 The pre-commit hook runs:
 
+- `pnpm exec tsx tools/scripts/normalize-ascii.ts --staged`
 - `pnpm format:check`
+- `pnpm exec tsx tools/scripts/style-policy-check.ts` (staged files)
 - Deterministic affected unit tests via `node tools/scripts/run-affected-tests.mjs`
 - Encoding policy check via `node tools/scripts/encoding-check.mjs` (UTF-8 without BOM, ASCII-only text except allow list)
 
@@ -107,8 +120,9 @@ Affected test selection strategy (deterministic):
 - Runs `pnpm test` if any staged file is under `apps/`, `packages/`, or `tools/`, or is a root config file with a code extension
 - Skips tests when only docs or markdown files are staged
 
-CI gates every PR on: format:check, typecheck, lint, tests+coverage, `pnpm test:smoke`,
-boundary checks, encoding policy checks, and `pnpm issue:check` for tracker dashboard sync.
+CI gates every PR on: format:check, `pnpm style:check`, typecheck, lint, tests+coverage,
+`pnpm test:smoke`, boundary checks, encoding policy checks, and `pnpm issue:check` for tracker
+dashboard sync.
 
 ## Local issue tracker
 
@@ -130,6 +144,8 @@ Common types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`, `perf
 
 - **Prettier** owns all formatting. Use your editor integration or `pnpm format` / `pnpm format:check`.
 - **ESLint** owns correctness and policy checks only. It does not enforce style.
+- `apps/web` styling uses the contract in `apps/web/app/styles/README.md`; use semantic Tailwind
+  utilities backed by `tokens.css`, and run `pnpm style:check` when touching that surface.
 - `eslint-config-prettier` disables any ESLint rules that overlap with Prettier.
 - Do **not** add `@stylistic/eslint-plugin` or other ESLint formatting rules.
 - Do **not** mix formatting changes with logic changes in a PR - keep them in separate commits.

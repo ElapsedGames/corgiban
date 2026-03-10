@@ -12,7 +12,7 @@ function createResult(overrides: Partial<BenchmarkRunRecord> = {}): BenchmarkRun
     suiteRunId: 'bench-1',
     runId: 'bench-1-1',
     sequence: 1,
-    levelId: 'classic-001',
+    levelId: 'corgiban-test-18',
     algorithmId: 'bfsPush',
     repetition: 1,
     options: {

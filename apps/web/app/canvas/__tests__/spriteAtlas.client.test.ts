@@ -85,6 +85,8 @@ function getPostedRequest(
   return worker.postMessage.mock.calls[callIndex]?.[0] as {
     type: 'SPRITE_ATLAS_REQUEST';
     requestId: string;
+    skinId: 'classic';
+    mode: 'dark';
     cellSize: number;
     dpr: number;
   };
@@ -144,6 +146,8 @@ describe('spriteAtlas.client', () => {
       data: {
         type: 'SPRITE_ATLAS_READY',
         requestId: firstPostedRequest.requestId,
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 16,
         dpr: 1,
         sprites: firstBitmapSet.sprites,
@@ -151,7 +155,7 @@ describe('spriteAtlas.client', () => {
     } as MessageEvent<SpriteAtlasWorkerMessage>);
 
     await expect(firstRequest).resolves.toEqual({
-      key: '16:1',
+      key: 'classic:dark:16:1',
       sprites: firstBitmapSet.sprites,
     });
     expect(worker.terminate).not.toHaveBeenCalled();
@@ -166,6 +170,8 @@ describe('spriteAtlas.client', () => {
       data: {
         type: 'SPRITE_ATLAS_READY',
         requestId: secondPostedRequest.requestId,
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 20,
         dpr: 1,
         sprites: secondBitmapSet.sprites,
@@ -173,7 +179,7 @@ describe('spriteAtlas.client', () => {
     } as MessageEvent<SpriteAtlasWorkerMessage>);
 
     await expect(secondRequest).resolves.toEqual({
-      key: '20:1',
+      key: 'classic:dark:20:1',
       sprites: secondBitmapSet.sprites,
     });
     expect(secondPostedRequest.requestId).not.toBe(firstPostedRequest.requestId);
@@ -201,6 +207,8 @@ describe('spriteAtlas.client', () => {
       data: {
         type: 'SPRITE_ATLAS_READY',
         requestId: request.requestId,
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 16,
         dpr: 2,
         sprites,
@@ -208,18 +216,20 @@ describe('spriteAtlas.client', () => {
     } as MessageEvent<SpriteAtlasWorkerMessage>);
 
     await expect(first).resolves.toEqual({
-      key: '16:2',
+      key: 'classic:dark:16:2',
       sprites,
     });
     const third = await getSpriteAtlas(16, 2);
     expect(third).toEqual({
-      key: '16:2',
+      key: 'classic:dark:16:2',
       sprites,
     });
     expect(third).toBe(await first);
     expect(worker.postMessage).toHaveBeenCalledWith({
       type: 'SPRITE_ATLAS_REQUEST',
       requestId: expect.any(String),
+      skinId: 'classic',
+      mode: 'dark',
       cellSize: 16,
       dpr: 2,
     });
@@ -271,13 +281,15 @@ describe('spriteAtlas.client', () => {
       data: {
         type: 'SPRITE_ATLAS_READY',
         requestId: secondRequest.requestId,
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 20,
         dpr: 1,
         sprites,
       },
     } as MessageEvent<SpriteAtlasWorkerMessage>);
     await expect(secondAttempt).resolves.toEqual({
-      key: '20:1',
+      key: 'classic:dark:20:1',
       sprites,
     });
   });
@@ -294,6 +306,8 @@ describe('spriteAtlas.client', () => {
       data: {
         type: 'SPRITE_ATLAS_READY',
         requestId: postedRequest.requestId,
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 18,
         dpr: 1,
         sprites: {
@@ -319,6 +333,8 @@ describe('spriteAtlas.client', () => {
       data: {
         type: 'SPRITE_ATLAS_READY',
         requestId: `${postedRequest.requestId}-stale`,
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 22,
         dpr: 1,
         sprites,
@@ -342,6 +358,8 @@ describe('spriteAtlas.client', () => {
       data: {
         type: 'SPRITE_ATLAS_READY',
         requestId: postedRequest.requestId,
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 26,
         dpr: 1,
         sprites,
@@ -368,6 +386,8 @@ describe('spriteAtlas.client', () => {
       data: {
         type: 'SPRITE_ATLAS_READY',
         requestId: firstPostedRequest.requestId,
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 12,
         dpr: 1,
         sprites: firstBitmapSet.sprites,
@@ -385,13 +405,15 @@ describe('spriteAtlas.client', () => {
       data: {
         type: 'SPRITE_ATLAS_READY',
         requestId: secondPostedRequest.requestId,
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 14,
         dpr: 1,
         sprites: secondBitmapSet.sprites,
       },
     } as MessageEvent<SpriteAtlasWorkerMessage>);
     await expect(secondRequest).resolves.toEqual({
-      key: '14:1',
+      key: 'classic:dark:14:1',
       sprites: secondBitmapSet.sprites,
     });
 
@@ -403,13 +425,15 @@ describe('spriteAtlas.client', () => {
       data: {
         type: 'SPRITE_ATLAS_READY',
         requestId: thirdPostedRequest.requestId,
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 16,
         dpr: 1,
         sprites: thirdBitmapSet.sprites,
       },
     } as MessageEvent<SpriteAtlasWorkerMessage>);
     await expect(thirdRequest).resolves.toEqual({
-      key: '16:1',
+      key: 'classic:dark:16:1',
       sprites: thirdBitmapSet.sprites,
     });
 

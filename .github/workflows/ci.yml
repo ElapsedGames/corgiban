@@ -31,6 +31,9 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
+      - name: Style check
+        run: pnpm style:check
+
       - name: Known issues sync check
         run: pnpm issue:check
 

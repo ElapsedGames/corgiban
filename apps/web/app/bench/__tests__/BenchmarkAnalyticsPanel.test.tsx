@@ -63,7 +63,7 @@ function createResult(
     suiteRunId,
     runId: overrides.runId ?? `run-${suffix}`,
     sequence: overrides.sequence ?? elapsedMs,
-    levelId: overrides.levelId ?? 'classic-001',
+    levelId: overrides.levelId ?? 'corgiban-test-18',
     algorithmId,
     repetition: overrides.repetition ?? 1,
     warmup: overrides.warmup ?? false,
@@ -184,8 +184,8 @@ describe('toSuiteAnalytics', () => {
       createResult('suite-b', 40, 'solved', { repetition: 2 }),
       createResult('suite-a', 25, 'unsolved'),
       createResult('suite-b', 10, 'solved'),
-      createResult('suite-b', 30, 'unsolved', { levelId: 'classic-002', repetition: 1 }),
-      createResult('suite-b', 20, 'unsolved', { levelId: 'classic-002', repetition: 2 }),
+      createResult('suite-b', 30, 'unsolved', { levelId: 'corgiban-test-22', repetition: 1 }),
+      createResult('suite-b', 20, 'unsolved', { levelId: 'corgiban-test-22', repetition: 2 }),
     ]);
 
     expect(analytics).toHaveLength(2);
@@ -218,7 +218,7 @@ describe('toSuiteAnalytics', () => {
         suiteLabel: expect.stringContaining('suite-a'),
         comparisonInputs: [
           {
-            levelId: 'classic-001',
+            levelId: 'corgiban-test-18',
             repetition: 1,
             solver: {
               algorithmId: 'bfsPush',
@@ -282,7 +282,7 @@ describe('toSuiteAnalytics', () => {
         p95ElapsedMs: 25,
         comparisonInputs: [
           {
-            levelId: 'classic-001',
+            levelId: 'corgiban-test-18',
             repetition: 1,
             solver: {
               algorithmId: 'bfsPush',
@@ -479,7 +479,7 @@ describe('buildComparisonSnapshot', () => {
       createSuiteAnalytics({
         comparisonInputs: [
           {
-            levelId: 'classic-001',
+            levelId: 'corgiban-test-18',
             repetition: 1,
             solver: { algorithmId: 'bfsPush', timeBudgetMs: 1_000, nodeBudget: 5_000 },
             environment: {

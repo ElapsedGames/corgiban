@@ -4,11 +4,17 @@ IMPORTANT:
 
 - Boundary enforcement uses the standard TypeScript monorepo toolchain. Do not write custom
   AST-scanning boundary check scripts - ESLint and dependency-cruiser handle that.
-- Custom scripts in tools/ are for reporting only (file size, time-usage summary).
+- Custom scripts in tools/ may handle reporting or narrow repo policy checks. Do not write custom
+  AST-scanning boundary check scripts; boundary enforcement still belongs to ESLint and
+  dependency-cruiser.
 - Keep changes scoped to: boundary-rules.mjs, ESLint config, dependency-cruiser config,
-  package.json exports fields, and the tools/ report script. Do not modify game/solver/engine logic.
+  package.json exports fields, and the relevant tools/ reporting or policy scripts. Do not modify
+  game/solver/engine logic.
 - Script language for tools/: TypeScript (.ts), executed via tsx. Strict TypeScript, lowerCamel.ts
   naming, 2-space indentation.
+- Narrow policy checks must stay explicitly scoped. Current example:
+  `tools/scripts/style-policy-check.ts` enforces the documented `apps/web` styling contract from
+  `apps/web/app/styles/README.md`; it does not participate in boundary analysis.
 - Do NOT use SharedArrayBuffer or Atomics in any authored source in this repo - production,
   tests, and tools/ included. "Project-wide" means all files you write, not just production source.
 
@@ -130,11 +136,12 @@ Assume `apps/web` runs Remix in Vite mode for resolver/bundling behavior.
    Run on-demand only (not in CI gate). Useful for architecture visualization.
 
 ====================================================================
-C) Workspace setup for tools/ (report script only)
+C) Workspace setup for tools/ (reporting + narrow repo policy scripts)
 ====================================================================
 
-tools/ is a private pnpm workspace package containing only the best-practices report script.
-No boundary-checking logic lives here.
+tools/ is a private pnpm workspace package for reporting helpers and narrowly scoped repo-policy
+scripts. No boundary-checking logic lives here; boundary enforcement still belongs to ESLint and
+dependency-cruiser.
 
 Layout:
 
@@ -142,12 +149,21 @@ Layout:
 tools/
   src/
     bestPracticesReport.ts    (CLI entry point - thin)
+    levelDifficultyReport.ts  (pure: built-in level ranking helpers)
     scanFiles.ts              (pure: file discovery via fast-glob)
     analyzeFiles.ts           (pure: size + time-usage analysis)
     reportFormatter.ts        (pure: markdown generation)
+    stylePolicyCheck.ts       (pure: apps/web styling contract checks)
+    normalizeAsciiText.ts     (pure: staged text normalization helper)
     __tests__/
       analyzeFiles.test.ts
+      levelDifficultyReport.test.ts
       reportFormatter.test.ts
+      stylePolicyCheck.test.ts
+  scripts/
+    rank-levels.ts
+    style-policy-check.ts
+    normalize-ascii.ts
   package.json
   tsconfig.json
   vitest.config.ts
@@ -157,6 +173,7 @@ Create tools/package.json:
 
 - name: @corgiban/tools
 - private: true
+- dependencies: `@corgiban/benchmarks`, `@corgiban/core`, `@corgiban/levels`, `@corgiban/solver`
 - devDependencies: fast-glob
 
 Create tools/tsconfig.json:
@@ -250,10 +267,18 @@ Add pnpm scripts at repo root (package.json):
 
 - graph:deps: pnpm exec depcruise --config dependency-cruiser.config.mjs packages/ apps/ --output-type dot | dot -T svg > docs/\_generated/dep-graph.svg
 - best-practices: tsx tools/src/bestPracticesReport.ts --out-dir docs/\_generated/analysis
+- levels:rank: pnpm exec tsx tools/scripts/rank-levels.ts
+- style:check: pnpm exec tsx tools/scripts/style-policy-check.ts --all
+
+`style:check` is intentionally separate from boundary linting. It enforces the web styling
+contract on `apps/web` components/styles and runs as its own workflow step locally, in
+pre-commit, and in CI.
 
 CI gate (GitHub Actions, every PR):
 
 - pnpm format:check
+- pnpm style:check
+- pnpm issue:check
 - pnpm typecheck (project references + exports field catches deep imports)
 - pnpm lint (eslint-plugin-boundaries, no-restricted-globals, no-restricted-syntax)
 - pnpm test:coverage

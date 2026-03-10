@@ -7,6 +7,7 @@ type KeyboardHandlers = {
   onUndo: () => void;
   onRestart: () => void;
   onNextLevel: () => void;
+  isSolved?: boolean;
   enabled?: boolean;
 };
 
@@ -23,11 +24,39 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return target.isContentEditable;
 }
 
+function isInteractiveActivationTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  const tagName = target.tagName;
+  if (tagName === 'BUTTON' || tagName === 'SUMMARY') {
+    return true;
+  }
+
+  if (tagName === 'A' && target.hasAttribute('href')) {
+    return true;
+  }
+
+  const role = target.getAttribute('role');
+  return (
+    role === 'button' ||
+    role === 'link' ||
+    role === 'menuitem' ||
+    role === 'option' ||
+    role === 'radio' ||
+    role === 'switch' ||
+    role === 'tab' ||
+    role === 'treeitem'
+  );
+}
+
 export function useKeyboardControls({
   onMove,
   onUndo,
   onRestart,
   onNextLevel,
+  isSolved = false,
   enabled = true,
 }: KeyboardHandlers) {
   useEffect(() => {
@@ -41,6 +70,10 @@ export function useKeyboardControls({
       }
 
       if (event.defaultPrevented || isTypingTarget(event.target)) {
+        return;
+      }
+
+      if (event.code === 'Enter' && isInteractiveActivationTarget(event.target)) {
         return;
       }
 
@@ -73,6 +106,13 @@ export function useKeyboardControls({
         case 'KeyN':
           onNextLevel();
           break;
+        case 'Enter':
+          if (isSolved) {
+            onNextLevel();
+          } else {
+            handled = false;
+          }
+          break;
         default:
           handled = false;
       }
@@ -86,5 +126,5 @@ export function useKeyboardControls({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [enabled, onMove, onNextLevel, onRestart, onUndo]);
+  }, [enabled, isSolved, onMove, onNextLevel, onRestart, onUndo]);
 }

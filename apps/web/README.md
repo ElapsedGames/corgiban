@@ -4,18 +4,21 @@ Remix application containing the product UI, routes, and orchestration.
 
 ## Responsibilities
 
-- Remix routes: `/`, `/play`, `/bench`, `/lab`, and `/dev/ui-kit`
+- Remix routes: `/` (redirects to `/play`), `/play`, `/bench`, `/lab`, and `/dev/ui-kit`
 - Root app shell: shared navigation, skip link, and light/dark theme bootstrap/toggle
 - UI composition (React components) and Tailwind styling
+- Styling contract in `app/styles/README.md` with tokens in `app/styles/tokens.css`, mirrored in
+  `tailwind.config.ts`, and enforced by `pnpm style:check`
 - Route-scoped state orchestration (Redux Toolkit) and workflow/thunks
 - Canvas host + animation playback scheduling (RAF time accumulator, shadow GameState outside Redux)
 - Worker clients (via ports/adapters) for solver + benchmarks
 - Persistence adapters (IndexedDB, File System Access export/import)
 - Shared Remix server document rendering plus deployment adapters (currently Cloudflare Pages)
 
-## Current status (Phase 6 adapters + tooling integration)
+## Current status (Phase 7 UX pass + styling policy tooling)
 
-- Routes: `/` (landing page), `/play` (interactive), `/bench` (benchmark workflows), `/lab` (level editor and worker checks), and `/dev/ui-kit` (design system).
+- Routes: `/` redirects to `/play`, `/play` remains the primary gameplay surface, `/bench` and
+  `/lab` stay in the main nav, and `/dev/ui-kit` remains a direct-access validation route.
 - State: route-scoped RTK stores use `game`, `solver`, `bench`, and `settings` slices where applicable; the root app shell keeps theme ownership outside Redux.
 - `/play` and `/bench` use route-scoped RTK stores; `/lab` intentionally keeps authoring,
   preview, and one-click worker status local to `LabPage` and talks to worker ports directly.
@@ -25,12 +28,27 @@ Remix application containing the product UI, routes, and orchestration.
 - The root app shell owns the light/dark `<html>` class, resolves the initial theme before paint
   from persisted preference with `prefers-color-scheme` fallback, and exposes the toggle in
   `AppNav`.
+- Shared navigation is play-first: the brand link returns to `/play`, while `/dev/ui-kit` is kept
+  out of the primary workflow nav.
+- Web styling now uses semantic Tailwind utilities backed by `tokens.css`; `pnpm style:check`
+  enforces the documented `app/styles/README.md` rules on staged files in pre-commit and on tracked
+  files via `--all`.
 - Play:
+  - `/` redirects here so gameplay is the first-load entry surface.
   - GameState is derived from move history using core helpers.
   - Canvas rendering can use OffscreenCanvas sprite-atlas pre-rendering via a worker when
     supported, with main-thread draw fallback.
+  - Board visuals resolve through the app-local `boardSkin.ts` registry so light/dark palettes and
+    future skin ids stay aligned across the fallback draw path and sprite-atlas worker cache.
   - `GameCanvas` clamps its effective cell size to the available container width so small screens
     keep the board inside the route layout without distorting the render contract.
+  - The board accepts keyboard input plus adjacent-tile click/tap and swipe gestures through a
+    main-thread pointer adapter bound to the rendered canvas node.
+  - When the current puzzle is solved, `Enter` advances to the next level, and narrow viewports
+    auto-scroll the board into view before replay animation starts.
+  - Small screens make the board full-bleed, trim the visible side-panel and solver actions to the
+    primary gameplay controls, and lock the mobile `Run Solve` action after non-success solver
+    outcomes until the player changes levels.
   - Solver panel runs/cancels solves, shows progress, and can apply/animate results.
   - Settings include default solver budgets (time/node), and `/play` solve orchestration uses those defaults with defensive fallback to solver constants.
   - Optional env toggle: `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` enables light validation mode for high-frequency `SOLVE_PROGRESS` messages in the solver client; strict mode remains default.
@@ -64,6 +82,8 @@ Remix application containing the product UI, routes, and orchestration.
     (CORG/XSB/SOK/SLC), canvas preview, and one-click worker solve/bench checks. Multi-level
     XSB/SOK/SLC payloads are rejected with an explicit error so the editor always operates on one
     committed level at a time.
+  - Preview / Play reuses the same adjacent-tile click/tap and swipe controls as `/play`, while
+    keeping preview moves local to the authored level state.
   - Changing the format selector converts the current authored text through validated parse ->
     serialize steps instead of only relabeling the textarea. When CORG row text would lose level
     metadata, the route promotes the authored text to CORG JSON so `id`, `name`, and
@@ -76,6 +96,10 @@ Remix application containing the product UI, routes, and orchestration.
   - Failed parses leave the committed level and authored revision untouched, so in-flight
     solve/bench work continues against the last successful parse.
 - Offline/PWA:
+  - `vite-plugin-pwa` in `vite.config.ts` owns manifest and service-worker generation; keep the
+    manifest source of truth there instead of maintaining a duplicate file under `public/`.
+  - The generated manifest follows the play-first route contract with `start_url: '/play'` and
+    `scope: '/'`.
   - Workbox-backed service worker registration is enabled in production builds.
   - Dev-only PWA worker registration can be enabled with `VITE_ENABLE_PWA_DEV=1` for local smoke validation.
 - Hosting/deploy:
@@ -83,6 +107,7 @@ Remix application containing the product UI, routes, and orchestration.
   - `app/server/*` and `app/entry.server.tsx` define the shared Remix document-render path.
   - `apps/web/functions/[[path]].ts`, `wrangler.jsonc`, and `preview:cloudflare` /
     `deploy:cloudflare` scripts form the current Cloudflare Pages adapter layer.
+  - First-time Cloudflare Pages dashboard setup lives in `docs/cloudflare-pages-deployment.md`.
   - `pnpm -C apps/web preview` aliases `preview:cloudflare`, which runs `wrangler pages dev`
     against `build/client` for local production-style preview.
   - Deploy uses `pnpm -C apps/web deploy:cloudflare`.

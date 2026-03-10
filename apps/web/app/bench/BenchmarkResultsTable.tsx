@@ -92,26 +92,26 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
   };
 
   const thSortButtonClasses =
-    'cursor-pointer rounded-sm px-1 py-0.5 hover:text-[color:var(--color-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)]';
+    'cursor-pointer rounded-sm px-1 py-0.5 hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent';
 
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+      className="rounded-app-lg border border-border bg-panel p-5 shadow-lg"
     >
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
           <h2 id={headingId} className="text-lg font-semibold">
             Results
           </h2>
-          <p className="text-sm text-[color:var(--color-muted)]">
+          <p className="text-sm text-muted">
             Stored benchmark history ({results.length} runs). Click column labels to sort.
           </p>
         </div>
       </div>
 
       {sortedResults.length === 0 ? (
-        <p className="rounded-[var(--radius-md)] border border-dashed border-[color:var(--color-border)] px-3 py-4 text-sm text-[color:var(--color-muted)]">
+        <p className="rounded-app-md border border-dashed border-border px-3 py-4 text-sm text-muted">
           No benchmark results yet.
         </p>
       ) : (
@@ -122,7 +122,7 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
               column headers to sort.
             </caption>
             <thead>
-              <tr className="border-b border-[color:var(--color-border)] text-left text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
                 <th
                   scope="col"
                   className="px-2 py-2"
@@ -247,7 +247,7 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
             </thead>
             <tbody>
               {sortedResults.map((result) => (
-                <tr key={result.id} className="border-b border-[color:var(--color-border)]/60">
+                <tr key={result.id} className="border-b border-border/60">
                   <td className="px-2 py-2">{formatBenchmarkTimestamp(result.finishedAtMs)}</td>
                   <td className="px-2 py-2">{result.suiteRunId}</td>
                   <td className="px-2 py-2" data-testid="benchmark-result-level">

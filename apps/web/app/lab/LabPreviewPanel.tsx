@@ -1,41 +1,62 @@
-import { useId } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import type { GameState } from '@corgiban/core';
+import type { Direction } from '@corgiban/shared';
 
 import { GameCanvas } from '../canvas/GameCanvas';
+import { useBoardPointerControls } from '../play/useBoardPointerControls';
 import { Button } from '../ui/Button';
 
 type LabPreviewPanelProps = {
   previewState: GameState;
+  onMove: (direction: Direction) => void;
   onReset: () => void;
 };
 
-export function LabPreviewPanel({ previewState, onReset }: LabPreviewPanelProps) {
+export function LabPreviewPanel({ previewState, onMove, onReset }: LabPreviewPanelProps) {
   const headingId = useId();
+  const previewStateRef = useRef(previewState);
+  const [canvasNode, setCanvasNode] = useState<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    previewStateRef.current = previewState;
+  }, [previewState]);
+
+  const getPreviewState = useCallback(() => previewStateRef.current, []);
+  useBoardPointerControls(canvasNode, {
+    getGameState: getPreviewState,
+    onMove,
+  });
+
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+      className="rounded-app-lg border border-border bg-panel p-5 shadow-lg"
     >
       <h2 id={headingId} className="text-lg font-semibold">
         Preview / Play
       </h2>
-      <p className="text-sm text-[color:var(--color-muted)]">
-        Use arrow keys or WASD to verify gameplay before running solver or benchmark checks. Preview
-        moves stay local here; worker runs always reset from the authored level state.
+      <p className="text-sm text-muted">
+        Use tap/click adjacent tiles, swipe, or arrow keys / WASD to verify gameplay before running
+        solver or benchmark checks. Preview moves stay local here; worker runs always reset from the
+        authored level state.
       </p>
 
-      <div className="mt-4 flex justify-center overflow-auto rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-3">
-        <GameCanvas state={previewState} className="max-w-full" />
+      <div className="mt-4 flex justify-center overflow-auto rounded-app-md border border-border bg-bg p-3">
+        <GameCanvas
+          state={previewState}
+          className="block max-w-full touch-none"
+          canvasRef={setCanvasNode}
+        />
       </div>
 
       <div className="mt-3 space-y-1">
-        <p className="text-sm text-[color:var(--color-muted)]">
+        <p className="text-sm text-muted">
           Moves: {previewState.stats.moves} | Pushes: {previewState.stats.pushes}
         </p>
-        <p className="text-xs text-[color:var(--color-muted)]">
-          Shortcuts: Arrow keys / WASD move, R resets. Keyboard input pauses while typing in the
-          editor.
+        <p className="text-xs text-muted">
+          Controls: tap/click adjacent tiles, swipe, Arrow keys / WASD move, R resets. Keyboard
+          input pauses while typing in the editor.
         </p>
       </div>
 

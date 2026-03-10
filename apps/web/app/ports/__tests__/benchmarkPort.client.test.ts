@@ -179,14 +179,14 @@ describe('createBenchmarkPort (client)', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-1',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -234,7 +234,7 @@ describe('createBenchmarkPort (client)', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-options',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_500,
@@ -246,7 +246,7 @@ describe('createBenchmarkPort (client)', () => {
         },
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -335,7 +335,7 @@ describe('createBenchmarkPort (client)', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-worker-progress',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_500,
@@ -347,7 +347,7 @@ describe('createBenchmarkPort (client)', () => {
         },
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -370,7 +370,7 @@ describe('createBenchmarkPort (client)', () => {
       planSequence: 1,
       measuredSequence: 1,
       warmup: false,
-      levelId: 'classic-001',
+      levelId: 'corgiban-test-18',
       algorithmId: 'bfsPush',
       repetition: 1,
       expanded: 5,
@@ -434,14 +434,14 @@ describe('createBenchmarkPort (client)', () => {
     const runPromise = port.runSuite({
       suiteRunId: 'bench-cancel',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -487,14 +487,14 @@ describe('createBenchmarkPort (client)', () => {
     await port.runSuite({
       suiteRunId: 'bench-cap',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -551,14 +551,14 @@ describe('createBenchmarkPort (client)', () => {
     const firstRun = port.runSuite({
       suiteRunId: 'bench-1',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -571,14 +571,14 @@ describe('createBenchmarkPort (client)', () => {
       port.runSuite({
         suiteRunId: 'bench-2',
         suite: {
-          levelIds: ['classic-001'],
+          levelIds: ['corgiban-test-18'],
           algorithmIds: ['bfsPush'],
           repetitions: 1,
           timeBudgetMs: 1_000,
           nodeBudget: 5_000,
         },
         levelResolver: () => ({
-          levelId: 'classic-001',
+          levelId: 'corgiban-test-18',
           width: 1,
           height: 1,
           staticGrid: new Uint8Array([0]),
@@ -628,14 +628,14 @@ describe('createBenchmarkPort (client)', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-error',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -679,14 +679,14 @@ describe('createBenchmarkPort (client)', () => {
       port.runSuite({
         suiteRunId: 'bench-mark-fail',
         suite: {
-          levelIds: ['classic-001'],
+          levelIds: ['corgiban-test-18'],
           algorithmIds: ['bfsPush'],
           repetitions: 1,
           timeBudgetMs: 1_000,
           nodeBudget: 5_000,
         },
         levelResolver: () => ({
-          levelId: 'classic-001',
+          levelId: 'corgiban-test-18',
           width: 1,
           height: 1,
           staticGrid: new Uint8Array([0]),
@@ -718,14 +718,14 @@ describe('createBenchmarkPort (client)', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-fallback-env',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -763,14 +763,14 @@ describe('createBenchmarkPort (client)', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-default-app-version',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -804,14 +804,14 @@ describe('createBenchmarkPort (client)', () => {
       port.runSuite({
         suiteRunId: 'bench-no-performance',
         suite: {
-          levelIds: ['classic-001'],
+          levelIds: ['corgiban-test-18'],
           algorithmIds: ['bfsPush'],
           repetitions: 1,
           timeBudgetMs: 1_000,
           nodeBudget: 5_000,
         },
         levelResolver: () => ({
-          levelId: 'classic-001',
+          levelId: 'corgiban-test-18',
           width: 1,
           height: 1,
           staticGrid: new Uint8Array([0]),
@@ -841,7 +841,7 @@ describe('createBenchmarkPort (client)', () => {
       port.runSuite({
         suiteRunId: 'bench-level-error',
         suite: {
-          levelIds: ['classic-001'],
+          levelIds: ['corgiban-test-18'],
           algorithmIds: ['bfsPush'],
           repetitions: 1,
           timeBudgetMs: 1_000,
@@ -874,7 +874,7 @@ describe('createBenchmarkPort (client)', () => {
       port.runSuite({
         suiteRunId: 'bench-level-error-lock',
         suite: {
-          levelIds: ['classic-001'],
+          levelIds: ['corgiban-test-18'],
           algorithmIds: ['bfsPush'],
           repetitions: 1,
           timeBudgetMs: 1_000,
@@ -891,14 +891,14 @@ describe('createBenchmarkPort (client)', () => {
       port.runSuite({
         suiteRunId: 'bench-level-error-retry',
         suite: {
-          levelIds: ['classic-001'],
+          levelIds: ['corgiban-test-18'],
           algorithmIds: ['bfsPush'],
           repetitions: 1,
           timeBudgetMs: 1_000,
           nodeBudget: 5_000,
         },
         levelResolver: () => ({
-          levelId: 'classic-001',
+          levelId: 'corgiban-test-18',
           width: 1,
           height: 1,
           staticGrid: new Uint8Array([0]),
@@ -946,14 +946,14 @@ describe('createBenchmarkPort (client)', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-error-no-details',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -1009,14 +1009,14 @@ describe('createBenchmarkPort (client)', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-unsolved-no-solution',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -1062,14 +1062,14 @@ describe('createBenchmarkPort (client)', () => {
       port.runSuite({
         suiteRunId: 'bench-normal',
         suite: {
-          levelIds: ['classic-001'],
+          levelIds: ['corgiban-test-18'],
           algorithmIds: ['bfsPush'],
           repetitions: 1,
           timeBudgetMs: 1_000,
           nodeBudget: 5_000,
         },
         levelResolver: () => ({
-          levelId: 'classic-001',
+          levelId: 'corgiban-test-18',
           width: 1,
           height: 1,
           staticGrid: new Uint8Array([0]),
@@ -1136,14 +1136,14 @@ describe('createBenchmarkPort (client)', () => {
     await port.runSuite({
       suiteRunId: 'bench-progress',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -1206,14 +1206,14 @@ describe('createBenchmarkPort (client)', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-queued',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 2,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -1275,14 +1275,14 @@ describe('createBenchmarkPort (client)', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-rollback',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -1335,14 +1335,14 @@ describe('createBenchmarkPort (client)', () => {
     const runPromise = port.runSuite({
       suiteRunId: 'bench-cancel-resolve',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -1429,14 +1429,14 @@ describe('createBenchmarkPort (client)', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-ignore-unknown-run',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),
@@ -1498,7 +1498,7 @@ describe('createBenchmarkPort (client)', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-options-fallback',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_234,
@@ -1510,7 +1510,7 @@ describe('createBenchmarkPort (client)', () => {
         },
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),

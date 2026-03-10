@@ -871,7 +871,7 @@ describe('solverThunks', () => {
     const activeRunId = store.getState().solver.activeRunId;
     expect(activeRunId).toBe(firstRunId);
 
-    store.dispatch(nextLevel({ levelId: 'classic-002' }));
+    store.dispatch(nextLevel({ levelId: 'corgiban-test-22' }));
     store.dispatch(handleLevelChange(levelRuntimeB));
 
     expect(cancelSolveMock).toHaveBeenCalledWith(activeRunId);

@@ -16,7 +16,7 @@ export type TabsProps = {
 
 export function Tabs({ items, value, onChange, ariaLabel, className }: TabsProps) {
   const containerClasses = [
-    'inline-flex items-center gap-1 rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-1',
+    'inline-flex items-center gap-1 rounded-app-lg border border-border bg-panel p-1',
     className,
   ]
     .filter(Boolean)
@@ -57,10 +57,8 @@ export function Tabs({ items, value, onChange, ariaLabel, className }: TabsProps
       {items.map((item, index) => {
         const selected = item.id === value;
         const tabClasses = [
-          'rounded-[var(--radius-md)] px-3 py-1.5 text-sm font-semibold motion-safe:transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]',
-          selected
-            ? 'bg-[color:var(--color-accent)] text-white'
-            : 'text-[color:var(--color-muted)] hover:text-[color:var(--color-fg)]',
+          'rounded-app-md px-3 py-1.5 text-sm font-semibold motion-safe:transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
+          selected ? 'bg-accent text-white' : 'text-muted hover:text-fg',
           item.disabled ? 'cursor-not-allowed opacity-50' : '',
         ]
           .filter(Boolean)

@@ -321,6 +321,10 @@ Validate both directions:
 - The root app shell owns the light/dark `<html>` theme class. Resolve the initial theme before
   paint from persisted browser preference with `prefers-color-scheme` fallback, and do not
   duplicate theme ownership in route-scoped Redux stores.
+- Canvas board skins/themes live in app-local TS data under `apps/web/app/canvas/boardSkin.ts`.
+  Keep main-thread draw fallback and worker-rendered atlas inputs on the same explicit
+  `skinId`/`mode` contract; do not treat CSS custom properties as the source of truth for
+  worker-consumed board visuals.
 - `/lab` keeps authored text, preview state, and one-click solve/bench status in route-local
   React state + direct port refs; do not promote that tool-state into Redux until a concrete
   cross-route workflow requires it and an ADR documents the change.
@@ -361,13 +365,17 @@ Most bug fixes must include:
 
 - Run full unit suite (not a partial subset)
 - Run typecheck and lint
+- Run `pnpm style:check` when touching `apps/web/app/styles/*`, `apps/web/tailwind.config.ts`,
+  shared `apps/web/app/ui/*` primitives, or Tailwind-class-heavy app surfaces.
 - Run `pnpm test:smoke` when touching route shell, PWA/offline behavior, or `/bench` persistence
   workflows.
 - When offline smoke behavior or top-level reload proof changes, update
   `docs/verification/offline-top-level-proof.md` alongside the tests/docs.
-- Pre-commit hooks (simple-git-hooks) run `pnpm format:check`,
-  `node tools/scripts/run-affected-tests.mjs`, and `node tools/scripts/encoding-check.mjs`
-  on staged files (lint/typecheck remain required via local verification + CI).
+- Pre-commit hooks (simple-git-hooks) run
+  `pnpm exec tsx tools/scripts/normalize-ascii.ts --staged`, `pnpm format:check`,
+  `pnpm exec tsx tools/scripts/style-policy-check.ts`, `node tools/scripts/run-affected-tests.mjs`,
+  and `node tools/scripts/encoding-check.mjs` on staged files (lint/typecheck remain required via
+  local verification + CI).
 
 ---
 
@@ -470,6 +478,22 @@ the archive includes the current worktree.
 - Text files must be UTF-8 without BOM.
 - ASCII-only by default; any non-ASCII requires an explicit allow list entry and ADR/PR justification.
 - No smart punctuation (curly double quotes, curly single quotes, em dash, en dash, ellipsis, right arrow, less-than-or-equal symbol) unless allowlisted with justification.
+
+### 12.5 Web styling contract
+
+- `apps/web/app/styles/tokens.css` is the source of truth for app-owned colors, radii, shadows,
+  and theme tokens; mirror them in `apps/web/tailwind.config.ts`.
+- In app components, use semantic Tailwind utilities (`bg-panel`, `text-muted`,
+  `text-error-text`, `rounded-app-md`) instead of arbitrary `var(--color-*)` /
+  `var(--radius-*)` escape hatches.
+- Keep Tailwind core radius keys (`rounded-sm`, `rounded-md`, `rounded-lg`) on their framework
+  defaults; app-token radii use `rounded-app-*`.
+- Outside `tokens.css`, avoid raw hex / rgb / rgba color literals. Narrow exception:
+  `apps/web/app/canvas/boardSkin.ts` may keep worker-consumed board palettes in app-local TS data
+  because sprite-atlas workers cannot read the DOM token layer directly. `app.css` is for
+  shell/layout behavior, not token duplication.
+- When touching the web styling contract or shared UI primitives, review
+  `apps/web/app/styles/README.md` and keep `pnpm style:check` passing.
 
 ---
 

@@ -8,6 +8,26 @@ async function uncheckIfChecked(locator: Locator): Promise<void> {
   }
 }
 
+async function keepOnlyFirstCheckedLevel(page: Page): Promise<void> {
+  const levelCheckboxes = page.getByRole('group', { name: 'Levels' }).getByRole('checkbox');
+  const checkboxCount = await levelCheckboxes.count();
+  let keptCheckedLevel = false;
+
+  for (let index = 0; index < checkboxCount; index += 1) {
+    const checkbox = levelCheckboxes.nth(index);
+    if (!(await checkbox.isChecked())) {
+      continue;
+    }
+
+    if (!keptCheckedLevel) {
+      keptCheckedLevel = true;
+      continue;
+    }
+
+    await uncheckIfChecked(checkbox);
+  }
+}
+
 export async function readBenchRunCount(page: Page): Promise<number> {
   const summary = page.getByText(BENCH_RUN_COUNT_PATTERN).first();
   await expect(summary).toBeVisible();
@@ -22,8 +42,7 @@ export async function readBenchRunCount(page: Page): Promise<number> {
 }
 
 export async function configureFastSingleLevelSuite(page: Page): Promise<void> {
-  await uncheckIfChecked(page.getByRole('checkbox', { name: /Classic 2 \(classic-002\)/ }));
-  await uncheckIfChecked(page.getByRole('checkbox', { name: /Classic 3 \(classic-003\)/ }));
+  await keepOnlyFirstCheckedLevel(page);
   await page.getByLabel('Repetitions', { exact: true }).fill('1');
   await page.getByLabel('Warm-up Repetitions', { exact: true }).fill('0');
   await page.getByLabel('Time Budget (ms)').fill('100');

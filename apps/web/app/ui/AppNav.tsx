@@ -27,7 +27,13 @@ export function AppNav({ isThemeReady, onToggleTheme, theme }: AppNavProps) {
     <header className="app-nav">
       <div className="app-nav__inner">
         <div className="app-nav__cluster">
-          <NavLink className="app-nav__brand" end to="/">
+          <NavLink className="app-nav__brand" end to="/play">
+            <img
+              src={theme === 'dark' ? '/favicon-dark.svg' : '/favicon.svg'}
+              alt=""
+              aria-hidden="true"
+              className="app-nav__brand-icon"
+            />
             Corgiban
             <span className="app-nav__alpha-badge">Alpha</span>
           </NavLink>
@@ -43,20 +49,20 @@ export function AppNav({ isThemeReady, onToggleTheme, theme }: AppNavProps) {
               </NavLink>
             ))}
           </nav>
+          <button
+            aria-label="Toggle color theme"
+            aria-pressed={isThemeReady ? theme === 'dark' : undefined}
+            className="app-nav__theme-toggle"
+            disabled={!isThemeReady}
+            onClick={onToggleTheme}
+            type="button"
+          >
+            <span className="app-nav__theme-label">Theme</span>
+            <span className="app-nav__theme-value">
+              {isThemeReady ? formatThemeValue(theme) : 'Syncing'}
+            </span>
+          </button>
         </div>
-        <button
-          aria-label="Toggle color theme"
-          aria-pressed={isThemeReady ? theme === 'dark' : undefined}
-          className="app-nav__theme-toggle"
-          disabled={!isThemeReady}
-          onClick={onToggleTheme}
-          type="button"
-        >
-          <span className="app-nav__theme-label">Theme</span>
-          <span className="app-nav__theme-value">
-            {isThemeReady ? formatThemeValue(theme) : 'Syncing'}
-          </span>
-        </button>
       </div>
     </header>
   );

@@ -206,31 +206,38 @@ Required scripts:
 5. `pnpm test:smoke`
 6. `pnpm dev`
 7. `pnpm build`
+8. `pnpm style:check` when touching `apps/web` styling primitives, tokens, or Tailwind theme wiring
 
 Formatting and lint ownership:
 
 1. Prettier owns formatting.
 2. ESLint owns correctness and policy checks.
 3. Disable formatting overlap with `eslint-config-prettier`.
+4. `apps/web` styling rules live in `apps/web/app/styles/README.md`; use semantic Tailwind
+   utilities backed by tokens and verify them with `pnpm style:check`.
 
 CI gates on every PR:
 
 1. format:check
-2. typecheck
-3. lint
-4. test coverage thresholds
-5. Playwright smoke (`pnpm test:smoke`)
-6. boundary checks
-7. encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
+2. style:check
+3. issue:check
+4. typecheck
+5. lint
+6. test coverage thresholds
+7. Playwright smoke (`pnpm test:smoke`)
+8. boundary checks
+9. encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
 
 Encoding policy enforcement runs in CI and pre-commit; pre-commit is a convenience, CI is the source of truth.
 
 Pre-commit process:
 
-1. run format:check
-2. run affected tests with deterministic selection strategy
-3. run encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
-4. run lint and typecheck as local verification before PR (CI enforces both)
+1. run staged ASCII normalization (`pnpm exec tsx tools/scripts/normalize-ascii.ts --staged`)
+2. run format:check
+3. run the staged-file style-policy check (`pnpm exec tsx tools/scripts/style-policy-check.ts`)
+4. run affected tests with deterministic selection strategy
+5. run encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
+6. run lint and typecheck as local verification before PR (CI enforces both)
 
 Completion checklist per feature:
 

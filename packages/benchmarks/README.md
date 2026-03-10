@@ -107,7 +107,7 @@ const records = await runBenchmarkSuite(
   {
     suiteRunId: 'suite-1',
     suite: {
-      levelIds: ['classic-001'],
+      levelIds: ['corgiban-test-18'],
       solverConfigs: [
         {
           algorithmId: 'bfsPush',

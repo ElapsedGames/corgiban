@@ -1,16 +1,35 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type Ref,
+} from 'react';
 
 import type { GameState } from '@corgiban/core';
 
+import {
+  makeBoardSkinKey,
+  resolveBoardPalette,
+  DEFAULT_BOARD_SKIN_ID,
+  type BoardRenderMode,
+  type BoardSkinId,
+} from './boardSkin';
 import { buildRenderPlan } from './buildRenderPlan';
 import { draw } from './draw';
 import { getSpriteAtlas, releaseSpriteAtlas, retainSpriteAtlas } from './spriteAtlas.client';
 import type { SpriteAtlas } from './spriteAtlas.types';
+import { getDocumentTheme } from '../theme/theme';
 
 export type GameCanvasProps = {
   state: GameState;
   cellSize?: number;
   className?: string;
+  canvasRef?: Ref<HTMLCanvasElement>;
+  skinId?: BoardSkinId;
+  mode?: BoardRenderMode;
 };
 
 type WindowLike = {
@@ -45,6 +64,15 @@ type ResizeObserverLike = {
 type ResizeObserverLikeCtor = new (
   callback: (entries: ReadonlyArray<unknown>, observer: ResizeObserverLike) => void,
 ) => ResizeObserverLike;
+
+type DocumentLike = Pick<Document, 'documentElement'>;
+
+type MutationObserverLike = {
+  observe: (target: Node, options: MutationObserverInit) => void;
+  disconnect: () => void;
+};
+
+type MutationObserverLikeCtor = new (callback: MutationCallback) => MutationObserverLike;
 
 const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -107,12 +135,39 @@ export function subscribeContainerWidth(
   return () => windowLike.removeEventListener('resize', update);
 }
 
+export function subscribeDocumentTheme(
+  doc: DocumentLike | undefined,
+  mutationObserverCtor: MutationObserverLikeCtor | undefined,
+  onThemeChange: (next: BoardRenderMode) => void,
+): () => void {
+  const root = doc?.documentElement;
+  if (!root) {
+    return () => undefined;
+  }
+
+  const update = () => onThemeChange(getDocumentTheme(doc as Document));
+  update();
+
+  if (!mutationObserverCtor) {
+    return () => undefined;
+  }
+
+  const observer = new mutationObserverCtor(() => update());
+  observer.observe(root, {
+    attributes: true,
+    attributeFilter: ['class'],
+  });
+  return () => observer.disconnect();
+}
+
 export function renderCanvasFrame(
   canvas: CanvasLike | null,
   state: GameState,
   cellSize: number,
   dpr: number,
   atlas?: SpriteAtlas | null,
+  mode: BoardRenderMode = 'dark',
+  skinId: BoardSkinId = DEFAULT_BOARD_SKIN_ID,
 ): void {
   if (!canvas) {
     return;
@@ -136,7 +191,7 @@ export function renderCanvasFrame(
   canvas.style.height = 'auto';
 
   ctx.imageSmoothingEnabled = false;
-  draw(ctx as CanvasRenderingContext2D, plan, atlas);
+  draw(ctx as CanvasRenderingContext2D, plan, atlas, resolveBoardPalette(skinId, mode));
 }
 
 function buildCanvasLabel(state: GameState): string {
@@ -153,13 +208,44 @@ function buildCanvasLabel(state: GameState): string {
   return `Game board: ${remaining} of ${total} box${total === 1 ? '' : 'es'} remaining`;
 }
 
-export function GameCanvas({ state, cellSize = 32, className }: GameCanvasProps) {
+function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
+  if (!ref) {
+    return;
+  }
+
+  if (typeof ref === 'function') {
+    ref(value);
+    return;
+  }
+
+  (ref as MutableRefObject<T | null>).current = value;
+}
+
+export function GameCanvas({
+  state,
+  cellSize = 32,
+  className,
+  canvasRef: externalCanvasRef,
+  skinId = DEFAULT_BOARD_SKIN_ID,
+  mode,
+}: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const assignCanvasRef = useCallback(
+    (node: HTMLCanvasElement | null) => {
+      canvasRef.current = node;
+      assignRef(externalCanvasRef, node);
+    },
+    [externalCanvasRef],
+  );
   const [dpr, setDpr] = useState(1);
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
   const [atlas, setAtlas] = useState<SpriteAtlas | null>(null);
+  const [documentThemeMode, setDocumentThemeMode] = useState<BoardRenderMode>(() =>
+    getDocumentTheme(typeof document === 'undefined' ? undefined : document),
+  );
+  const boardMode = mode ?? documentThemeMode;
   const responsiveCellSize = resolveResponsiveCellSize(state.level.width, cellSize, containerWidth);
-  const activeAtlasKey = `${responsiveCellSize}:${dpr}`;
+  const activeAtlasKey = makeBoardSkinKey(skinId, boardMode, responsiveCellSize, dpr);
 
   useEffect(() => {
     return subscribeDevicePixelRatio(
@@ -180,10 +266,24 @@ export function GameCanvas({ state, cellSize = 32, className }: GameCanvasProps)
   }, []);
 
   useEffect(() => {
+    if (mode) {
+      return undefined;
+    }
+
+    return subscribeDocumentTheme(
+      typeof document === 'undefined' ? undefined : document,
+      typeof MutationObserver === 'undefined'
+        ? undefined
+        : (MutationObserver as unknown as MutationObserverLikeCtor),
+      setDocumentThemeMode,
+    );
+  }, [mode]);
+
+  useEffect(() => {
     let cancelled = false;
     let retainedAtlas: SpriteAtlas | null = null;
 
-    void getSpriteAtlas(responsiveCellSize, dpr).then((nextAtlas) => {
+    void getSpriteAtlas(responsiveCellSize, dpr, skinId, boardMode).then((nextAtlas) => {
       if (cancelled) {
         return;
       }
@@ -199,7 +299,7 @@ export function GameCanvas({ state, cellSize = 32, className }: GameCanvasProps)
       cancelled = true;
       releaseSpriteAtlas(retainedAtlas);
     };
-  }, [responsiveCellSize, dpr]);
+  }, [boardMode, dpr, responsiveCellSize, skinId]);
 
   useClientLayoutEffect(() => {
     const activeAtlas = atlas?.key === activeAtlasKey ? atlas : null;
@@ -209,10 +309,17 @@ export function GameCanvas({ state, cellSize = 32, className }: GameCanvasProps)
       responsiveCellSize,
       dpr,
       activeAtlas,
+      boardMode,
+      skinId,
     );
-  }, [activeAtlasKey, atlas, dpr, responsiveCellSize, state]);
+  }, [activeAtlasKey, atlas, boardMode, dpr, responsiveCellSize, skinId, state]);
 
   return (
-    <canvas ref={canvasRef} className={className} role="img" aria-label={buildCanvasLabel(state)} />
+    <canvas
+      ref={assignCanvasRef}
+      className={className}
+      role="img"
+      aria-label={buildCanvasLabel(state)}
+    />
   );
 }

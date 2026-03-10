@@ -1,4 +1,11 @@
 import spriteAtlasWorkerUrl from './spriteAtlasWorker.client.ts?worker&url';
+import {
+  DEFAULT_BOARD_RENDER_MODE,
+  DEFAULT_BOARD_SKIN_ID,
+  makeBoardSkinKey,
+  type BoardRenderMode,
+  type BoardSkinId,
+} from './boardSkin';
 import type { SpriteAtlas, SpriteAtlasRequestMessage } from './spriteAtlas.types';
 import { isSpriteAtlasWorkerMessage } from './spriteAtlas.types';
 
@@ -28,6 +35,8 @@ type AtlasLifecycleState = {
 
 type PendingWorkerRequest = {
   key: string;
+  skinId: BoardSkinId;
+  mode: BoardRenderMode;
   cellSize: number;
   dpr: number;
   resolve: (atlas: SpriteAtlas | null) => void;
@@ -43,10 +52,6 @@ const pendingWorkerRequests = new Map<string, PendingWorkerRequest>();
 let atlasUseSequence = 0;
 let atlasRequestSequence = 0;
 let spriteAtlasWorker: SpriteAtlasWorkerLike | null = null;
-
-function makeAtlasKey(cellSize: number, dpr: number): string {
-  return `${cellSize}:${dpr}`;
-}
 
 function nextAtlasUseSequence(): number {
   atlasUseSequence += 1;
@@ -194,7 +199,12 @@ function handleSpriteAtlasWorkerMessage(event: MessageEvent<unknown>): void {
     return;
   }
 
-  if (message.cellSize !== pendingRequest.cellSize || message.dpr !== pendingRequest.dpr) {
+  if (
+    message.skinId !== pendingRequest.skinId ||
+    message.mode !== pendingRequest.mode ||
+    message.cellSize !== pendingRequest.cellSize ||
+    message.dpr !== pendingRequest.dpr
+  ) {
     resetSpriteAtlasWorker();
     return;
   }
@@ -222,7 +232,12 @@ function ensureSpriteAtlasWorker(): SpriteAtlasWorkerLike {
   return worker;
 }
 
-function requestSpriteAtlas(cellSize: number, dpr: number): Promise<SpriteAtlas | null> {
+function requestSpriteAtlas(
+  cellSize: number,
+  dpr: number,
+  skinId: BoardSkinId,
+  mode: BoardRenderMode,
+): Promise<SpriteAtlas | null> {
   if (!supportsOffscreenSpritePreRender()) {
     return Promise.resolve(null);
   }
@@ -231,19 +246,23 @@ function requestSpriteAtlas(cellSize: number, dpr: number): Promise<SpriteAtlas 
     return Promise.resolve(null);
   }
 
-  const key = makeAtlasKey(cellSize, dpr);
+  const key = makeBoardSkinKey(skinId, mode, cellSize, dpr);
   const requestId = nextAtlasRequestId(key);
 
   return new Promise((resolve) => {
     const request: SpriteAtlasRequestMessage = {
       type: 'SPRITE_ATLAS_REQUEST',
       requestId,
+      skinId,
+      mode,
       cellSize,
       dpr,
     };
 
     pendingWorkerRequests.set(requestId, {
       key,
+      skinId,
+      mode,
       cellSize,
       dpr,
       resolve,
@@ -257,8 +276,13 @@ function requestSpriteAtlas(cellSize: number, dpr: number): Promise<SpriteAtlas 
   });
 }
 
-export function getSpriteAtlas(cellSize: number, dpr: number): Promise<SpriteAtlas | null> {
-  const key = makeAtlasKey(cellSize, dpr);
+export function getSpriteAtlas(
+  cellSize: number,
+  dpr: number,
+  skinId: BoardSkinId = DEFAULT_BOARD_SKIN_ID,
+  mode: BoardRenderMode = DEFAULT_BOARD_RENDER_MODE,
+): Promise<SpriteAtlas | null> {
+  const key = makeBoardSkinKey(skinId, mode, cellSize, dpr);
   const cached = atlasCache.get(key);
   if (cached) {
     cached.lastUsedSequence = nextAtlasUseSequence();
@@ -272,7 +296,7 @@ export function getSpriteAtlas(cellSize: number, dpr: number): Promise<SpriteAtl
     promise: Promise.resolve(null),
   };
 
-  pendingEntry.promise = requestSpriteAtlas(cellSize, dpr)
+  pendingEntry.promise = requestSpriteAtlas(cellSize, dpr, skinId, mode)
     .then((atlas) => {
       if (atlasCache.get(key) !== pendingEntry) {
         if (atlas) {

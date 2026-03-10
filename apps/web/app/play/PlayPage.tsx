@@ -14,7 +14,6 @@ import type { Direction } from '@corgiban/shared';
 import type { AlgorithmId } from '@corgiban/solver';
 
 import { GameCanvas } from '../canvas/GameCanvas';
-import { Button } from '../ui/Button';
 import { ReplayController } from '../replay/replayController.client';
 import type { AppDispatch, RootState } from '../state';
 import { cancelSolve, handleLevelChange, retryWorker, startSolve } from '../state';
@@ -28,16 +27,21 @@ import {
 } from '../state/gameSlice';
 import { setSolverReplaySpeed } from '../state/settingsSlice';
 import { clearReplay, setSelectedAlgorithmId } from '../state/solverSlice';
+import type { SolverResultState, SolverRunStatus } from '../state/solverSlice';
 import { BottomControls } from './BottomControls';
 import { SidePanel } from './SidePanel';
 import { SolverPanel } from './SolverPanel';
+import { useBoardPointerControls } from './useBoardPointerControls';
 import { useKeyboardControls } from './useKeyboardControls';
+import { getMaxWidthMediaQuery } from '../ui/responsive';
+import { useMediaQuery } from '../ui/useMediaQuery';
 
 const fallbackLevel = builtinLevels[0] ?? {
   id: 'level-unknown',
   name: 'Unknown',
   rows: ['P'],
 };
+const boardAnimateScrollMediaQuery = getMaxWidthMediaQuery('lg');
 const levelOrder = builtinLevels.map((level) => level.id);
 const levelsById = new Map(builtinLevels.map((level) => [level.id, level]));
 
@@ -95,6 +99,42 @@ function parseSolutionMoves(solutionMoves: string | undefined): Direction[] {
   return directions;
 }
 
+function scrollBoardToViewportTop(): void {
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return;
+  }
+
+  const boardSection = document.getElementById('game-board');
+  if (!(boardSection instanceof HTMLElement)) {
+    return;
+  }
+
+  const stickyHeader = document.querySelector('.app-nav');
+  const stickyHeaderHeight =
+    stickyHeader instanceof HTMLElement ? stickyHeader.getBoundingClientRect().height : 0;
+  const boardTop = boardSection.getBoundingClientRect().top + window.scrollY - stickyHeaderHeight;
+
+  window.scrollTo({
+    top: Math.max(boardTop, 0),
+    behavior: 'auto',
+  });
+}
+
+function isMobileSolverFailureOutcome(
+  status: SolverRunStatus,
+  lastResult: SolverResultState | null,
+): boolean {
+  if (status === 'failed') {
+    return true;
+  }
+
+  if (status === 'cancelled') {
+    return false;
+  }
+
+  return status === 'succeeded' && lastResult?.status !== 'solved';
+}
+
 export function PlayPage() {
   const dispatch = useDispatch<AppDispatch>();
   const { levelId, history, stats } = useSelector((state: RootState) => state.game);
@@ -114,6 +154,7 @@ export function PlayPage() {
     [levelRuntime, moveDirections],
   );
   const solved = useMemo(() => isWin(gameState), [gameState]);
+  const shouldAutoScrollBoardOnAnimate = useMediaQuery(boardAnimateScrollMediaQuery);
 
   const gameStateRef = useRef(gameState);
   useEffect(() => {
@@ -123,10 +164,29 @@ export function PlayPage() {
   const replayControllerRef = useRef<ReplayController | null>(null);
   const replaySpeedRef = useRef(replaySpeed);
   const [replayShadowState, setReplayShadowState] = useState<GameState | null>(null);
+  const [mobileSolverRunLockedLevelId, setMobileSolverRunLockedLevelId] = useState<string | null>(
+    null,
+  );
+  const previousMobileFailureOutcomeRef = useRef(
+    isMobileSolverFailureOutcome(solver.status, solver.lastResult),
+  );
 
   useEffect(() => {
     replaySpeedRef.current = replaySpeed;
   }, [replaySpeed]);
+
+  useEffect(() => {
+    setMobileSolverRunLockedLevelId(null);
+  }, [levelDefinition.id]);
+
+  useEffect(() => {
+    const nextMobileFailureOutcome = isMobileSolverFailureOutcome(solver.status, solver.lastResult);
+    if (!previousMobileFailureOutcomeRef.current && nextMobileFailureOutcome) {
+      setMobileSolverRunLockedLevelId(levelDefinition.id);
+    }
+
+    previousMobileFailureOutcomeRef.current = nextMobileFailureOutcome;
+  }, [levelDefinition.id, solver.lastResult, solver.status]);
 
   useEffect(() => {
     const controller = new ReplayController({
@@ -278,11 +338,11 @@ export function PlayPage() {
     if (latestSolutionDirections.length === 0) {
       return;
     }
-    replayControllerRef.current?.loadSolution(latestSolutionDirections, true);
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      document.getElementById('game-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (shouldAutoScrollBoardOnAnimate) {
+      scrollBoardToViewportTop();
     }
-  }, [latestSolutionDirections]);
+    replayControllerRef.current?.loadSolution(latestSolutionDirections, true);
+  }, [latestSolutionDirections, shouldAutoScrollBoardOnAnimate]);
 
   useEffect(() => {
     if (solver.replayState !== 'done') {
@@ -330,17 +390,18 @@ export function PlayPage() {
     onUndo: handleUndo,
     onRestart: handleRestart,
     onNextLevel: handleNextLevel,
+    isSolved: solved,
   });
 
-  const solvedNextLevelRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (solved) {
-      solvedNextLevelRef.current?.focus();
-    }
-  }, [solved]);
+  const getCurrentGameState = useCallback(() => gameStateRef.current, []);
+  const [boardCanvasNode, setBoardCanvasNode] = useState<HTMLCanvasElement | null>(null);
+  useBoardPointerControls(boardCanvasNode, {
+    getGameState: getCurrentGameState,
+    onMove: handleMove,
+  });
 
   const canvasState = replayShadowState ?? gameState;
+  const mobileSolverRunLocked = mobileSolverRunLockedLevelId === levelDefinition.id;
 
   return (
     <main id="main-content" className="page-shell play-shell" aria-label="Play Corgiban">
@@ -350,7 +411,7 @@ export function PlayPage() {
         </div>
       ) : null}
 
-      <div className="mt-3 grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)_22rem]">
+      <div className="mt-3 grid gap-4 lg:gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)_22rem]">
         <div className="order-2 flex min-w-0 flex-col gap-6 lg:order-1">
           <SidePanel
             levelName={levelDefinition.name}
@@ -365,56 +426,65 @@ export function PlayPage() {
             onNextLevel={handleNextLevel}
           />
 
-          <BottomControls onApplySequence={handleApplySequence} />
+          <div className="hidden lg:block">
+            <BottomControls onApplySequence={handleApplySequence} />
+          </div>
         </div>
 
         <div className="order-1 flex min-w-0 flex-col gap-6 lg:order-2">
           <section
             id="game-board"
             aria-labelledby="board-heading"
-            className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg lg:p-6"
+            className="-mx-7 border-y border-border bg-panel px-4 py-4 shadow-none lg:mx-0 lg:rounded-app-lg lg:border lg:px-6 lg:py-6 lg:shadow-lg"
           >
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p
-                  id="board-heading"
-                  className="text-xs uppercase tracking-wide text-[color:var(--color-muted)]"
-                >
-                  Board
-                </p>
-                <h2 className="mt-1 text-xl font-semibold text-[color:var(--color-fg)]">
-                  {levelDefinition.name}
-                </h2>
-                <p className="mt-1 text-sm text-[color:var(--color-muted)]">{levelDefinition.id}</p>
+            <h2 id="board-heading" className="sr-only">
+              Game board
+            </h2>
+            <div className="mb-4 flex items-start justify-between gap-3 lg:hidden">
+              <div className="min-w-0">
+                <p className="truncate text-xl font-semibold text-fg">{levelDefinition.name}</p>
               </div>
               <span
-                className="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[color:var(--color-muted)]"
-                aria-label={`${levelRuntime.width} columns by ${levelRuntime.height} rows`}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success px-3 py-1 text-xs font-bold text-white shadow-sm ${
+                  solved ? '' : 'invisible'
+                }`}
               >
-                {levelRuntime.width} x {levelRuntime.height}
+                <span aria-hidden="true">&#10003;</span>
+                Solved
               </span>
             </div>
-            {solved ? (
-              <div className="mb-3 flex flex-wrap items-center gap-3 rounded-[var(--radius-md)] bg-emerald-500/15 px-3 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                <span className="flex items-center gap-2">
-                  <span aria-hidden="true">&#10003;</span>
-                  Puzzle solved!
-                </span>
-                <Button
-                  ref={solvedNextLevelRef}
-                  size="sm"
-                  onClick={handleNextLevel}
-                  className="ml-auto shrink-0"
-                >
-                  Next Level
-                </Button>
+            <div className="mb-4 hidden gap-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,20rem)] md:items-start lg:grid">
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wide text-muted">Board</p>
+                <h2 className="mt-1 text-xl font-semibold text-fg">{levelDefinition.name}</h2>
+                <p className="mt-1 text-sm text-muted">{levelDefinition.id}</p>
               </div>
-            ) : null}
-            <div className="flex justify-center rounded-[var(--radius-md)] bg-[color:var(--color-bg)] p-2 sm:p-3 lg:p-4">
-              <GameCanvas state={canvasState} className="max-w-full" cellSize={56} />
+              <div className="flex flex-col gap-2 md:items-end">
+                <span
+                  className="rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted"
+                  aria-label={`${levelRuntime.width} columns by ${levelRuntime.height} rows`}
+                >
+                  {levelRuntime.width} x {levelRuntime.height}
+                </span>
+                {solved ? (
+                  <div className="flex w-full items-center gap-2 rounded-app-md border border-success-border bg-success-surface px-3 py-2 text-sm font-semibold text-success-text shadow-sm md:max-w-[20rem]">
+                    <span aria-hidden="true">&#10003;</span>
+                    Puzzle solved!
+                  </div>
+                ) : null}
+              </div>
             </div>
-            <p className="mt-3 text-center text-xs text-[color:var(--color-muted)]">
-              Arrow keys or WASD to move | U to undo | R to restart | N for next level
+            <div className="flex justify-center bg-bg px-2 py-2 sm:px-3 sm:py-3 lg:rounded-app-md lg:p-4">
+              <GameCanvas
+                state={canvasState}
+                className="mx-auto block max-w-full touch-none"
+                cellSize={56}
+                canvasRef={setBoardCanvasNode}
+              />
+            </div>
+            <p className="mt-3 hidden text-center text-xs text-muted lg:block">
+              Swipe or click/tap adjacent tiles &middot; Arrow keys or WASD &middot; U to undo
+              &middot; R to restart
             </p>
           </section>
         </div>
@@ -433,6 +503,7 @@ export function PlayPage() {
               replayIndex={solver.replayIndex}
               replayTotalSteps={solver.replayTotalSteps}
               replaySpeed={replaySpeed}
+              mobileRunLocked={mobileSolverRunLocked}
               onSelectAlgorithm={handleSelectAlgorithm}
               onRun={handleRunSolver}
               onCancel={handleCancelSolver}

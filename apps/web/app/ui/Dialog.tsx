@@ -154,7 +154,7 @@ export function Dialog({ open, title, description, onClose, children, actions }:
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
-        className="relative w-full max-w-lg rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-6 text-[color:var(--color-fg)] shadow-xl focus:outline-none"
+        className="relative w-full max-w-lg rounded-app-lg border border-border bg-panel p-6 text-fg shadow-xl focus:outline-none"
       >
         <div className="flex items-start justify-between gap-6">
           <div>
@@ -162,7 +162,7 @@ export function Dialog({ open, title, description, onClose, children, actions }:
               {title}
             </h2>
             {description ? (
-              <p id={descriptionId} className="mt-1 text-sm text-[color:var(--color-muted)]">
+              <p id={descriptionId} className="mt-1 text-sm text-muted">
                 {description}
               </p>
             ) : null}
@@ -173,7 +173,7 @@ export function Dialog({ open, title, description, onClose, children, actions }:
             onClick={onClose}
           />
         </div>
-        <div className="mt-4 text-sm text-[color:var(--color-fg)]">{children}</div>
+        <div className="mt-4 text-sm text-fg">{children}</div>
         {actions ? <div className="mt-6 flex justify-end gap-2">{actions}</div> : null}
       </div>
     </div>

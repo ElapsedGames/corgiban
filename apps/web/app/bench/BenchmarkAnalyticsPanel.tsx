@@ -81,14 +81,14 @@ export function BenchmarkAnalyticsPanel({
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+      className="rounded-app-lg border border-border bg-panel p-5 shadow-lg"
     >
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id={headingId} className="text-lg font-semibold">
             Analytics & Comparison
           </h2>
-          <p className="text-sm text-[color:var(--color-muted)]">
+          <p className="text-sm text-muted">
             Compare persisted suite runs only when their stored run inputs, solver options, warm-up
             settings, and environment metadata match exactly.
           </p>
@@ -103,7 +103,7 @@ export function BenchmarkAnalyticsPanel({
       </div>
 
       {suites.length === 0 ? (
-        <p className="rounded-[var(--radius-md)] border border-dashed border-[color:var(--color-border)] px-3 py-4 text-sm text-[color:var(--color-muted)]">
+        <p className="rounded-app-md border border-dashed border-border px-3 py-4 text-sm text-muted">
           Run at least one suite to generate analytics.
         </p>
       ) : (
@@ -128,14 +128,14 @@ export function BenchmarkAnalyticsPanel({
           </div>
 
           {baseline && baseline.comparisonFingerprint === null ? (
-            <p className="mb-3 rounded-[var(--radius-md)] border border-dashed border-[color:var(--color-border)] px-3 py-2 text-sm text-[color:var(--color-muted)]">
+            <p className="mb-3 rounded-app-md border border-dashed border-border px-3 py-2 text-sm text-muted">
               {baseline.comparisonIssues[0] ??
                 'Select a suite with complete comparable metadata to export a comparison snapshot.'}
             </p>
           ) : null}
 
           {nonComparableSuites.length > 0 ? (
-            <p className="mb-3 rounded-[var(--radius-md)] border border-dashed border-[color:var(--color-border)] px-3 py-2 text-sm text-[color:var(--color-muted)]">
+            <p className="mb-3 rounded-app-md border border-dashed border-border px-3 py-2 text-sm text-muted">
               Non-comparable suites:{' '}
               {nonComparableSuites
                 .map((comparison) => {
@@ -152,7 +152,7 @@ export function BenchmarkAnalyticsPanel({
                 {suites.length === 1 ? 'suite' : 'suites'} recorded.
               </caption>
               <thead>
-                <tr className="border-b border-[color:var(--color-border)] text-left text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
                   <th scope="col" className="px-2 py-2">
                     Suite
                   </th>
@@ -186,10 +186,7 @@ export function BenchmarkAnalyticsPanel({
                 {suites.map((suite) => {
                   const comparison = comparisonsBySuite.get(suite.suiteRunId)!;
                   return (
-                    <tr
-                      key={suite.suiteRunId}
-                      className="border-b border-[color:var(--color-border)]/60"
-                    >
+                    <tr key={suite.suiteRunId} className="border-b border-border/60">
                       <td className="px-2 py-2" title={suite.suiteLabel}>
                         {suite.suiteRunId}
                       </td>

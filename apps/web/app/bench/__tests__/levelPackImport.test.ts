@@ -9,7 +9,7 @@ import {
   resolveLevelPackImport,
 } from '../levelPackImport';
 
-const knownLevelIds = new Set(['classic-001', 'classic-002']);
+const knownLevelIds = new Set(['corgiban-test-18', 'corgiban-test-22']);
 
 describe('levelPackImport', () => {
   it('parses levelIds arrays when every entry is a string', () => {
@@ -17,11 +17,11 @@ describe('levelPackImport', () => {
       JSON.stringify({
         type: LEVEL_PACK_TYPE,
         version: LEVEL_PACK_VERSION,
-        levelIds: ['classic-001', 'classic-002'],
+        levelIds: ['corgiban-test-18', 'corgiban-test-22'],
       }),
     );
 
-    expect(parsed).toEqual(['classic-001', 'classic-002']);
+    expect(parsed).toEqual(['corgiban-test-18', 'corgiban-test-22']);
   });
 
   it('parses levels arrays using object ids', () => {
@@ -29,11 +29,11 @@ describe('levelPackImport', () => {
       JSON.stringify({
         type: LEVEL_PACK_TYPE,
         version: LEVEL_PACK_VERSION,
-        levels: [{ id: 'classic-001' }, { id: 'classic-002' }],
+        levels: [{ id: 'corgiban-test-18' }, { id: 'corgiban-test-22' }],
       }),
     );
 
-    expect(parsed).toEqual(['classic-001', 'classic-002']);
+    expect(parsed).toEqual(['corgiban-test-18', 'corgiban-test-22']);
   });
 
   it('throws on invalid level-pack payloads', () => {
@@ -43,7 +43,7 @@ describe('levelPackImport', () => {
         JSON.stringify({
           type: 'other-pack',
           version: LEVEL_PACK_VERSION,
-          levelIds: ['classic-001'],
+          levelIds: ['corgiban-test-18'],
         }),
       ),
     ).toThrow('Unsupported level pack type.');
@@ -52,7 +52,7 @@ describe('levelPackImport', () => {
         JSON.stringify({
           type: LEVEL_PACK_TYPE,
           version: LEVEL_PACK_VERSION + 1,
-          levelIds: ['classic-001'],
+          levelIds: ['corgiban-test-18'],
         }),
       ),
     ).toThrow(`Unsupported level pack version. Expected ${LEVEL_PACK_VERSION}.`);
@@ -62,7 +62,7 @@ describe('levelPackImport', () => {
         JSON.stringify({
           type: LEVEL_PACK_TYPE,
           version: LEVEL_PACK_VERSION,
-          levelIds: ['classic-001', 12],
+          levelIds: ['corgiban-test-18', 12],
         }),
       ),
     ).toThrow('Level pack levelIds must be a string array.');
@@ -71,7 +71,7 @@ describe('levelPackImport', () => {
         JSON.stringify({
           type: LEVEL_PACK_TYPE,
           version: LEVEL_PACK_VERSION,
-          levels: [{ id: 'classic-001' }, {}],
+          levels: [{ id: 'corgiban-test-18' }, {}],
         }),
       ),
     ).toThrow('Level pack levels entries must include string ids.');
@@ -92,12 +92,12 @@ describe('levelPackImport', () => {
       JSON.stringify({
         type: LEVEL_PACK_TYPE,
         version: LEVEL_PACK_VERSION,
-        levelIds: ['classic-001'],
-        levels: [{ id: 'classic-002' }],
+        levelIds: ['corgiban-test-18'],
+        levels: [{ id: 'corgiban-test-22' }],
       }),
     );
 
-    expect(parsed).toEqual(['classic-001']);
+    expect(parsed).toEqual(['corgiban-test-18']);
   });
 
   it('throws when a supported level-pack payload omits both levelIds and levels', () => {
@@ -116,13 +116,19 @@ describe('levelPackImport', () => {
       JSON.stringify({
         type: LEVEL_PACK_TYPE,
         version: LEVEL_PACK_VERSION,
-        levelIds: ['classic-001', 'custom-001', 'classic-001', 'classic-002', 'custom-002'],
+        levelIds: [
+          'corgiban-test-18',
+          'custom-001',
+          'corgiban-test-18',
+          'corgiban-test-22',
+          'custom-002',
+        ],
       }),
       knownLevelIds,
     );
 
     expect(summary).toEqual({
-      validLevelIds: ['classic-001', 'classic-002'],
+      validLevelIds: ['corgiban-test-18', 'corgiban-test-22'],
       importedCount: 5,
       skippedCount: 2,
     });
@@ -130,14 +136,14 @@ describe('levelPackImport', () => {
 
   it('formats a notice only when unrecognized ids were skipped', () => {
     const noSkipNotice = formatLevelPackImportNotice({
-      validLevelIds: ['classic-001'],
+      validLevelIds: ['corgiban-test-18'],
       importedCount: 1,
       skippedCount: 0,
     });
     expect(noSkipNotice).toBeNull();
 
     const notice = formatLevelPackImportNotice({
-      validLevelIds: ['classic-001', 'classic-002'],
+      validLevelIds: ['corgiban-test-18', 'corgiban-test-22'],
       importedCount: 4,
       skippedCount: 2,
     });
@@ -147,7 +153,7 @@ describe('levelPackImport', () => {
 
   it('formats singular notice grammar when exactly one id is skipped', () => {
     const notice = formatLevelPackImportNotice({
-      validLevelIds: ['classic-001'],
+      validLevelIds: ['corgiban-test-18'],
       importedCount: 2,
       skippedCount: 1,
     });

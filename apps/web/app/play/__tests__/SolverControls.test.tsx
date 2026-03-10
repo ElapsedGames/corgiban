@@ -6,7 +6,11 @@ import { isValidElement } from 'react';
 import { Button } from '../../ui/Button';
 import { SolverControls } from '../SolverControls';
 
-type ButtonElement = ReactElement<{ children?: ReactNode; disabled?: boolean }>;
+type ButtonElement = ReactElement<{
+  children?: ReactNode;
+  disabled?: boolean;
+  variant?: 'primary' | 'secondary' | 'tonal' | 'ghost' | 'destructive';
+}>;
 
 function collectButtons(node: unknown, results: ButtonElement[] = []) {
   if (!node) {
@@ -116,6 +120,33 @@ describe('SolverControls', () => {
     expect(playButton?.props.disabled).toBe(true);
   });
 
+  it('uses tonal solution actions and a secondary retry action', () => {
+    const element = SolverControls({
+      status: 'idle',
+      replayState: 'idle',
+      workerHealth: 'crashed',
+      hasSolution: true,
+      replayIndex: 0,
+      replayTotalSteps: 1,
+      replaySpeed: 1,
+      onRun: noop,
+      onCancel: noop,
+      onApply: noop,
+      onAnimate: noop,
+      onReplayPlayPause: noop,
+      onReplayStepBack: noop,
+      onReplayStepForward: noop,
+      onReplaySpeedChange: noop,
+      onRetryWorker: noop,
+    });
+
+    const buttons = collectButtons(element);
+
+    expect(getButtonByLabel(buttons, 'Apply Solution')?.props.variant).toBe('tonal');
+    expect(getButtonByLabel(buttons, 'Animate Solution')?.props.variant).toBe('tonal');
+    expect(getButtonByLabel(buttons, 'Retry Worker')?.props.variant).toBe('secondary');
+  });
+
   it('disables run while solving and shows pause label when replaying', () => {
     const running = SolverControls({
       status: 'running',
@@ -201,10 +232,10 @@ describe('SolverControls', () => {
     expect(select).toBeDefined();
     expect(select?.props.value).toBe('1');
 
-    select?.props.onChange({ target: { value: '1.5' } } as { target: { value: string } });
+    select?.props.onChange({ target: { value: '3' } } as { target: { value: string } });
     select?.props.onChange({ target: { value: 'not-a-number' } } as { target: { value: string } });
 
-    expect(speedCalls).toEqual([1.5]);
+    expect(speedCalls).toEqual([3]);
   });
 
   it('renders three named role=group button groups', () => {

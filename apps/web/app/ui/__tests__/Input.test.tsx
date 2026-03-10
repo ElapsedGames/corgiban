@@ -28,7 +28,8 @@ describe('Input', () => {
 
     expect(html).toContain('aria-invalid="true"');
     expect(html).toContain('aria-describedby="budget-input-error"');
-    expect(html).toContain('border-red-400');
+    expect(html).toContain('border-error');
+    expect(html).toContain('text-error-text');
     expect(html).toContain('custom-field');
     expect(html).toContain('Budget is required.');
     expect(html).not.toContain('This should be hidden when error is shown.');

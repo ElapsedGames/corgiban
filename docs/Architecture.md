@@ -10,7 +10,7 @@
 
 ### 1.1 Product outcomes
 
-- A responsive browser game UI (keyboard + on-screen controls) with:
+- A responsive browser game UI (keyboard, tap/click, and swipe board controls) with:
   - deterministic gameplay, undo/redo, restart, per-level progress
   - move history and replay
   - solution playback (step-by-step animation)
@@ -37,13 +37,18 @@
 
 ## 2. Reference from the current implementation
 
-The current app is a single-page layout with:
+The current app uses a shared app shell above route-scoped surfaces. The primary `/play` route is
+organized around:
 
-- a **side panel** (level label, restart, failure message, move history),
-- a **canvas container** (board rendering + "next level" button),
-- a **bottom controls** section (sequence input + send button).
+- a **side panel** (level label, restart/next-level controls, solved-state summary, move history),
+- a **board section** (level metadata, responsive canvas rendering, solved-state banner),
+- a **bottom controls** section (sequence input),
+- a **solver panel** (recommendation, run/cancel, progress, replay/apply actions).
 
-This structure informs the initial React UI layout and componentization.
+The board accepts keyboard input plus adjacent-tile tap/click and swipe gestures, and `/`
+redirects directly to `/play` so gameplay remains the default entry surface.
+On small screens, `/play` promotes the board to the dominant surface and collapses secondary
+controls into compact mobile-specific layouts.
 
 ---
 
@@ -390,6 +395,35 @@ layer that builds on the host-pluggable boundary above.
 
 See ADR-0028 (`docs/adr/0028-cloudflare-pages-runtime-adapter.md`).
 
+### 3.26 Route entry strategy: **play-first root redirect + specialist routes**
+
+**Decision:** Treat `/play` as the primary product entrypoint. `/` redirects to `/play`, the shared
+brand link returns there, `/bench` and `/lab` stay in the primary navigation, and `/dev/ui-kit`
+remains a direct-access validation route rather than a primary workflow destination.
+
+**Why**
+
+- Removes a duplicated landing step before the main gameplay surface.
+- Clarifies route ownership during the Phase 7 route-responsibility pass.
+- Keeps developer validation UI available without promoting it to a product workflow.
+
+See ADR-0029 (`docs/adr/0029-play-route-primary-entrypoint.md`).
+
+### 3.27 Board visual theming: **app-local board skin registry**
+
+**Decision:** Keep board visuals in an app-local skin registry under `apps/web/app/canvas`.
+`GameCanvas`, the fallback canvas draw path, and the sprite-atlas worker resolve the same explicit
+`skinId` + `mode` contract instead of inferring board visuals from CSS variables.
+
+**Why**
+
+- Keeps light/dark board rendering aligned across main-thread draw fallback and worker-rendered
+  atlases.
+- Creates one durable contract for future alternate puzzle looks and sprite/image packs.
+- Avoids depending on DOM/CSS state from worker code.
+
+See ADR-0030 (`docs/adr/0030-app-local-board-skin-registry.md`).
+
 ## 4. Monorepo layout
 
 ```
@@ -410,6 +444,7 @@ See ADR-0028 (`docs/adr/0028-cloudflare-pages-runtime-adapter.md`).
       /theme
       /ui
       /styles
+        README.md
       root.tsx
       entry.client.tsx
       entry.server.tsx
@@ -429,7 +464,7 @@ See ADR-0028 (`docs/adr/0028-cloudflare-pages-runtime-adapter.md`).
       result.ts
   /levels
     src/
-      builtinLevels.ts
+      corgibanTestLevels.ts
       levelSchema.ts
   /formats
     src/
@@ -520,6 +555,11 @@ See ADR-0028 (`docs/adr/0028-cloudflare-pages-runtime-adapter.md`).
 /tools
   src/
     bestPracticesReport.ts
+    levelDifficultyReport.ts
+    stylePolicyCheck.ts
+  scripts/
+    rank-levels.ts
+    style-policy-check.ts
 
 /docs
   Architecture.md
@@ -690,7 +730,7 @@ All invariants are validated in unit tests and optionally in dev builds.
 **Main thread**
 
 - UI rendering (React + Canvas)
-- input (keyboard/touch)
+- input (keyboard, pointer, touch)
 - animation playback timing
 - state management (Redux)
 
@@ -973,15 +1013,19 @@ A dedicated route:
 ### 10.2 Rendering pipeline
 
 - rendering draws on state or size changes (single draw per change); requestAnimationFrame is reserved for replay or future animations and can be reintroduced with a dirty flag if needed
-- sprite atlases are requested lazily per `cellSize`/DPR pair and cached
+- sprite atlases are requested lazily per `skinId`/`mode`/`cellSize`/DPR tuple and cached
 - consistent coordinate system; DPR scaling supported
 - Rendering is split into `buildRenderPlan(state): RenderPlan` (pure, deterministic, unit-tested)
   and `draw(ctx, plan)` (thin imperative canvas adapter).
+- Board palettes resolve from an app-local board-skin registry shared by the fallback draw path
+  and the sprite-atlas worker so theme-aware rendering and future sprite packs use one identity
+  contract.
 - OffscreenCanvas sprite-atlas pre-rendering runs in a dedicated worker when available; the
   main-thread canvas draw path remains the fallback.
 
 See ADR-0005 (`docs/adr/0005-canvas-renderplan-split.md`).
 See ADR-0024 (`docs/adr/0024-offscreen-sprite-atlas-worker-fallback.md`).
+See ADR-0030 (`docs/adr/0030-app-local-board-skin-registry.md`).
 
 ### 10.3 Optional overlays (future)
 
@@ -1005,22 +1049,24 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 
 ### 11.1 Pages
 
-- `/` (landing page with app-level entry points into the main workflows)
+- `/` (redirects to `/play`; no standalone in-app landing page)
 - `/play` (interactive play surface)
 - `/bench`
-- `/dev/ui-kit` (design system showcase)
+- `/dev/ui-kit` (design system showcase; direct-access validation route, not a primary nav destination)
 - `/lab` (Level Lab route with format parsing, route-local tool state, and worker-backed checks)
 - `/tests` (optional internal harness page for interactive debugging)
 
-### 11.2 Component structure (initial)
+### 11.2 Component structure (current)
 
 - `Document` (shared html/head/body wrapper, pre-paint theme bootstrap, skip link, root error shell)
-- `AppNav` (global navigation + light/dark theme toggle)
-- `IndexPage` (landing-page entry points and product summary)
-- `SidePanel` (level info, restart, move history)
-- `GameCanvas`
-- `BottomControls` (sequence input, playback)
-- `SolverPanel` (algorithm selection, run/cancel, progress)
+- `AppNav` (global navigation, play-first brand link, and light/dark theme toggle)
+- `IndexRoute` (root redirect to `/play`)
+- `SidePanel` (level info, restart/next level, move history, solved-state summary)
+- `GameCanvas` (responsive board canvas host)
+- `BottomControls` (sequence input)
+- `SolverPanel` (algorithm selection, run/cancel, progress, replay/apply actions)
+- `styles/README.md` (web styling contract for token ownership, semantic Tailwind utilities, and
+  `pnpm style:check`)
 
 ---
 
@@ -1161,6 +1207,8 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 
 - install (pnpm)
 - format check
+- style check
+- known issues sync check (`pnpm issue:check`)
 - typecheck (tsc -b)
 - lint
 - unit tests with coverage gates
@@ -1248,6 +1296,8 @@ Current accepted ADRs:
 - ADR-0026: App-shell theme ownership
 - ADR-0027: Host-pluggable Remix server boundary
 - ADR-0028: Cloudflare Pages runtime adapter
+- ADR-0029: Play-first root entrypoint and specialist route charters
+- ADR-0030: App-local board skin registry
 
 ---
 

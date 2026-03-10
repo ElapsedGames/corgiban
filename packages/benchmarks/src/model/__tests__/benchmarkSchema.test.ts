@@ -20,7 +20,7 @@ function createValidRecord() {
     suiteRunId: 'suite-1',
     runId: 'suite-1:exec-1',
     sequence: 1,
-    levelId: 'classic-001',
+    levelId: 'corgiban-test-18',
     algorithmId: 'bfsPush',
     repetition: 1,
     options: {

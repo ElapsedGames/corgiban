@@ -105,7 +105,8 @@ describe('MoveHistory', () => {
       (element) => element.textContent === 'walk',
     );
 
-    expect(walkBadge?.className).toContain('bg-slate-500/20');
+    expect(walkBadge?.className).toContain('bg-border/60');
+    expect(walkBadge?.className).toContain('text-muted');
   });
 
   it('shows push badges for pushed moves', async () => {
@@ -114,7 +115,8 @@ describe('MoveHistory', () => {
       (element) => element.textContent === 'push',
     );
 
-    expect(pushBadge?.className).toContain('bg-amber-500/20');
+    expect(pushBadge?.className).toContain('bg-warning-surface');
+    expect(pushBadge?.className).toContain('text-warning-text');
   });
 
   it('renders the absolute move indices for visible entries', async () => {

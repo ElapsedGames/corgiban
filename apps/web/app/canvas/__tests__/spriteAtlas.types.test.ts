@@ -18,6 +18,8 @@ describe('spriteAtlas.types', () => {
       isSpriteAtlasRequestMessage({
         type: 'SPRITE_ATLAS_REQUEST',
         requestId: 'atlas-1',
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 24,
         dpr: 2,
       }),
@@ -27,6 +29,8 @@ describe('spriteAtlas.types', () => {
       isSpriteAtlasWorkerMessage({
         type: 'SPRITE_ATLAS_READY',
         requestId: 'atlas-1',
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 24,
         dpr: 2,
         sprites: createSpriteRecord(),
@@ -46,6 +50,8 @@ describe('spriteAtlas.types', () => {
     expect(
       isSpriteAtlasRequestMessage({
         type: 'SPRITE_ATLAS_REQUEST',
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 0,
         dpr: 2,
       }),
@@ -55,6 +61,8 @@ describe('spriteAtlas.types', () => {
       isSpriteAtlasRequestMessage({
         type: 'SPRITE_ATLAS_REQUEST',
         requestId: '',
+        skinId: 'classic',
+        mode: 'dark',
         cellSize: 24,
         dpr: 2,
       }),
@@ -64,11 +72,24 @@ describe('spriteAtlas.types', () => {
       isSpriteAtlasWorkerMessage({
         type: 'SPRITE_ATLAS_READY',
         requestId: 'atlas-1',
+        skinId: 'classic',
+        mode: 'light',
         cellSize: 24,
         dpr: 2,
         sprites: {
           floor: { close: vi.fn() },
         },
+      }),
+    ).toBe(false);
+
+    expect(
+      isSpriteAtlasRequestMessage({
+        type: 'SPRITE_ATLAS_REQUEST',
+        requestId: 'atlas-1',
+        skinId: 'unknown',
+        mode: 'dark',
+        cellSize: 24,
+        dpr: 2,
       }),
     ).toBe(false);
 

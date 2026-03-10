@@ -9,7 +9,7 @@ import type {
 
 function createLevelRuntime() {
   return {
-    levelId: 'classic-001',
+    levelId: 'corgiban-test-18',
     width: 1,
     height: 1,
     staticGrid: new Uint8Array([0]),
@@ -93,7 +93,7 @@ describe('createBenchmarkPort cancellation coverage branches', () => {
     const runPromise = port.runSuite({
       suiteRunId: 'bench-cancel-during-run',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,
@@ -186,7 +186,7 @@ describe('createBenchmarkPort cancellation coverage branches', () => {
     const runPromise = port.runSuite({
       suiteRunId: 'bench-cancel-skip-result',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 1,
         timeBudgetMs: 1_000,

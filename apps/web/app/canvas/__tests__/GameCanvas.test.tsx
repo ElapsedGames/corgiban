@@ -17,6 +17,7 @@ import {
   renderCanvasFrame,
   resolveResponsiveCellSize,
   subscribeContainerWidth,
+  subscribeDocumentTheme,
   subscribeDevicePixelRatio,
 } from '../GameCanvas';
 
@@ -98,6 +99,49 @@ describe('GameCanvas', () => {
   it('returns a noop unsubscribe when window is unavailable', () => {
     const updates: number[] = [];
     const unsubscribe = subscribeDevicePixelRatio(undefined, (value) => updates.push(value));
+
+    expect(updates).toEqual([]);
+    expect(() => unsubscribe()).not.toThrow();
+  });
+
+  it('subscribes to document theme class changes when a MutationObserver is available', () => {
+    const documentLike = {
+      documentElement: {
+        classList: {
+          contains: (value: string) => value === 'dark',
+        },
+      },
+    } as unknown as Document;
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    const mutationObserverCtor = vi.fn(
+      () =>
+        ({
+          observe,
+          disconnect,
+        }) as const,
+    );
+    const updates: string[] = [];
+
+    const unsubscribe = subscribeDocumentTheme(documentLike, mutationObserverCtor, (value) => {
+      updates.push(value);
+    });
+
+    expect(updates).toEqual(['dark']);
+    expect(observe).toHaveBeenCalledWith(documentLike.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    unsubscribe();
+    expect(disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a noop unsubscribe when document theme subscription is unavailable', () => {
+    const updates: string[] = [];
+    const unsubscribe = subscribeDocumentTheme(undefined, undefined, (value) => {
+      updates.push(value);
+    });
 
     expect(updates).toEqual([]);
     expect(() => unsubscribe()).not.toThrow();

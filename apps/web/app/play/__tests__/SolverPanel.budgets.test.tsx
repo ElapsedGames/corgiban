@@ -22,6 +22,8 @@ vi.mock('../../ui/Select', () => ({
 }));
 
 vi.mock('../SolverControls', () => ({
+  inlineSelectClass: 'mock-inline-select',
+  REPLAY_SPEED_OPTIONS: [],
   SolverControls: () => <div data-testid="solver-controls-stub" />,
 }));
 
@@ -46,6 +48,7 @@ const baseProps = {
   replayIndex: 0,
   replayTotalSteps: 0,
   replaySpeed: 1,
+  mobileRunLocked: false,
   onSelectAlgorithm: noop,
   onRun: noop,
   onCancel: noop,

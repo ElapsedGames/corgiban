@@ -79,7 +79,7 @@ invariants.ts
 result.ts
 /levels
 src/
-builtinLevels.ts
+corgibanTestLevels.ts
 levelSchema.ts
 /formats
 src/
@@ -168,6 +168,11 @@ hashing.ts
 /tools
 /src
 bestPracticesReport.ts
+levelDifficultyReport.ts
+stylePolicyCheck.ts
+/scripts
+rank-levels.ts
+style-policy-check.ts
 package.json
 tsconfig.json
 
@@ -508,16 +513,18 @@ Package build model:
 Tailwind configuration:
 
 - tailwind.config.ts content globs must include ../../packages/**/src/**/\*.{ts,tsx} so classes used in package components are compiled.
-- Design tokens live in apps/web/app/styles/tokens.css as CSS variables with a matching Tailwind theme extension. Tokens are the single source of truth; do not duplicate values in config or components.
+- Design tokens live in apps/web/app/styles/tokens.css as CSS variables with a matching Tailwind theme extension. Tokens are the single source of truth; mirror them into semantic Tailwind utilities and do not duplicate values in config or components.
+- App components must use semantic Tailwind utilities for shared tokens (`bg-panel`, `text-muted`, `rounded-app-md`, etc.) instead of arbitrary `var(--color-*)` / `var(--radius-*)` classes.
 - Dark mode: class-based; the root app shell resolves and toggles the `<html>` theme class, persists explicit user choice in browser storage, and falls back to `prefers-color-scheme` on first visit.
 
 Routes/pages:
 
-- /
+- / (redirects to /play; no standalone in-app landing page)
 - /play
 - /bench
 - /lab
 - /dev/ui-kit (design system primitives reference - no separate Storybook)
+- Primary app-shell navigation targets /play, /bench, and /lab; /dev/ui-kit stays a direct-access validation route.
 - Define routes with Remix route modules under apps/web/app/routes/.
 - Keep route modules thin; route-specific selectors/thunks/controllers live in adjacent feature modules.
 - Cross-cutting slices (game/solver/bench/settings) live in apps/web/app/state/.
@@ -525,13 +532,15 @@ Routes/pages:
 
 Initial Play page must mirror the existing UI shape:
 
-- Side panel (level info, restart, win/fail, move history)
-- Canvas container (board rendering + next level)
-- Bottom controls (sequence input + send/apply)
+- Side panel (level info, restart/next level, solved-state feedback, move history)
+- Board section (board rendering, level metadata, solved-state banner)
+- Bottom controls (sequence input + apply)
   Additionally add:
 - Solver panel: shows algorithm recommendation from analyzeLevel/chooseAlgorithm (for example,
   "Recommended: bfsPush (7 boxes)"), allows override, run/cancel, progress, apply/animate
   solution, and Retry button when worker is crashed.
+- Board interaction remains main-thread owned and must support keyboard-first play plus
+  adjacent-tile tap/click and swipe gestures.
 
 Canvas rendering:
 
@@ -640,6 +649,8 @@ Add/ensure these root scripts (pnpm):
 - pnpm test:smoke (Playwright route/persistence/offline smoke)
 - pnpm dev
 - pnpm build
+- pnpm style:check (apps/web styling contract; required when touching web styling primitives/tokens)
+- pnpm levels:rank (benchmark built-in levels and suggest launch ordering with the default difficulty heuristic)
 
 Vitest coverage thresholds must enforce:
 
@@ -655,6 +666,8 @@ Formatting policy:
 CI gate (required on every PR):
 
 - pnpm format:check
+- pnpm style:check
+- pnpm issue:check
 - pnpm typecheck
 - pnpm lint
 - pnpm test:coverage (enforced thresholds)
@@ -664,7 +677,9 @@ CI gate (required on every PR):
 
 Pre-commit hooks:
 
+- staged ASCII normalization (`pnpm exec tsx tools/scripts/normalize-ascii.ts --staged`)
 - pnpm format:check
+- staged-file style-policy check (`pnpm exec tsx tools/scripts/style-policy-check.ts`)
 - unit tests for affected packages
 - affected-test strategy must be explicit and deterministic (for example, changed workspace filter using pnpm --filter)
 - encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
@@ -683,7 +698,7 @@ Testing requirements:
 - formats: import/export parsing, normalization rules, open/variant detection, and warnings
 - solver: reachability basics, corner deadlock rule, BFS solves small level(s), cancellation behavior (deterministic), chooseAlgorithm covering every rule branch, analyzeLevel covering edge cases (0 boxes, max boxes, minimal grid)
 - worker: protocol schema validation, cancellation path, throttled progress (deterministic simulation), workerHealth transitions on onerror/onmessageerror
-- web: key component behaviors (dispatches, renders state), keyboard input handler, buildRenderPlan output correctness for known states
+- web: key component behaviors (dispatches, renders state), keyboard and board-pointer input handlers, buildRenderPlan output correctness for known states
 
 Avoid sleep-based tests; use fake timers for playback.
 
@@ -716,7 +731,7 @@ Decision dependencies: ADR-0001 (Remix-first app shell) and ADR-0002 (monorepo b
 1. Create pnpm workspace + root configs (tsconfig base, eslint with eslint-config-prettier, prettier) and scaffold `apps/web` as Remix in Vite mode
 2. Create package folders with public entrypoints (src/index.ts), TS project refs, package.json exports, and optional types fields only when declaration emit is enabled
 3. Add lint/typecheck/test scripts and make them pass
-4. Add pre-commit hooks (format:check + deterministic affected tests + encoding check)
+4. Add pre-commit hooks (staged ASCII normalization + format:check + staged-file style-policy check + deterministic affected tests + encoding check)
 5. Add CONTRIBUTING.md: run-tests, add-algorithm, add-metric, formatting rules
 6. Add root LLM_GUIDE.md canonical + AGENTS.md / CLAUDE.md wrappers
 
@@ -834,12 +849,24 @@ Deferred notes:
   SSR-safe browser-resource ownership model or supersede it explicitly.
 
 Phase 7 - UX and route-responsibility pass (in progress)
-Decision dependencies: capture an ADR if route ownership, store ownership, or cross-route workflow contracts change materially.
+Decision dependencies: ADR-0029 (play-first root entrypoint and specialist route charters). Capture
+an additional ADR if store ownership or cross-route workflow contracts change materially beyond that
+baseline.
 
-Status: In progress (root app-shell theme ownership, shared navigation, landing page, the
-route-level information-architecture/accessibility refresh, and the initial `/lab` authoring-flow
-promotion for CORG-first format conversion have landed; explicit cross-route handoff flows and
-`pnpm best-practices` report wiring remain pending).
+Status: In progress (root app-shell theme ownership, shared navigation, the root redirect to
+`/play`, the route-level information-architecture/accessibility refresh, the initial `/lab`
+authoring-flow promotion for CORG-first format conversion, and the first `/play` mobile ergonomics
+pass have landed; explicit cross-route handoff flows and `pnpm best-practices` report wiring
+remain pending).
+
+Current increment:
+
+- `/play` now supports adjacent-tile tap/click and swipe board input, a solved-state `Enter`
+  shortcut for advancing levels, and narrow-viewport board auto-scroll before replay animation.
+- `/play` mobile layouts now promote the board to the primary surface, trim visible controls to
+  gameplay-first actions, and lock the mobile `Run Solve` CTA after non-success solver outcomes
+  until the level changes.
+- `/lab` Preview / Play now reuses the same adjacent-tile tap/click and swipe controls as `/play`.
 
 1. Define explicit route charters, entry points, and non-goals for `/play`, `/lab`, and `/bench`:
    - `/play`: primary gameplay, undo/restart/history, replay, lightweight solver help, and quick open/import actions
@@ -853,6 +880,8 @@ promotion for CORG-first format conversion have landed; explicit cross-route han
    - open the current level in `/play`
    - open the current level or imported text in `/lab`
    - send a level or pack from `/lab` to `/bench`
+   - support opening imported custom level packs in `/play` as an app-owned temporary collection
+     with next/previous navigation, without merging them into the built-in catalog by default
    - jump from benchmark results back to `/play` or `/lab`
 4. [done] Rework route navigation and page information architecture around primary jobs rather than implementation detail:
    - clearer route labels and help text
@@ -882,6 +911,17 @@ promotion for CORG-first format conversion have landed; explicit cross-route han
 - replace opaque `P` / `W` / `F` issue labels in human-facing output with descriptive severity/size wording
 - make the generated report explicitly define the meaning of each reported size/severity bucket instead of assuming shorthand knowledge
 
+11. Add external/custom pack support to primary gameplay flows:
+
+- accept an app-owned imported pack/catalog contract for `/play` instead of relying only on
+  `builtinLevels`
+- preserve the play-first route charter by treating imported packs as explicit open/import
+  workflows, not as silent global catalog mutation
+- define how `/lab` or file-import actions hand off a single custom level vs a multi-level pack
+  to `/play`
+- keep pack ownership adapter-local unless a later ADR explicitly promotes it into shared store
+  state
+
 Phase 8 - Solver optimization and advanced search (planned)
 Decision dependency: ADR-0009 (solver-optimized state representation and hashing).
 
@@ -899,14 +939,20 @@ Decision dependency: ADR-0009 (solver-optimized state representation and hashing
 12. Optimize `expandSolution` box updates by replacing per-push linear `indexOf` lookup with an indexed structure (reverse index map or equivalent), with regression coverage for long solutions.
 
 Phase 9 - UI, visual, and sprite polish pass (planned)
-Decision dependencies: capture an ADR if the renderer asset pipeline, theme system, or animation strategy changes materially.
+Decision dependencies: ADR-0030 (app-local board skin registry). Capture an additional ADR if the
+renderer asset pipeline, theme system, or animation strategy changes materially beyond that
+baseline.
 
 1. Establish a cohesive visual direction across the app:
    - typography, color tokens, spacing scale, panel hierarchy, and icon treatment
    - route-specific emphasis without breaking the shared design system
 2. Introduce a sprite or illustrated asset pipeline for the board:
+   - extend the existing app-local board-skin contract instead of creating a separate visual-source path
    - walls, floors, goals, boxes, player/corgi, and box-on-goal states
    - crisp scaling on desktop/mobile and a safe fallback while assets load or if sprites are disabled
+   - decide whether board palettes stay app-local TS data or move to a generated worker-safe
+     artifact derived from shared design tokens; do not make worker paths depend on direct CSS
+     variable reads
 3. Improve board readability and game feel:
    - stronger target visibility
    - clearer wall depth/edge definition
@@ -985,7 +1031,8 @@ Phase 11 - Race Mode and multi-runner play (planned)
 - `pnpm test:coverage` passes with enforced thresholds (>=95% overall)
 - `pnpm test:smoke` passes with required service-worker readiness checks on the production path
 - `pnpm dev` runs:
-  - /play supports keyboard moves, restart, undo, move history
+  - / redirects to /play
+  - /play supports keyboard moves, adjacent-tile tap/click + swipe board input, restart, undo, and move history
   - /play solver panel shows algorithm recommendation (for example, "Recommended: bfsPush (7 boxes)") and allows override
   - /play solver panel can start/cancel a solve; progress updates; result can be applied/animated
   - /play solver panel shows Retry button when worker is crashed; clicking it recreates the worker

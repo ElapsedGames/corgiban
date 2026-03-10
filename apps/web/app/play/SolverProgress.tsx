@@ -35,19 +35,19 @@ export function SolverProgress({ status, progress, lastResult, error }: SolverPr
     (status === 'succeeded' && lastResult?.status !== 'solved');
 
   const sectionClass = [
-    'space-y-3 rounded-[var(--radius-md)] border p-3',
+    'space-y-3 rounded-app-md border p-3',
     isRunning
       ? 'solver-panel--running'
       : isSucceeded
         ? 'solver-panel--succeeded'
         : isFailed
           ? 'solver-panel--failed'
-          : 'border-[color:var(--color-border)] bg-[color:var(--color-bg)]',
+          : 'border-border bg-bg',
   ].join(' ');
 
   return (
     <section aria-label="Solver status" className={sectionClass}>
-      <div className="flex items-center justify-between text-xs uppercase tracking-wide text-[color:var(--color-muted)]">
+      <div className="flex items-center justify-between text-xs uppercase tracking-wide text-muted">
         <span>Status</span>
         <span aria-live="polite" aria-atomic="true">
           {statusLabel(status)}
@@ -55,51 +55,39 @@ export function SolverProgress({ status, progress, lastResult, error }: SolverPr
       </div>
 
       {progress ? (
-        <dl className="grid grid-cols-2 gap-2 text-xs text-[color:var(--color-muted)] sm:grid-cols-3">
+        <dl className="grid grid-cols-2 gap-2 text-xs text-muted sm:grid-cols-3">
           <div>
             <dt>Elapsed</dt>
-            <dd className="text-sm font-semibold text-[color:var(--color-fg)]">
-              {Math.round(progress.elapsedMs)} ms
-            </dd>
+            <dd className="text-sm font-semibold text-fg">{Math.round(progress.elapsedMs)} ms</dd>
           </div>
           <div>
             <dt>Expanded</dt>
-            <dd className="text-sm font-semibold text-[color:var(--color-fg)]">
-              {progress.expanded}
-            </dd>
+            <dd className="text-sm font-semibold text-fg">{progress.expanded}</dd>
           </div>
           <div>
             <dt>Generated</dt>
-            <dd className="text-sm font-semibold text-[color:var(--color-fg)]">
-              {progress.generated}
-            </dd>
+            <dd className="text-sm font-semibold text-fg">{progress.generated}</dd>
           </div>
           <div>
             <dt>Depth</dt>
-            <dd className="text-sm font-semibold text-[color:var(--color-fg)]">{progress.depth}</dd>
+            <dd className="text-sm font-semibold text-fg">{progress.depth}</dd>
           </div>
           <div>
             <dt>Frontier</dt>
-            <dd className="text-sm font-semibold text-[color:var(--color-fg)]">
-              {progress.frontier}
-            </dd>
+            <dd className="text-sm font-semibold text-fg">{progress.frontier}</dd>
           </div>
           {progress.bestHeuristic !== undefined ? (
             <div>
               <dt>Best heuristic</dt>
-              <dd className="text-sm font-semibold text-[color:var(--color-fg)]">
-                {progress.bestHeuristic}
-              </dd>
+              <dd className="text-sm font-semibold text-fg">{progress.bestHeuristic}</dd>
             </div>
           ) : null}
         </dl>
       ) : null}
 
       {lastResult ? (
-        <div className="rounded-[var(--radius-sm)] border border-[color:var(--color-border)] p-2 text-xs text-[color:var(--color-muted)]">
-          <p className="font-semibold text-[color:var(--color-fg)]">
-            Last result: {lastResult.status}
-          </p>
+        <div className="rounded-app-sm border border-border p-2 text-xs text-muted">
+          <p className="font-semibold text-fg">Last result: {lastResult.status}</p>
           <p>
             Moves: {lastResult.metrics.moveCount} | Pushes: {lastResult.metrics.pushCount}
           </p>
@@ -109,9 +97,7 @@ export function SolverProgress({ status, progress, lastResult, error }: SolverPr
         </div>
       ) : null}
 
-      {error ? (
-        <p className="break-words text-xs font-semibold text-red-600 dark:text-red-300">{error}</p>
-      ) : null}
+      {error ? <p className="break-words text-xs font-semibold text-error-text">{error}</p> : null}
     </section>
   );
 }

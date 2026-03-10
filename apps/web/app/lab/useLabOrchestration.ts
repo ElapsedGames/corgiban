@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { applyMove, applyMoves, createGame, parseLevel, type GameState } from '@corgiban/core';
+import type { Direction } from '@corgiban/shared';
 import {
   DEFAULT_NODE_BUDGET,
   DEFAULT_SOLVER_TIME_BUDGET_MS,
@@ -38,6 +39,7 @@ export type LabOrchestrationState = {
   setFormat: (format: LabInputFormat) => void;
   setInput: (input: string) => void;
   applyParse: () => void;
+  movePreview: (direction: Direction) => void;
   resetPreview: () => void;
   runSolve: () => void;
   cancelSolve: () => void;
@@ -98,6 +100,12 @@ export function useLabOrchestration(): LabOrchestrationState {
   const [benchState, setBenchState] = useState<BenchState>({ status: 'idle' });
 
   const authoredLevelRuntime = useMemo(() => parseLevel(activeLevel), [activeLevel]);
+  const movePreview = useCallback((direction: Direction) => {
+    setPreviewState((current) => {
+      const step = applyMove(current, direction);
+      return step.changed ? step.state : current;
+    });
+  }, []);
 
   const isActiveRun = (activeRun: RunToken | null, candidate: RunToken) => {
     return (
@@ -144,17 +152,12 @@ export function useLabOrchestration(): LabOrchestrationState {
 
   useEffect(() => {
     return subscribeLabKeyboardControls(typeof window === 'undefined' ? undefined : window, {
-      onMove: (direction) => {
-        setPreviewState((current) => {
-          const step = applyMove(current, direction);
-          return step.changed ? step.state : current;
-        });
-      },
+      onMove: movePreview,
       onReset: () => {
         setPreviewState(createGame(authoredLevelRuntime));
       },
     });
-  }, [authoredLevelRuntime]);
+  }, [authoredLevelRuntime, movePreview]);
 
   const applyParse = () => {
     try {
@@ -437,6 +440,7 @@ export function useLabOrchestration(): LabOrchestrationState {
     setFormat,
     setInput,
     applyParse,
+    movePreview,
     resetPreview,
     runSolve,
     cancelSolve,

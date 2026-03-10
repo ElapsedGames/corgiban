@@ -3,8 +3,16 @@ import { describe, expect, it } from 'vitest';
 // @ts-ignore Script helpers are authored as Node ESM .mjs files.
 import * as issueTracker from '../../scripts/issueTracker.mjs';
 
-const { buildKnownIssuesContent, closeIssueContent, getSectionBody, parseFrontmatter } =
-  issueTracker;
+const {
+  buildKnownIssuesContent,
+  closeIssueContent,
+  getSectionBody,
+  issueFilePath,
+  parseFrontmatter,
+  replaceSection,
+  todayIsoDate,
+  updateFrontmatter,
+} = issueTracker;
 
 const ISSUE_TEMPLATE = `---
 id: BUG-999
@@ -118,5 +126,134 @@ describe('issueTracker', () => {
     expect(output).toContain('- DEBT-001 -- Deferred debt (debt, lab)');
     expect(output).toContain('## Fixed');
     expect(output).toContain('- BUG-002 -- Fixed bug -- 2026-03-07 by Sly');
+  });
+
+  it('includes regression tag in open issue lines', () => {
+    const output = buildKnownIssuesContent([
+      {
+        id: 'BUG-010',
+        title: 'Regressed feature',
+        type: 'bug',
+        severity: 'medium',
+        area: 'play',
+        regression: true,
+        status: 'open',
+      },
+    ]);
+    expect(output).toContain('(bug, medium, play, regression)');
+    expect(output).toContain('## Regressions');
+  });
+
+  it('shows fixed issue without fixed_by', () => {
+    const output = buildKnownIssuesContent([
+      {
+        id: 'BUG-020',
+        title: 'Auto-fixed',
+        type: 'bug',
+        severity: 'low',
+        area: 'core',
+        regression: false,
+        status: 'fixed',
+      },
+    ]);
+    expect(output).toContain('- BUG-020 -- Auto-fixed -- unknown date');
+    expect(output).toMatch(/- BUG-020 -- Auto-fixed -- unknown date\n/);
+    expect(output).not.toContain('unknown date by');
+  });
+
+  it('returns empty dashboard when no issues are provided', () => {
+    const output = buildKnownIssuesContent([]);
+    expect(output).toContain('_0 open, 0 fixed, 0 deferred_');
+    expect(output).not.toContain('## Open');
+    expect(output).not.toContain('## Fixed');
+  });
+});
+
+describe('parseFrontmatter', () => {
+  it('parses typed values: null, true, false, and strings', () => {
+    const fm = parseFrontmatter(ISSUE_TEMPLATE);
+    expect(fm.id).toBe('BUG-999');
+    expect(fm.regression).toBe(false);
+    expect(fm.introduced_in).toBeNull();
+    expect(fm.status).toBe('open');
+  });
+
+  it('skips lines without a colon', () => {
+    const content = '---\nid: X\nno-colon-line\ntitle: Y\n---\n';
+    const fm = parseFrontmatter(content);
+    expect(fm.id).toBe('X');
+    expect(fm.title).toBe('Y');
+  });
+});
+
+describe('updateFrontmatter', () => {
+  it('updates existing fields in frontmatter', () => {
+    const updated = updateFrontmatter(ISSUE_TEMPLATE, { status: 'in-progress', owner: 'Sly' });
+    const fm = parseFrontmatter(updated);
+    expect(fm.status).toBe('in-progress');
+    expect(fm.owner).toBe('Sly');
+  });
+
+  it('adds new fields that do not exist in frontmatter', () => {
+    const updated = updateFrontmatter(ISSUE_TEMPLATE, { custom_field: 'hello' });
+    const fm = parseFrontmatter(updated);
+    expect(fm.custom_field).toBe('hello');
+  });
+
+  it('skips undefined values', () => {
+    const updated = updateFrontmatter(ISSUE_TEMPLATE, { status: undefined, owner: 'Sly' });
+    const fm = parseFrontmatter(updated);
+    expect(fm.status).toBe('open');
+    expect(fm.owner).toBe('Sly');
+  });
+
+  it('serializes boolean and null values correctly', () => {
+    const updated = updateFrontmatter(ISSUE_TEMPLATE, { regression: true, branch: null });
+    const fm = parseFrontmatter(updated);
+    expect(fm.regression).toBe(true);
+    expect(fm.branch).toBeNull();
+  });
+});
+
+describe('replaceSection', () => {
+  it('replaces the body of a section', () => {
+    const replaced = replaceSection(ISSUE_TEMPLATE, 'Summary', 'New summary text.');
+    expect(getSectionBody(replaced, 'Summary')).toBe('New summary text.');
+  });
+
+  it('preserves other sections when replacing one', () => {
+    const replaced = replaceSection(ISSUE_TEMPLATE, 'Summary', 'Changed.');
+    expect(getSectionBody(replaced, 'Resolution')).toBe('(fill in when closing)');
+    expect(getSectionBody(replaced, 'Verification')).toContain('test added or updated');
+  });
+
+  it('replaces a section with empty body', () => {
+    const replaced = replaceSection(ISSUE_TEMPLATE, 'Resolution', '');
+    expect(getSectionBody(replaced, 'Resolution')).toBe('');
+  });
+});
+
+describe('getSectionBody', () => {
+  it('extracts body text from a section', () => {
+    expect(getSectionBody(ISSUE_TEMPLATE, 'Summary')).toBe('Example summary.');
+  });
+
+  it('throws for a missing section', () => {
+    expect(() => getSectionBody(ISSUE_TEMPLATE, 'Nonexistent')).toThrow('Expected section');
+  });
+});
+
+describe('todayIsoDate', () => {
+  it('returns a YYYY-MM-DD string', () => {
+    const result = todayIsoDate();
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe('issueFilePath', () => {
+  it('returns a path ending with the issue ID and .md extension', () => {
+    const result = issueFilePath('BUG-001');
+    expect(result).toContain('BUG-001.md');
+    expect(result).toContain('.tracker');
   });
 });

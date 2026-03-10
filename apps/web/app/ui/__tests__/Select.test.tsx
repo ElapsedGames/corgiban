@@ -32,7 +32,8 @@ describe('Select', () => {
 
     expect(html).toContain('aria-invalid="true"');
     expect(html).toContain('aria-describedby="algorithm-select-error"');
-    expect(html).toContain('border-red-400');
+    expect(html).toContain('border-error');
+    expect(html).toContain('text-error-text');
     expect(html).toContain('custom-class');
     expect(html).toContain('Algorithm is required.');
     expect(html).not.toContain('Hint should be hidden when error is present.');

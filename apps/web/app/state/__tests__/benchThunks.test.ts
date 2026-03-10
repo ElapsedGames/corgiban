@@ -54,7 +54,7 @@ function createResult(overrides: Partial<BenchmarkRunRecord> = {}): BenchmarkRun
     suiteRunId: 'bench-1',
     runId: 'bench-1-1',
     sequence: 1,
-    levelId: builtinLevels[0]?.id ?? 'classic-001',
+    levelId: builtinLevels[0]?.id ?? 'corgiban-test-18',
     algorithmId,
     repetition: 1,
     options,
@@ -149,7 +149,7 @@ describe('benchThunks', () => {
       settings: { debug: false },
       bench: {
         suite: {
-          levelIds: [builtinLevels[0]?.id ?? 'classic-001'],
+          levelIds: [builtinLevels[0]?.id ?? 'corgiban-test-18'],
           algorithmIds: ['bfsPush'],
           repetitions: 1,
           timeBudgetMs: 1000,
@@ -174,7 +174,7 @@ describe('benchThunks', () => {
       settings: { debug: false },
       bench: {
         suite: {
-          levelIds: [builtinLevels[0]?.id ?? 'classic-001'],
+          levelIds: [builtinLevels[0]?.id ?? 'corgiban-test-18'],
           algorithmIds: ['bfsPush'],
           repetitions: 0,
           timeBudgetMs: 1000,
@@ -215,7 +215,7 @@ describe('benchThunks', () => {
       return [];
     });
 
-    const levelId = builtinLevels[0]?.id ?? 'classic-001';
+    const levelId = builtinLevels[0]?.id ?? 'corgiban-test-18';
     const getState = () => ({
       settings: { debug: false },
       bench: {
@@ -325,7 +325,7 @@ describe('benchThunks', () => {
       persistencePort: benchmarkStorage,
     });
 
-    const levelId = builtinLevels[0]?.id ?? 'classic-001';
+    const levelId = builtinLevels[0]?.id ?? 'corgiban-test-18';
     store.dispatch(setSuiteLevelIds([levelId]));
     store.dispatch(setSuiteAlgorithmIds(['bfsPush']));
     store.dispatch(setSuiteRepetitions(1));
@@ -393,7 +393,7 @@ describe('benchThunks', () => {
       persistencePort: benchmarkStorage,
     });
 
-    const levelId = builtinLevels[0]?.id ?? 'classic-001';
+    const levelId = builtinLevels[0]?.id ?? 'corgiban-test-18';
     store.dispatch(setSuiteLevelIds([levelId]));
     store.dispatch(setSuiteAlgorithmIds(['bfsPush']));
     store.dispatch(setSuiteRepetitions(2));
@@ -549,7 +549,7 @@ describe('benchThunks', () => {
     expect(store.getState().bench.diagnostics.lastError).toContain('Select at least one level');
     expect(benchmarkPort.runSuite).not.toHaveBeenCalled();
 
-    store.dispatch(setSuiteLevelIds([builtinLevels[0]?.id ?? 'classic-001']));
+    store.dispatch(setSuiteLevelIds([builtinLevels[0]?.id ?? 'corgiban-test-18']));
     store.dispatch(setSuiteAlgorithmIds([]));
     await store.dispatch(runBenchSuite());
     expect(store.getState().bench.diagnostics.lastError).toContain('Select at least one algorithm');
@@ -786,7 +786,7 @@ describe('benchThunks', () => {
       persistencePort: benchmarkStorage,
     });
 
-    const firstLevelId = builtinLevels[0]?.id ?? 'classic-001';
+    const firstLevelId = builtinLevels[0]?.id ?? 'corgiban-test-18';
     const secondLevelId = builtinLevels[1]?.id ?? firstLevelId;
     const expectedLevelIds =
       firstLevelId === secondLevelId ? [firstLevelId] : [firstLevelId, secondLevelId];
@@ -993,7 +993,7 @@ describe('benchThunks', () => {
       persistencePort: benchmarkStorage,
     });
 
-    const levelId = builtinLevels[0]?.id ?? 'classic-001';
+    const levelId = builtinLevels[0]?.id ?? 'corgiban-test-18';
     store.dispatch(setSuiteLevelIds([levelId]));
     store.dispatch(setSuiteAlgorithmIds(['bfsPush']));
     store.dispatch(setSuiteRepetitions(1));

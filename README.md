@@ -22,10 +22,11 @@ stays host-neutral.
 
 Current routes:
 
-- `/play`: playable level flow with keyboard controls, history, undo/restart, solver run/cancel, progress, apply/animate solution, and worker retry flow.
+- `/`: redirects to `/play`, keeping gameplay as the primary product entry.
+- `/play`: playable level flow with keyboard plus tap/click/swipe board input, history, undo/restart, solver run/cancel, progress, apply/animate solution, and worker retry flow.
 - `/bench`: benchmark suite builder (including warm-up reps), run/cancel controls, progress + diagnostics, persisted results table, analytics/comparison panel, and benchmark import/export flows.
 - `/lab`: Level Lab route for authoring and converting CORG/XSB/SOK/SLC input, previewing levels, and running one-click worker solve/bench checks.
-- `/dev/ui-kit`: UI primitive validation route.
+- `/dev/ui-kit`: UI primitive validation route (direct access, not primary nav).
 
 ## Goals
 
@@ -63,11 +64,13 @@ pnpm -C apps/web preview
 
 ```bash
 pnpm format:check
+pnpm style:check
 pnpm typecheck
 pnpm lint
 pnpm test
 pnpm test:coverage
 pnpm test:smoke
+pnpm levels:rank
 pnpm exec depcruise --config dependency-cruiser.config.mjs packages/ apps/
 node tools/scripts/encoding-check.mjs
 ```
@@ -115,6 +118,7 @@ Planned next-phase extensions:
 - `docs/project-plan.md` (phases, tasks, integration proofs)
 - `docs/dev-tools-spec.md` (boundary and tooling implementation details)
 - `docs/Engineering-Process-Playbook.md` (execution/governance process)
+- `docs/cloudflare-pages-deployment.md` (first-time Cloudflare Pages setup and deploy flow)
 - `docs/review-notes.md` (review-sensitive existing contracts that are intentional, not defects)
 - `docs/adr/*` (architecture decision records)
 - `AGENTS.md` and `CLAUDE.md` (thin wrappers pointing to `LLM_GUIDE.md`)

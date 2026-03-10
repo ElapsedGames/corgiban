@@ -41,7 +41,7 @@ function collectByType(node: unknown, targetType: unknown, matches: ReactElement
 function createSuiteBuilderProps() {
   return {
     suite: {
-      levelIds: ['classic-001'],
+      levelIds: ['corgiban-test-18'],
       algorithmIds: ['bfsPush' as const],
       repetitions: 2,
       warmupRepetitions: 1,
@@ -50,8 +50,8 @@ function createSuiteBuilderProps() {
     },
     status: 'idle' as const,
     availableLevels: [
-      { id: 'classic-001', name: 'Classic 001' },
-      { id: 'classic-002', name: 'Classic 002' },
+      { id: 'corgiban-test-18', name: 'Classic 001' },
+      { id: 'corgiban-test-22', name: 'Classic 002' },
     ],
     availableAlgorithms: [
       { id: 'bfsPush' as const, label: 'BFS Push' },
@@ -400,7 +400,7 @@ describe('BenchmarkSuiteBuilder', () => {
       bfsPushInput.click();
     });
 
-    expect(props.onToggleLevel).toHaveBeenCalledWith('classic-001');
+    expect(props.onToggleLevel).toHaveBeenCalledWith('corgiban-test-18');
     expect(props.onToggleAlgorithm).toHaveBeenCalledWith('bfsPush');
     expect(idaStarInput.disabled).toBe(true);
 
@@ -446,6 +446,22 @@ describe('BenchmarkSuiteBuilder', () => {
 });
 
 describe('BenchmarkExportImportControls', () => {
+  it('marks clear-results as the destructive action in the import-export group', () => {
+    const html = renderToStaticMarkup(
+      <BenchmarkExportImportControls
+        onExportReport={vi.fn()}
+        onImportReport={vi.fn()}
+        onExportLevelPack={vi.fn()}
+        onImportLevelPack={vi.fn()}
+        onClearResults={vi.fn()}
+      />,
+    );
+
+    const clearResultsButton = html.match(/<button[^>]*>Clear Results<\/button>/);
+    expect(clearResultsButton).not.toBeNull();
+    expect(clearResultsButton?.[0]).toContain('bg-error');
+  });
+
   it('wires all action buttons and disable flags', async () => {
     const onExportReport = vi.fn();
     const onImportReport = vi.fn();

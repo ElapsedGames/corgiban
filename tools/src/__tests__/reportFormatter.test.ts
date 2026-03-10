@@ -56,4 +56,13 @@ describe('formatReport', () => {
     const output = formatReport(records, new Date('2021-01-01T00:00:00.000Z'));
     expect(output).not.toContain('[time]');
   });
+
+  it('falls back to raw sizeStatus value when status is not P/W/F', () => {
+    const records = [{ path: 'mystery.ts', lines: 5, sizeStatus: 'X' as 'P', hasTimeUsage: false }];
+    const output = formatReport(records, new Date('2021-01-01T00:00:00.000Z'));
+    expect(output).toContain('X');
+    expect(output).not.toContain('pass');
+    expect(output).not.toContain('warn');
+    expect(output).not.toContain('fail');
+  });
 });

@@ -1,16 +1,13 @@
+import {
+  DEFAULT_BOARD_RENDER_MODE,
+  DEFAULT_BOARD_SKIN_ID,
+  resolveBoardPalette,
+  type BoardPalette,
+} from './boardSkin';
 import type { RenderPlan } from './renderPlan';
 import type { SpriteAtlas } from './spriteAtlas.types';
 
-const palette = {
-  background: '#0b1120',
-  floor: '#111827',
-  wall: '#1f2937',
-  target: '#22d3ee',
-  box: '#f59e0b',
-  boxOnTarget: '#22c55e',
-  player: '#38bdf8',
-  grid: 'rgba(148, 163, 184, 0.15)',
-};
+const fallbackPalette = resolveBoardPalette(DEFAULT_BOARD_SKIN_ID, DEFAULT_BOARD_RENDER_MODE);
 
 function spriteKeyForCell(cell: RenderPlan['cells'][number]): keyof SpriteAtlas['sprites'] {
   if (cell.wall) {
@@ -38,6 +35,7 @@ export function draw(
   ctx: CanvasRenderingContext2D,
   plan: RenderPlan,
   atlas?: SpriteAtlas | null,
+  palette: BoardPalette = fallbackPalette,
 ): void {
   const { cellSize, dpr, width, height, cells } = plan;
   const logicalWidth = width * cellSize;

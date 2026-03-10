@@ -10,6 +10,9 @@ const level: LevelDefinition = {
 };
 
 describe('GameCanvas effects', () => {
+  const resolveInitialState = <T,>(initialValue: T | (() => T)): T =>
+    typeof initialValue === 'function' ? (initialValue as () => T)() : initialValue;
+
   afterEach(() => {
     vi.resetModules();
     vi.unstubAllGlobals();
@@ -66,10 +69,11 @@ describe('GameCanvas effects', () => {
       };
       return {
         ...actual,
+        useCallback: <T extends (...args: never[]) => unknown>(callback: T) => callback,
         useEffect: runEffect,
         useLayoutEffect: runEffect,
         useRef: () => ({ current: canvas }),
-        useState: (initialValue: number | null) => {
+        useState: <T,>(initialValue: T | (() => T)) => {
           stateCallCount += 1;
           if (stateCallCount === 1) {
             return [initialValue, setDpr];
@@ -79,7 +83,11 @@ describe('GameCanvas effects', () => {
             return [40, setContainerWidth];
           }
 
-          return [initialValue, setAtlas];
+          if (stateCallCount === 3) {
+            return [initialValue, setAtlas];
+          }
+
+          return [resolveInitialState(initialValue), vi.fn()];
         },
       };
     });
@@ -145,10 +153,11 @@ describe('GameCanvas effects', () => {
       };
       return {
         ...actual,
+        useCallback: <T extends (...args: never[]) => unknown>(callback: T) => callback,
         useEffect: runEffect,
         useLayoutEffect: runEffect,
         useRef: () => ({ current: canvas }),
-        useState: (initialValue: number | null) => {
+        useState: <T,>(initialValue: T | (() => T)) => {
           stateCallCount += 1;
           if (stateCallCount === 1) {
             return [initialValue, setDpr];
@@ -158,7 +167,11 @@ describe('GameCanvas effects', () => {
             return [40, setContainerWidth];
           }
 
-          return [initialValue, setAtlas];
+          if (stateCallCount === 3) {
+            return [initialValue, setAtlas];
+          }
+
+          return [resolveInitialState(initialValue), vi.fn()];
         },
       };
     });
@@ -208,7 +221,7 @@ describe('GameCanvas effects', () => {
     };
 
     const atlas = {
-      key: '10:1',
+      key: 'classic:light:10:1',
       sprites: {
         floor: {} as ImageBitmap,
         wall: {} as ImageBitmap,
@@ -238,10 +251,11 @@ describe('GameCanvas effects', () => {
       };
       return {
         ...actual,
+        useCallback: <T extends (...args: never[]) => unknown>(callback: T) => callback,
         useEffect: runEffect,
         useLayoutEffect: runEffect,
         useRef: () => ({ current: canvas }),
-        useState: (initialValue: number | null) => {
+        useState: <T,>(initialValue: T | (() => T)) => {
           stateCallCount += 1;
           if (stateCallCount === 1) {
             return [initialValue, setDpr];
@@ -251,7 +265,11 @@ describe('GameCanvas effects', () => {
             return [initialValue, vi.fn()];
           }
 
-          return [initialValue, setAtlas];
+          if (stateCallCount === 3) {
+            return [initialValue, setAtlas];
+          }
+
+          return [resolveInitialState(initialValue), vi.fn()];
         },
       };
     });
@@ -272,7 +290,7 @@ describe('GameCanvas effects', () => {
       cellSize: 10,
     });
 
-    expect(getSpriteAtlasMock).toHaveBeenCalledWith(10, 1);
+    expect(getSpriteAtlasMock).toHaveBeenCalledWith(10, 1, 'classic', 'light');
     expect(retainSpriteAtlasMock).toHaveBeenCalledWith(atlas);
     expect(setAtlas).toHaveBeenCalledWith(atlas);
     expect(drawMock).toHaveBeenCalledTimes(1);
@@ -280,5 +298,97 @@ describe('GameCanvas effects', () => {
     cleanups.forEach((cleanup) => cleanup());
     expect(releaseSpriteAtlasMock).toHaveBeenCalledWith(atlas);
     expect(removeEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
+  });
+
+  it('ignores atlas resolutions that arrive after cleanup', async () => {
+    const addEventListener = vi.fn();
+    const removeEventListener = vi.fn();
+    vi.stubGlobal('window', {
+      devicePixelRatio: 1,
+      addEventListener,
+      removeEventListener,
+    });
+
+    const cleanups: Array<() => void> = [];
+    const setAtlas = vi.fn();
+    let stateCallCount = 0;
+    const canvas = {
+      width: 0,
+      height: 0,
+      parentElement: null,
+      style: { width: '', height: '', maxWidth: '' },
+      getContext: vi.fn(() => null),
+    };
+    const atlas = {
+      key: 'classic:light:10:1',
+      sprites: {
+        floor: {} as ImageBitmap,
+        wall: {} as ImageBitmap,
+        target: {} as ImageBitmap,
+        box: {} as ImageBitmap,
+        boxOnTarget: {} as ImageBitmap,
+        player: {} as ImageBitmap,
+        playerOnTarget: {} as ImageBitmap,
+      },
+    };
+    let resolveAtlas!: (value: typeof atlas | null) => void;
+    const getSpriteAtlasMock = vi.fn(
+      () =>
+        new Promise<typeof atlas | null>((resolve) => {
+          resolveAtlas = resolve;
+        }),
+    );
+    const retainSpriteAtlasMock = vi.fn();
+    const releaseSpriteAtlasMock = vi.fn();
+
+    vi.doMock('react', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('react')>();
+      const runEffect = (effect: () => void | (() => void)) => {
+        const cleanup = effect();
+        if (typeof cleanup === 'function') {
+          cleanups.push(cleanup);
+        }
+      };
+      return {
+        ...actual,
+        useCallback: <T extends (...args: never[]) => unknown>(callback: T) => callback,
+        useEffect: runEffect,
+        useLayoutEffect: runEffect,
+        useRef: () => ({ current: canvas }),
+        useState: <T,>(initialValue: T | (() => T)) => {
+          stateCallCount += 1;
+          if (stateCallCount < 3) {
+            return [initialValue, vi.fn()];
+          }
+
+          if (stateCallCount === 3) {
+            return [initialValue, setAtlas];
+          }
+
+          return [resolveInitialState(initialValue), vi.fn()];
+        },
+      };
+    });
+    vi.doMock('../spriteAtlas.client', () => ({
+      getSpriteAtlas: getSpriteAtlasMock,
+      retainSpriteAtlas: retainSpriteAtlasMock,
+      releaseSpriteAtlas: releaseSpriteAtlasMock,
+    }));
+
+    const { GameCanvas } = await import('../GameCanvas');
+
+    GameCanvas({
+      state: createGame(parseLevel(level)),
+      cellSize: 10,
+    });
+
+    cleanups[cleanups.length - 1]?.();
+    resolveAtlas(atlas);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(retainSpriteAtlasMock).not.toHaveBeenCalled();
+    expect(setAtlas).not.toHaveBeenCalled();
+    expect(releaseSpriteAtlasMock).toHaveBeenCalledWith(null);
   });
 });

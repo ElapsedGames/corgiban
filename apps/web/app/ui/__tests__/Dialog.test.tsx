@@ -241,6 +241,72 @@ describe('Dialog', () => {
     expect(document.activeElement).toBe(exportButton);
   });
 
+  it('wraps Tab from the dialog container to the first focusable element', async () => {
+    const { container } = await renderIntoDocument(
+      <Dialog
+        open={true}
+        title="Export"
+        onClose={() => {}}
+        actions={
+          <>
+            <button type="button">Cancel</button>
+            <button type="button">Export</button>
+          </>
+        }
+      >
+        <label>
+          Name
+          <input type="text" />
+        </label>
+      </Dialog>,
+    );
+
+    const dialog = getDialog(container);
+    const closeButton = getButtonByAriaLabel(container, 'Close dialog');
+
+    await act(async () => {
+      dialog.focus();
+    });
+
+    const event = dispatchKeyDown(dialog, { key: 'Tab' });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(closeButton);
+  });
+
+  it('wraps Shift+Tab from the dialog container to the last focusable element', async () => {
+    const { container } = await renderIntoDocument(
+      <Dialog
+        open={true}
+        title="Export"
+        onClose={() => {}}
+        actions={
+          <>
+            <button type="button">Cancel</button>
+            <button type="button">Export</button>
+          </>
+        }
+      >
+        <label>
+          Name
+          <input type="text" />
+        </label>
+      </Dialog>,
+    );
+
+    const dialog = getDialog(container);
+    const exportButton = getButtonByText(container, 'Export');
+
+    await act(async () => {
+      dialog.focus();
+    });
+
+    const event = dispatchKeyDown(dialog, { key: 'Tab', shiftKey: true });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(exportButton);
+  });
+
   it('keeps focus on the dialog container when no focusable descendants remain', async () => {
     const { container } = await renderIntoDocument(
       <Dialog open={true} title="Notice" onClose={() => {}}>

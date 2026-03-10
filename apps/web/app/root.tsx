@@ -13,6 +13,7 @@ import {
   useRouteError,
 } from '@remix-run/react';
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 
 import appStylesHref from './styles/app.css?url';
 import tokensHref from './styles/tokens.css?url';
@@ -25,13 +26,11 @@ export const links: LinksFunction = () => [
   { rel: 'stylesheet', href: appStylesHref },
   { rel: 'manifest', href: '/manifest.webmanifest' },
   { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
-  { rel: 'icon', href: '/favicon.ico', type: 'image/x-icon' },
 ];
 
 export const meta: MetaFunction = () => [
   { title: 'Corgiban' },
   { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-  { name: 'theme-color', content: '#0d1218' },
 ];
 
 const themeInitScript = buildThemeInitScript();
@@ -41,8 +40,18 @@ type DocumentProps = {
   title?: string;
 };
 
+function useFaviconTheme(theme: 'light' | 'dark') {
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/svg+xml"]');
+    if (link) {
+      link.href = theme === 'dark' ? '/favicon-dark.svg' : '/favicon.svg';
+    }
+  }, [theme]);
+}
+
 function Document({ children, title }: DocumentProps) {
   const { isThemeReady, theme, toggleTheme } = useAppTheme();
+  useFaviconTheme(theme);
 
   return (
     <html className="light" lang="en" suppressHydrationWarning>
@@ -56,7 +65,7 @@ function Document({ children, title }: DocumentProps) {
       <body>
         <a
           href="#main-content"
-          className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:left-4 focus-visible:top-4 focus-visible:z-[100] focus-visible:rounded-[var(--radius-md)] focus-visible:bg-[color:var(--color-panel)] focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-semibold focus-visible:text-[color:var(--color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)]"
+          className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:left-4 focus-visible:top-4 focus-visible:z-[100] focus-visible:rounded-app-md focus-visible:bg-panel focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-semibold focus-visible:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           Skip to main content
         </a>
@@ -93,12 +102,10 @@ export function ErrorBoundary() {
         <h1 className="page-title">{heading}</h1>
         <p className="page-subtitle">{message}</p>
         <section className="route-card" aria-label="Recovery navigation">
-          <p className="text-sm text-[color:var(--color-muted)]">
-            Return to a working page and try again.
-          </p>
+          <p className="text-sm text-muted">Return to a working page and try again.</p>
           <nav aria-label="Recovery links" className="mt-4 flex flex-wrap gap-3 text-sm">
             <Link
-              className="rounded px-2 py-1 font-semibold text-[color:var(--color-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+              className="rounded px-2 py-1 font-semibold text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
               to="/"
             >
               Home

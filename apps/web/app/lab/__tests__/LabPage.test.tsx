@@ -54,11 +54,65 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock('../../canvas/GameCanvas', () => ({
-  GameCanvas: ({ state }: { state: { stats: { moves: number; pushes: number } } }) => {
+  GameCanvas: ({
+    canvasRef,
+    className,
+  }: {
+    canvasRef?:
+      | ((node: HTMLCanvasElement | null) => void)
+      | { current: HTMLCanvasElement | null }
+      | null;
+    className?: string;
+  }) => {
     return (
-      <div data-testid="canvas-state">
-        canvas:{state.stats.moves}:{state.stats.pushes}
-      </div>
+      <canvas
+        data-testid="lab-game-canvas"
+        className={className}
+        ref={(node) => {
+          if (node) {
+            const capturedPointers = new Set<number>();
+            Object.defineProperty(node, 'getBoundingClientRect', {
+              configurable: true,
+              value: () => ({
+                left: 0,
+                top: 0,
+                width: 700,
+                height: 400,
+                right: 700,
+                bottom: 400,
+                x: 0,
+                y: 0,
+                toJSON: () => ({}),
+              }),
+            });
+            Object.defineProperty(node, 'setPointerCapture', {
+              configurable: true,
+              value: (pointerId: number) => {
+                capturedPointers.add(pointerId);
+              },
+            });
+            Object.defineProperty(node, 'releasePointerCapture', {
+              configurable: true,
+              value: (pointerId: number) => {
+                capturedPointers.delete(pointerId);
+              },
+            });
+            Object.defineProperty(node, 'hasPointerCapture', {
+              configurable: true,
+              value: (pointerId: number) => capturedPointers.has(pointerId),
+            });
+          }
+
+          if (typeof canvasRef === 'function') {
+            canvasRef(node);
+            return;
+          }
+
+          if (canvasRef && 'current' in canvasRef) {
+            canvasRef.current = node;
+          }
+        }}
+      />
     );
   },
 }));
@@ -206,6 +260,44 @@ function findFormatSelect(container: HTMLElement): HTMLSelectElement {
   return select;
 }
 
+function findCanvas(container: HTMLElement): HTMLCanvasElement {
+  const canvas = container.querySelector('[data-testid="lab-game-canvas"]');
+  if (!(canvas instanceof HTMLCanvasElement)) {
+    throw new Error('Canvas not found.');
+  }
+  return canvas;
+}
+
+function createPointerEvent(
+  type: 'pointerdown' | 'pointerup',
+  overrides: Partial<{
+    button: number;
+    clientX: number;
+    clientY: number;
+    pointerId: number;
+    pointerType: string;
+  }> = {},
+): PointerEvent {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  const eventData = {
+    button: 0,
+    clientX: 150,
+    clientY: 150,
+    pointerId: 1,
+    pointerType: 'mouse',
+    ...overrides,
+  };
+
+  for (const [key, value] of Object.entries(eventData)) {
+    Object.defineProperty(event, key, {
+      configurable: true,
+      value,
+    });
+  }
+
+  return event as PointerEvent;
+}
+
 async function setTextareaValue(container: HTMLElement, value: string) {
   const textarea = findTextarea(container);
   await act(async () => {
@@ -238,6 +330,12 @@ async function flushPromises() {
 async function clickButton(container: HTMLElement, label: string) {
   await act(async () => {
     findButton(container, label).click();
+  });
+}
+
+async function dispatchPointerEvent(container: HTMLElement, event: PointerEvent) {
+  await act(async () => {
+    findCanvas(container).dispatchEvent(event);
   });
 }
 
@@ -732,6 +830,60 @@ describe('LabPage', () => {
     expect(container.textContent).toContain('Moves: 0 | Pushes: 0');
   });
 
+  it('moves the preview board when clicking an adjacent tile on the canvas', async () => {
+    const { container } = await renderPage();
+    await setTextareaValue(container, WALKABLE_CORG_INPUT);
+    await clickButton(container, 'Parse Level');
+
+    await dispatchPointerEvent(
+      container,
+      createPointerEvent('pointerdown', {
+        clientX: 250,
+        clientY: 150,
+        pointerId: 7,
+        pointerType: 'mouse',
+      }),
+    );
+    await dispatchPointerEvent(
+      container,
+      createPointerEvent('pointerup', {
+        clientX: 250,
+        clientY: 150,
+        pointerId: 7,
+        pointerType: 'mouse',
+      }),
+    );
+
+    expect(container.textContent).toContain('Moves: 1 | Pushes: 0');
+  });
+
+  it('moves the preview board on touch swipe gestures over the canvas', async () => {
+    const { container } = await renderPage();
+    await setTextareaValue(container, WALKABLE_CORG_INPUT);
+    await clickButton(container, 'Parse Level');
+
+    await dispatchPointerEvent(
+      container,
+      createPointerEvent('pointerdown', {
+        clientX: 150,
+        clientY: 150,
+        pointerId: 8,
+        pointerType: 'touch',
+      }),
+    );
+    await dispatchPointerEvent(
+      container,
+      createPointerEvent('pointerup', {
+        clientX: 220,
+        clientY: 150,
+        pointerId: 8,
+        pointerType: 'touch',
+      }),
+    );
+
+    expect(container.textContent).toContain('Moves: 1 | Pushes: 0');
+  });
+
   // DEBT-002 contract: a failed parse does NOT cancel in-flight runs. The previously committed
   // active level remains the authoritative level for any running solve or bench. This is
   // intentional - only commitParsedLevel() advances the authored revision and cancels active runs.
@@ -814,8 +966,7 @@ describe('LabPage', () => {
     expect(alertEl).not.toBeNull();
     expect(alertEl?.textContent).toBeTruthy();
 
-    // Red error class is present (dark-mode variant is stripped in jsdom but base class is present)
-    expect(alertEl?.className).toContain('text-red-');
+    expect(alertEl?.className).toContain('text-error-text');
   });
 
   it('clears role="alert" on the parse message after a successful parse', async () => {

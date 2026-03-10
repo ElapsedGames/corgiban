@@ -15,8 +15,8 @@ export function Select({ label, hint, error, id, className, children, ...props }
   const describedBy = errorId ?? hintId;
 
   const selectClasses = [
-    'w-full rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] px-3 py-2 text-sm text-[color:var(--color-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]',
-    error ? 'border-red-400 focus-visible:ring-red-400' : '',
+    'w-full rounded-app-md border border-border bg-panel px-3 py-2 text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
+    error ? 'border-error focus-visible:ring-error' : '',
     className,
   ]
     .filter(Boolean)
@@ -27,7 +27,7 @@ export function Select({ label, hint, error, id, className, children, ...props }
       {label ? (
         <label
           htmlFor={selectId}
-          className="text-xs font-semibold uppercase tracking-wide text-[color:var(--color-muted)]"
+          className="text-xs font-semibold uppercase tracking-wide text-muted"
         >
           {label}
         </label>
@@ -42,11 +42,11 @@ export function Select({ label, hint, error, id, className, children, ...props }
         {children}
       </select>
       {error ? (
-        <p id={errorId} className="text-xs text-red-400">
+        <p id={errorId} className="text-xs text-error-text">
           {error}
         </p>
       ) : hint ? (
-        <p id={hintId} className="text-xs text-[color:var(--color-muted)]">
+        <p id={hintId} className="text-xs text-muted">
           {hint}
         </p>
       ) : null}

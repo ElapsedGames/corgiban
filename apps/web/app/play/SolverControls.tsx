@@ -2,15 +2,17 @@ import type { WorkerHealth } from '../ports/solverPort';
 import type { ReplayState, SolverRunStatus } from '../state/solverSlice';
 import { Button } from '../ui/Button';
 
-const REPLAY_SPEED_OPTIONS = [
+export const REPLAY_SPEED_OPTIONS = [
+  { value: 0.25, label: '0.25x' },
   { value: 0.5, label: '0.5x' },
   { value: 1, label: '1x' },
-  { value: 1.5, label: '1.5x' },
   { value: 2, label: '2x' },
+  { value: 3, label: '3x' },
+  { value: 4, label: '4x' },
 ] as const;
 
-const inlineSelectClass =
-  'rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] px-2 py-1 text-xs text-[color:var(--color-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[color:var(--color-bg)]';
+export const inlineSelectClass =
+  'rounded-app-md border border-border bg-panel px-2 py-1 text-xs text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-bg';
 
 export type SolverControlsProps = {
   status: SolverRunStatus;
@@ -64,17 +66,17 @@ export function SolverControls({
           Cancel
         </Button>
         {workerHealth === 'crashed' ? (
-          <Button size="sm" variant="ghost" onClick={onRetryWorker}>
+          <Button size="sm" variant="secondary" onClick={onRetryWorker}>
             Retry Worker
           </Button>
         ) : null}
       </div>
 
       <div role="group" aria-label="Solution actions" className="flex flex-wrap gap-2">
-        <Button size="sm" variant="secondary" onClick={onApply} disabled={!hasSolution}>
+        <Button size="sm" variant="tonal" onClick={onApply} disabled={!hasSolution}>
           Apply Solution
         </Button>
-        <Button size="sm" variant="secondary" onClick={onAnimate} disabled={!hasSolution}>
+        <Button size="sm" variant="tonal" onClick={onAnimate} disabled={!hasSolution}>
           Animate Solution
         </Button>
       </div>
@@ -105,7 +107,7 @@ export function SolverControls({
         </div>
         <div className="flex items-center gap-3">
           <span
-            className="min-w-[4.5rem] text-xs tabular-nums text-[color:var(--color-muted)]"
+            className="min-w-[4.5rem] text-xs tabular-nums text-muted"
             aria-live="polite"
             aria-label={`Replay step ${replayIndex} of ${replayTotalSteps}`}
           >

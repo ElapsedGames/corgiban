@@ -67,7 +67,12 @@ describe('PlayPage', () => {
     expect(html).toContain('Corgiban');
     expect(html).toContain('board-heading');
     expect(html).toContain('play-shell');
+    expect(html).toContain('-mx-7 border-y border-border bg-panel px-4 py-4 shadow-none');
+    expect(html).toContain(
+      '<div class="hidden lg:block"><div data-testid="bottom-controls-stub"></div></div>',
+    );
     expect(testState.solverPanelProps).not.toBeNull();
+    expect(testState.solverPanelProps?.mobileRunLocked).toBe(false);
     expect(testState.sidePanelProps?.canGoToPreviousLevel).toBe(false);
     expect(testState.gameCanvasProps?.cellSize).toBe(56);
 
@@ -114,7 +119,7 @@ describe('PlayPage', () => {
     renderPage(store);
 
     expect(testState.sidePanelProps).not.toBeNull();
-    expect(testState.sidePanelProps?.levelId).toBe('classic-001');
+    expect(testState.sidePanelProps?.levelId).toBe(builtinLevels[0]?.id ?? 'level-unknown');
   });
 
   it('uses fallback level metadata to compute next-level transitions from unknown ids', () => {
@@ -180,6 +185,14 @@ describe('PlayPage', () => {
 
   it('applies parsed solution moves from the initial level state and ignores non-UDLR characters', () => {
     const store = createAppStore();
+    const knownSolutionLevel = builtinLevels.find(
+      (level) => typeof level.knownSolution === 'string' && level.knownSolution.length > 0,
+    );
+    const firstMove = knownSolutionLevel?.knownSolution?.[0]?.toUpperCase();
+    expect(knownSolutionLevel).toBeTruthy();
+    expect(firstMove).toMatch(/^[UDLR]$/);
+
+    store.dispatch(nextLevel({ levelId: knownSolutionLevel?.id ?? store.getState().game.levelId }));
     renderPage(store);
 
     const onApplySequence = testState.bottomControlsProps?.onApplySequence as
@@ -187,7 +200,7 @@ describe('PlayPage', () => {
       | undefined;
     expect(onApplySequence).toBeTypeOf('function');
 
-    const firstApply = onApplySequence?.(['R']);
+    const firstApply = onApplySequence?.([firstMove ?? 'R']);
     expect(firstApply?.applied).toBe(1);
     expect(store.getState().game.stats.moves).toBe(1);
 
@@ -197,7 +210,7 @@ describe('PlayPage', () => {
         runId: 'solve-1',
         algorithmId: 'bfsPush',
         status: 'solved',
-        solutionMoves: 'RX',
+        solutionMoves: `${firstMove ?? 'R'}X`,
         metrics: {
           elapsedMs: 1,
           expanded: 1,

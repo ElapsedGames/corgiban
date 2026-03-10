@@ -51,23 +51,23 @@ export function BenchDiagnosticsPanel({
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+      className="rounded-app-lg border border-border bg-panel p-5 shadow-lg"
     >
       <h2 id={headingId} className="text-lg font-semibold">
         Diagnostics
       </h2>
-      <p className="mt-1 text-sm text-[color:var(--color-muted)]">
+      <p className="mt-1 text-sm text-muted">
         Execution progress and persistence durability are tracked independently.
       </p>
       <dl className="mt-3 grid gap-2 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-[color:var(--color-muted)]">Execution status</dt>
+          <dt className="text-muted">Execution status</dt>
           <dd aria-live="polite" aria-atomic="true">
             {statusLabel(status)}
           </dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-[color:var(--color-muted)]">Execution progress</dt>
+          <dt className="text-muted">Execution progress</dt>
           <dd
             role={isActive ? 'progressbar' : undefined}
             aria-valuenow={isActive ? progress.completedRuns : undefined}
@@ -83,7 +83,7 @@ export function BenchDiagnosticsPanel({
           </dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="shrink-0 text-[color:var(--color-muted)]">Latest execution result</dt>
+          <dt className="shrink-0 text-muted">Latest execution result</dt>
           <dd
             className="max-w-[12rem] overflow-hidden text-ellipsis whitespace-nowrap text-right font-mono text-xs"
             title={progress.latestResultId ?? undefined}
@@ -92,17 +92,17 @@ export function BenchDiagnosticsPanel({
           </dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-[color:var(--color-muted)]">Storage persistence</dt>
+          <dt className="text-muted">Storage persistence</dt>
           <dd>{diagnostics.persistOutcome ?? 'pending'}</dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-[color:var(--color-muted)]">Persistence durability</dt>
+          <dt className="text-muted">Persistence durability</dt>
           <dd>{repositoryHealthLabel(diagnostics.repositoryHealth)}</dd>
         </div>
       </dl>
 
       {showMemoryFallbackNotice ? (
-        <p className="mt-3 rounded-[var(--radius-md)] border border-amber-400/50 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
+        <p className="mt-3 rounded-app-md border border-warning-border bg-warning-surface px-3 py-2 text-sm text-warning-text">
           Sticky memory-fallback means execution can still complete while durable persistence is
           degraded. Results stay in memory for the current page session until reload.
         </p>
@@ -114,7 +114,7 @@ export function BenchDiagnosticsPanel({
         aria-atomic="true"
         className={
           diagnostics.lastError
-            ? 'mt-3 rounded-[var(--radius-md)] border border-red-400/50 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-300'
+            ? 'mt-3 rounded-app-md border border-error-border bg-error-surface px-3 py-2 text-sm text-error-text'
             : 'sr-only'
         }
       >
@@ -126,7 +126,7 @@ export function BenchDiagnosticsPanel({
         aria-atomic="true"
         className={
           diagnostics.lastNotice
-            ? 'mt-3 rounded-[var(--radius-md)] border border-amber-400/50 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200'
+            ? 'mt-3 rounded-app-md border border-warning-border bg-warning-surface px-3 py-2 text-sm text-warning-text'
             : 'sr-only'
         }
       >

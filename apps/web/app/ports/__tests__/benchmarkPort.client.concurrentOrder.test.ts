@@ -130,7 +130,7 @@ describe('createBenchmarkPort concurrent ordering', () => {
     const results = await port.runSuite({
       suiteRunId: 'bench-concurrent',
       suite: {
-        levelIds: ['classic-001'],
+        levelIds: ['corgiban-test-18'],
         algorithmIds: ['bfsPush'],
         repetitions: 2,
         warmupRepetitions: 0,
@@ -138,7 +138,7 @@ describe('createBenchmarkPort concurrent ordering', () => {
         nodeBudget: 5_000,
       },
       levelResolver: () => ({
-        levelId: 'classic-001',
+        levelId: 'corgiban-test-18',
         width: 1,
         height: 1,
         staticGrid: new Uint8Array([0]),

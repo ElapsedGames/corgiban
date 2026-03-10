@@ -38,7 +38,7 @@ function createResult(overrides: Partial<BenchmarkRunRecord> = {}): BenchmarkRun
     suiteRunId: 'edge-suite-1',
     runId: 'edge-run-1',
     sequence: 1,
-    levelId: builtinLevels[0]?.id ?? 'classic-001',
+    levelId: builtinLevels[0]?.id ?? 'corgiban-test-18',
     algorithmId,
     repetition: 1,
     options,
@@ -312,7 +312,7 @@ describe('benchThunks edge cases', () => {
     await expect(
       store.dispatch(
         importLevelPackSelection(
-          createLevelPackPayload([builtinLevels[0]?.id ?? 'classic-001', 'custom-level']),
+          createLevelPackPayload([builtinLevels[0]?.id ?? 'corgiban-test-18', 'custom-level']),
         ),
       ),
     ).resolves.toBeUndefined();

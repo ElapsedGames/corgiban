@@ -2,6 +2,12 @@
   "name": "@corgiban/tools",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@corgiban/benchmarks": "workspace:*",
+    "@corgiban/core": "workspace:*",
+    "@corgiban/levels": "workspace:*",
+    "@corgiban/solver": "workspace:*"
+  },
   "devDependencies": {
     "fast-glob": "^3.3.2"
   }

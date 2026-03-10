@@ -238,6 +238,19 @@ importers:
         version: 3.25.76
 
   tools:
+    dependencies:
+      '@corgiban/benchmarks':
+        specifier: workspace:*
+        version: link:../packages/benchmarks
+      '@corgiban/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      '@corgiban/levels':
+        specifier: workspace:*
+        version: link:../packages/levels
+      '@corgiban/solver':
+        specifier: workspace:*
+        version: link:../packages/solver
     devDependencies:
       fast-glob:
         specifier: ^3.3.2

@@ -1,4 +1,5 @@
 import { MAX_IMPORT_BYTES } from '@corgiban/shared';
+import { builtinLevels } from '@corgiban/levels';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveEmbedLevelDefinition } from '../EmbedView';
@@ -45,6 +46,15 @@ function listenForDetails<T>(element: HTMLElement, eventName: string): T[] {
   return details;
 }
 
+function builtinLevelName(levelId: string): string {
+  const level = builtinLevels.find((entry) => entry.id === levelId);
+  if (!level) {
+    throw new Error(`Missing built-in level for test id "${levelId}".`);
+  }
+
+  return level.name;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -55,7 +65,7 @@ describe('resolveEmbedLevelDefinition', () => {
   it('prefers a known built-in level-id over level-data', () => {
     expect(
       resolveEmbedLevelDefinition(
-        'classic-003',
+        'corgiban-test-26',
         JSON.stringify({
           id: 'custom-level',
           name: 'Custom Level',
@@ -65,16 +75,16 @@ describe('resolveEmbedLevelDefinition', () => {
     ).toMatchObject({
       status: 'resolved',
       levelDefinition: {
-        id: 'classic-003',
-        name: 'Classic 3',
+        id: 'corgiban-test-26',
+        name: builtinLevelName('corgiban-test-26'),
       },
     });
 
-    expect(resolveEmbedLevelDefinition('classic-003', '{')).toMatchObject({
+    expect(resolveEmbedLevelDefinition('corgiban-test-26', '{')).toMatchObject({
       status: 'resolved',
       levelDefinition: {
-        id: 'classic-003',
-        name: 'Classic 3',
+        id: 'corgiban-test-26',
+        name: builtinLevelName('corgiban-test-26'),
       },
     });
   });
@@ -116,11 +126,11 @@ describe('resolveEmbedLevelDefinition', () => {
   });
 
   it('resolves built-in levels when level-data is absent and level-id is known', () => {
-    expect(resolveEmbedLevelDefinition('classic-003', null)).toMatchObject({
+    expect(resolveEmbedLevelDefinition('corgiban-test-26', null)).toMatchObject({
       status: 'resolved',
       levelDefinition: {
-        id: 'classic-003',
-        name: 'Classic 3',
+        id: 'corgiban-test-26',
+        name: builtinLevelName('corgiban-test-26'),
       },
     });
   });
@@ -319,7 +329,7 @@ describe('EmbedView integration', () => {
     expect(element.shadowRoot?.textContent).toContain(
       'level-data does not describe a valid Corgiban level',
     );
-    expect(element.shadowRoot?.textContent).not.toContain('Classic 3');
+    expect(element.shadowRoot?.textContent).not.toContain(builtinLevelName('corgiban-test-26'));
     expect(errorDetails).toEqual([
       {
         code: 'invalid-level-data',
@@ -332,7 +342,7 @@ describe('EmbedView integration', () => {
 
   it('falls back to valid level-data when level-id is unknown', async () => {
     const element = createEmbedElement({
-      'level-id': 'classic-999',
+      'level-id': 'corgiban-test-999',
       'level-data': JSON.stringify({
         id: 'custom-fallback',
         name: 'Custom Fallback',
@@ -354,7 +364,7 @@ describe('EmbedView integration', () => {
 
   it('renders an invalid state and emits corgiban:error when level-id is unknown and level-data is absent', async () => {
     const element = createEmbedElement({
-      'level-id': 'classic-999',
+      'level-id': 'corgiban-test-999',
     });
     const errorDetails = listenForDetails<{
       code: 'invalid-level-data' | 'invalid-level-id';
@@ -365,12 +375,12 @@ describe('EmbedView integration', () => {
     await mountEmbedElement(element);
 
     expect(element.shadowRoot?.textContent).toContain('Embedded level unavailable');
-    expect(element.shadowRoot?.textContent).toContain('Unknown level-id "classic-999".');
+    expect(element.shadowRoot?.textContent).toContain('Unknown level-id "corgiban-test-999".');
     expect(errorDetails).toEqual([
       {
         code: 'invalid-level-id',
-        message: 'Unknown level-id "classic-999".',
-        levelId: 'classic-999',
+        message: 'Unknown level-id "corgiban-test-999".',
+        levelId: 'corgiban-test-999',
       },
     ]);
   });

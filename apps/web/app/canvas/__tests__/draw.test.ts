@@ -3,7 +3,17 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RenderPlan } from '../renderPlan';
 import { draw } from '../draw';
 
-function createContextMock() {
+type MockCanvasContext = CanvasRenderingContext2D & {
+  __fillStyles: string[];
+  __strokeStyles: string[];
+};
+
+function createContextMock(): MockCanvasContext {
+  const fillStyles: string[] = [];
+  const strokeStyles: string[] = [];
+  let fillStyle = '';
+  let strokeStyle = '';
+
   return {
     save: vi.fn(),
     setTransform: vi.fn(),
@@ -17,10 +27,24 @@ function createContextMock() {
     moveTo: vi.fn(),
     lineTo: vi.fn(),
     restore: vi.fn(),
-    fillStyle: '',
-    strokeStyle: '',
+    get fillStyle() {
+      return fillStyle;
+    },
+    set fillStyle(value: string) {
+      fillStyle = value;
+      fillStyles.push(value);
+    },
+    get strokeStyle() {
+      return strokeStyle;
+    },
+    set strokeStyle(value: string) {
+      strokeStyle = value;
+      strokeStyles.push(value);
+    },
     lineWidth: 0,
-  } as unknown as CanvasRenderingContext2D;
+    __fillStyles: fillStyles,
+    __strokeStyles: strokeStyles,
+  } as unknown as MockCanvasContext;
 }
 
 describe('draw', () => {
@@ -82,6 +106,27 @@ describe('draw', () => {
         Math.abs((call[3] as number) - 14.4) < 1e-9,
     );
     expect(boxDrawCall).toBeDefined();
+  });
+
+  it('uses the swapped floor and wall palette colors in fallback rendering', () => {
+    const ctx = createContextMock();
+    const plan: RenderPlan = {
+      width: 2,
+      height: 1,
+      cellSize: 10,
+      dpr: 1,
+      pixelWidth: 20,
+      pixelHeight: 10,
+      cells: [
+        { index: 0, row: 0, col: 0, wall: true, target: false, box: false, player: false },
+        { index: 1, row: 0, col: 1, wall: false, target: false, box: false, player: false },
+      ],
+    };
+
+    draw(ctx, plan);
+
+    expect(ctx.__fillStyles).toContain('#020617');
+    expect(ctx.__fillStyles).toContain('#1f2937');
   });
 
   it('uses sprite atlas images for every cell type when an atlas is provided', () => {

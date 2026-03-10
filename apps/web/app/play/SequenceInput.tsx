@@ -92,7 +92,7 @@ export function SequenceInput({ onApplySequence }: SequenceInputProps) {
         <Button type="submit">Apply Moves</Button>
         {messageState ? (
           <p
-            className="text-xs text-[color:var(--color-muted)] sm:max-w-[24rem]"
+            className="text-xs text-muted sm:max-w-[24rem]"
             aria-live={messageState.isError ? 'assertive' : 'polite'}
             role={messageState.isError ? 'alert' : undefined}
           >

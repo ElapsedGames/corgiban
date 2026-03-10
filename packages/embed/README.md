@@ -52,7 +52,7 @@ import { defineCorgibanEmbed, EMBED_ELEMENT_TAG } from '@corgiban/embed';
 defineCorgibanEmbed();
 
 const element = document.createElement(EMBED_ELEMENT_TAG);
-element.setAttribute('level-id', 'classic-001');
+element.setAttribute('level-id', 'corgiban-test-18');
 element.setAttribute('show-solver', '');
 document.body.append(element);
 ```

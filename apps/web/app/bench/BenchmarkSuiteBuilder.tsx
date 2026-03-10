@@ -52,14 +52,14 @@ export function BenchmarkSuiteBuilder({
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+      className="rounded-app-lg border border-border bg-panel p-5 shadow-lg"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 id={headingId} className="text-lg font-semibold">
             Suite Builder
           </h2>
-          <p className="text-sm text-[color:var(--color-muted)]">
+          <p className="text-sm text-muted">
             Select levels, algorithms, and budgets for this benchmark suite.
           </p>
         </div>
@@ -74,8 +74,8 @@ export function BenchmarkSuiteBuilder({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <fieldset className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] p-3">
-          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-[color:var(--color-muted)]">
+        <fieldset className="rounded-app-md border border-border p-3">
+          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">
             Levels
           </legend>
           <div className="max-h-48 space-y-2 overflow-auto pr-1 text-sm" tabIndex={0}>
@@ -87,14 +87,14 @@ export function BenchmarkSuiteBuilder({
                   onChange={() => onToggleLevel(level.id)}
                 />
                 <span>{level.name}</span>
-                <span className="text-xs text-[color:var(--color-muted)]">({level.id})</span>
+                <span className="text-xs text-muted">({level.id})</span>
               </label>
             ))}
           </div>
         </fieldset>
 
-        <fieldset className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] p-3">
-          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-[color:var(--color-muted)]">
+        <fieldset className="rounded-app-md border border-border p-3">
+          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">
             Algorithms
           </legend>
           <div className="space-y-2 text-sm">

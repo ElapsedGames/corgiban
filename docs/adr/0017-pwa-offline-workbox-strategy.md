@@ -53,6 +53,8 @@ behavior in CI and local validation.
 
 - Playwright smoke test validates `/play` offline shell availability after first load.
 - Playwright smoke asserts `manifest.webmanifest` and `/sw.js` are served by the production build.
+- Manifest coverage keeps the generated play-first entry contract explicit (`start_url: '/play'`,
+  `scope: '/'`) instead of relying only on asset existence checks.
 - Build verification confirms manifest/service worker assets are produced.
 - Regression checks confirm app still works when service workers are unavailable.
 

@@ -29,6 +29,19 @@ type FakeKeyboardEvent = {
 class FakeHTMLElement extends EventTarget {
   public tagName = 'DIV';
   public isContentEditable = false;
+  private readonly attributes = new Map<string, string>();
+
+  public getAttribute(name: string): string | null {
+    return this.attributes.get(name) ?? null;
+  }
+
+  public hasAttribute(name: string): boolean {
+    return this.attributes.has(name);
+  }
+
+  public setAttribute(name: string, value: string) {
+    this.attributes.set(name, value);
+  }
 }
 
 function createEvent(
@@ -188,5 +201,203 @@ describe('useKeyboardControls', () => {
 
     keydownHandler?.(createEvent('ArrowRight', { target: {} as EventTarget }));
     expect(onMove).toHaveBeenCalledWith('R');
+  });
+
+  it('ignores textarea and select typing targets without preventing default', () => {
+    let keydownHandler: ((event: FakeKeyboardEvent) => void) | undefined;
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: FakeKeyboardEvent) => void) => {
+        keydownHandler = handler;
+      },
+      removeEventListener: () => undefined,
+    });
+
+    const onMove = vi.fn();
+    useKeyboardControls({
+      onMove,
+      onUndo: () => undefined,
+      onRestart: () => undefined,
+      onNextLevel: () => undefined,
+    });
+
+    const textarea = new FakeHTMLElement();
+    textarea.tagName = 'TEXTAREA';
+    const textareaEvent = createEvent('ArrowLeft', { target: textarea });
+    keydownHandler?.(textareaEvent);
+
+    const select = new FakeHTMLElement();
+    select.tagName = 'SELECT';
+    const selectEvent = createEvent('ArrowRight', { target: select });
+    keydownHandler?.(selectEvent);
+
+    expect(onMove).not.toHaveBeenCalled();
+    expect(textareaEvent.preventDefault).not.toHaveBeenCalled();
+    expect(selectEvent.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('maps the remaining upward and rightward movement aliases', () => {
+    let keydownHandler: ((event: FakeKeyboardEvent) => void) | undefined;
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: FakeKeyboardEvent) => void) => {
+        keydownHandler = handler;
+      },
+      removeEventListener: () => undefined,
+    });
+
+    const onMove = vi.fn();
+    useKeyboardControls({
+      onMove,
+      onUndo: () => undefined,
+      onRestart: () => undefined,
+      onNextLevel: () => undefined,
+    });
+
+    const upEvent = createEvent('KeyW');
+    const rightEvent = createEvent('ArrowRight');
+
+    keydownHandler?.(upEvent);
+    keydownHandler?.(rightEvent);
+
+    expect(onMove).toHaveBeenNthCalledWith(1, 'U');
+    expect(onMove).toHaveBeenNthCalledWith(2, 'R');
+    expect(upEvent.preventDefault).toHaveBeenCalledTimes(1);
+    expect(rightEvent.preventDefault).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps unknown keys inert even when the target is an HTMLElement', () => {
+    let keydownHandler: ((event: FakeKeyboardEvent) => void) | undefined;
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: FakeKeyboardEvent) => void) => {
+        keydownHandler = handler;
+      },
+      removeEventListener: () => undefined,
+    });
+
+    const onMove = vi.fn();
+    const onUndo = vi.fn();
+    const target = new FakeHTMLElement();
+    const event = createEvent('Space', { target });
+
+    useKeyboardControls({
+      onMove,
+      onUndo,
+      onRestart: () => undefined,
+      onNextLevel: () => undefined,
+    });
+
+    keydownHandler?.(event);
+
+    expect(onMove).not.toHaveBeenCalled();
+    expect(onUndo).not.toHaveBeenCalled();
+    expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('still ignores solved Enter when focus is inside a typing field', () => {
+    let keydownHandler: ((event: FakeKeyboardEvent) => void) | undefined;
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: FakeKeyboardEvent) => void) => {
+        keydownHandler = handler;
+      },
+      removeEventListener: () => undefined,
+    });
+
+    const onNextLevel = vi.fn();
+    const input = new FakeHTMLElement();
+    input.tagName = 'INPUT';
+    const event = createEvent('Enter', { target: input });
+
+    useKeyboardControls({
+      onMove: () => undefined,
+      onUndo: () => undefined,
+      onRestart: () => undefined,
+      onNextLevel,
+      isSolved: true,
+    });
+
+    keydownHandler?.(event);
+
+    expect(onNextLevel).not.toHaveBeenCalled();
+    expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('preserves Enter activation for focused interactive controls after solving', () => {
+    let keydownHandler: ((event: FakeKeyboardEvent) => void) | undefined;
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: FakeKeyboardEvent) => void) => {
+        keydownHandler = handler;
+      },
+      removeEventListener: () => undefined,
+    });
+
+    const onNextLevel = vi.fn();
+
+    useKeyboardControls({
+      onMove: () => undefined,
+      onUndo: () => undefined,
+      onRestart: () => undefined,
+      onNextLevel,
+      isSolved: true,
+    });
+
+    const button = new FakeHTMLElement();
+    button.tagName = 'BUTTON';
+    const buttonEvent = createEvent('Enter', { target: button });
+    keydownHandler?.(buttonEvent);
+
+    const link = new FakeHTMLElement();
+    link.tagName = 'A';
+    link.setAttribute('href', '/play');
+    const linkEvent = createEvent('Enter', { target: link });
+    keydownHandler?.(linkEvent);
+
+    const roleButton = new FakeHTMLElement();
+    roleButton.setAttribute('role', 'button');
+    const roleButtonEvent = createEvent('Enter', { target: roleButton });
+    keydownHandler?.(roleButtonEvent);
+
+    expect(onNextLevel).not.toHaveBeenCalled();
+    expect(buttonEvent.preventDefault).not.toHaveBeenCalled();
+    expect(linkEvent.preventDefault).not.toHaveBeenCalled();
+    expect(roleButtonEvent.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('maps Enter to next level only when the puzzle is solved', () => {
+    let keydownHandler: ((event: FakeKeyboardEvent) => void) | undefined;
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: FakeKeyboardEvent) => void) => {
+        keydownHandler = handler;
+      },
+      removeEventListener: () => undefined,
+    });
+
+    const onNextLevel = vi.fn();
+
+    useKeyboardControls({
+      onMove: () => undefined,
+      onUndo: () => undefined,
+      onRestart: () => undefined,
+      onNextLevel,
+      isSolved: false,
+    });
+
+    const unsolved = createEvent('Enter');
+    keydownHandler?.(unsolved);
+    expect(onNextLevel).not.toHaveBeenCalled();
+    expect(unsolved.preventDefault).not.toHaveBeenCalled();
+
+    hookState.cleanup?.();
+
+    useKeyboardControls({
+      onMove: () => undefined,
+      onUndo: () => undefined,
+      onRestart: () => undefined,
+      onNextLevel,
+      isSolved: true,
+    });
+
+    const solved = createEvent('Enter');
+    keydownHandler?.(solved);
+    expect(onNextLevel).toHaveBeenCalledTimes(1);
+    expect(solved.preventDefault).toHaveBeenCalledTimes(1);
   });
 });

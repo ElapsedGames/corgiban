@@ -31,14 +31,14 @@ describe('createBenchmarkPort worker URL guards', () => {
       port.runSuite({
         suiteRunId: 'bench-empty-url',
         suite: {
-          levelIds: ['classic-001'],
+          levelIds: ['corgiban-test-18'],
           algorithmIds: ['bfsPush'],
           repetitions: 1,
           timeBudgetMs: 1_000,
           nodeBudget: 5_000,
         },
         levelResolver: () => ({
-          levelId: 'classic-001',
+          levelId: 'corgiban-test-18',
           width: 1,
           height: 1,
           staticGrid: new Uint8Array([0]),

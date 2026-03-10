@@ -32,7 +32,7 @@ export function LabEditorPanel({
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-5 shadow-lg"
+      className="rounded-app-lg border border-border bg-panel p-5 shadow-lg"
     >
       <h2 id={headingId} className="sr-only">
         Level Editor
@@ -62,24 +62,24 @@ export function LabEditorPanel({
 
       <label
         htmlFor={textareaId}
-        className="mt-4 block text-xs font-semibold uppercase tracking-wide text-[color:var(--color-muted)]"
+        className="mt-4 block text-xs font-semibold uppercase tracking-wide text-muted"
       >
         Encoded level input
       </label>
       <textarea
         id={textareaId}
-        className="mt-1 min-h-[280px] w-full resize-y rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-sm font-mono text-[color:var(--color-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+        className="mt-1 min-h-[280px] w-full resize-y rounded-app-md border border-border bg-bg px-3 py-2 text-sm font-mono text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         value={input}
         onChange={(event) => onInputChange(event.target.value)}
       />
 
-      <p className="mt-2 break-all text-xs text-[color:var(--color-muted)]">
+      <p className="mt-2 break-all text-xs text-muted">
         Active level: {parseState.levelName} ({parseState.levelId})
       </p>
       <p
         aria-live={parseState.isError ? 'assertive' : 'polite'}
         role={parseState.isError ? 'alert' : undefined}
-        className={`mt-1 break-all text-xs ${parseState.isError ? 'font-medium text-red-600 dark:text-red-400' : 'text-[color:var(--color-muted)]'}`}
+        className={`mt-1 break-all text-xs ${parseState.isError ? 'font-medium text-error-text' : 'text-muted'}`}
       >
         {parseState.message}
       </p>

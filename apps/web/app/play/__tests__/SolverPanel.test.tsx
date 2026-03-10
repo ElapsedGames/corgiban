@@ -20,6 +20,7 @@ const baseProps: SolverPanelProps = {
   replayIndex: 0,
   replayTotalSteps: 0,
   replaySpeed: 1,
+  mobileRunLocked: false,
   onSelectAlgorithm: noop,
   onRun: noop,
   onCancel: noop,
@@ -176,5 +177,67 @@ describe('SolverPanel', () => {
     expect(html).toContain('Time Budget (ms)');
     expect(html).toContain('Node Budget');
     expect((html.match(/min="1"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('renders a compact mobile solver surface that only exposes replay speed after a solution exists', () => {
+    const idleHtml = renderPanel(baseProps);
+    expect(idleHtml).toContain('aria-label="Mobile solver controls"');
+    expect(idleHtml).toContain('Run Solve currently works for most smaller levels.');
+    expect(idleHtml).toContain('grid grid-cols-2 gap-2');
+    expect(idleHtml).not.toContain('aria-label="Mobile replay speed"');
+
+    const solvedHtml = renderPanel({
+      ...baseProps,
+      lastResult: {
+        runId: 'solve-mobile',
+        algorithmId: 'bfsPush',
+        status: 'solved',
+        solutionMoves: 'RR',
+        metrics: {
+          elapsedMs: 10,
+          expanded: 5,
+          generated: 6,
+          maxDepth: 2,
+          maxFrontier: 3,
+          pushCount: 1,
+          moveCount: 2,
+        },
+      },
+    });
+
+    expect(solvedHtml).toContain('Run Solve currently works for most smaller levels.');
+    expect(solvedHtml).toContain('aria-label="Mobile replay speed"');
+    expect(solvedHtml).toContain('min-h-[42px] w-full px-4 py-2 text-sm');
+  });
+
+  it('keeps the cancel action visible while solving on mobile', () => {
+    const html = renderPanel({
+      ...baseProps,
+      status: 'running',
+      progress: {
+        runId: 'solve-progress',
+        elapsedMs: 123.7,
+        expanded: 10,
+        generated: 14,
+        depth: 3,
+        frontier: 8,
+      },
+    });
+
+    expect(html).toContain('aria-label="Mobile solver controls"');
+    expect(html).toContain('>Cancel<');
+  });
+
+  it('hides Run Solve behind a failure notice until the level changes on mobile', () => {
+    const html = renderPanel({
+      ...baseProps,
+      status: 'failed',
+      mobileRunLocked: true,
+      error: 'Solver unavailable.',
+    });
+
+    expect(html).toContain('Solver did not complete this level.');
+    expect(html).toContain('Select another level before trying Run Solve again.');
+    expect(html).not.toContain('aria-label="Mobile solver controls"');
   });
 });

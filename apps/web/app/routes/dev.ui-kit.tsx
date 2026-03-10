@@ -29,19 +29,19 @@ export default function DevUiKitRoute() {
         </p>
         <nav aria-label="UI Kit navigation" className="mt-4 flex flex-wrap gap-3 text-sm">
           <Link
-            className="rounded px-2 py-1 font-semibold text-[color:var(--color-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+            className="rounded px-2 py-1 font-semibold text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
             to="/"
           >
             Home
           </Link>
           <Link
-            className="rounded px-2 py-1 font-semibold text-[color:var(--color-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+            className="rounded px-2 py-1 font-semibold text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
             to="/play"
           >
             Play
           </Link>
           <Link
-            className="rounded px-2 py-1 font-semibold text-[color:var(--color-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+            className="rounded px-2 py-1 font-semibold text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
             to="/bench"
           >
             Benchmark
@@ -56,6 +56,8 @@ export default function DevUiKitRoute() {
         <div className="flex flex-wrap gap-3">
           <Button>Primary</Button>
           <Button variant="secondary">Secondary</Button>
+          <Button variant="tonal">Tonal</Button>
+          <Button variant="destructive">Destructive</Button>
           <Button variant="ghost">Ghost</Button>
           <Button disabled>Disabled</Button>
           <Tooltip content="Icon-only button">
@@ -101,7 +103,7 @@ export default function DevUiKitRoute() {
           role="tabpanel"
           aria-labelledby={`tab-${tab}`}
           tabIndex={0}
-          className="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-4 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)]"
+          className="rounded-app-md border border-border bg-bg p-4 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           Selected tab: {tab}
         </div>
@@ -111,7 +113,7 @@ export default function DevUiKitRoute() {
         <h2 id="section-dialog" className="text-xl font-semibold">
           Dialog
         </h2>
-        <p className="text-sm text-[color:var(--color-muted)]">
+        <p className="text-sm text-muted">
           Dialogs are used for import/export flows and advanced settings.
         </p>
         <Button onClick={() => setDialogOpen(true)}>Open Dialog</Button>

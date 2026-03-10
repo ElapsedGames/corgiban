@@ -43,7 +43,7 @@ function createResult(overrides: Partial<BenchmarkRunRecord> = {}): BenchmarkRun
     suiteRunId: 'bench-1',
     runId: 'bench-1-1',
     sequence: 1,
-    levelId: 'classic-001',
+    levelId: 'corgiban-test-18',
     algorithmId: 'bfsPush',
     repetition: 1,
     options: {
@@ -75,7 +75,7 @@ const noop = () => undefined;
 
 const baseProps = {
   suite: {
-    levelIds: ['classic-001'],
+    levelIds: ['corgiban-test-18'],
     algorithmIds: ['bfsPush' as const],
     repetitions: 1,
     timeBudgetMs: 1000,
@@ -103,7 +103,7 @@ const baseProps = {
     } satisfies BenchPerfEntry,
   ],
   debug: false,
-  availableLevels: [{ id: 'classic-001', name: 'Classic 001' }],
+  availableLevels: [{ id: 'corgiban-test-18', name: 'Classic 001' }],
   availableAlgorithms: [{ id: 'bfsPush' as const, label: 'bfsPush' }],
   onToggleLevel: noop,
   onToggleAlgorithm: noop,
@@ -283,7 +283,7 @@ describe('BenchPage', () => {
     const element = BenchPage({
       ...baseProps,
       results: [],
-      suite: { ...baseProps.suite, levelIds: ['classic-001'] },
+      suite: { ...baseProps.suite, levelIds: ['corgiban-test-18'] },
     });
 
     const controls = findByType(element, BenchmarkExportImportControls);
