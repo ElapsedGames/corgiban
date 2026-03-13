@@ -5,7 +5,8 @@ Remix application containing the product UI, routes, and orchestration.
 ## Responsibilities
 
 - Remix routes: `/` (redirects to `/play`), `/play`, `/bench`, `/lab`, and `/dev/ui-kit`
-- Root app shell: shared navigation, skip link, and light/dark theme bootstrap/toggle
+- Root app shell: shared navigation, skip link, light/dark theme bootstrap/toggle, branded
+  document metadata, install assets, and browser theme-color sync
 - UI composition (React components) and Tailwind styling
 - Styling contract in `app/styles/README.md` with tokens in `app/styles/tokens.css`, mirrored in
   `tailwind.config.ts`, and enforced by `pnpm style:check`
@@ -25,9 +26,19 @@ Remix application containing the product UI, routes, and orchestration.
 - `/play` and `/bench` create those route-scoped stores with mutable no-op ports during render,
   then replace them with browser-backed worker/persistence ports after commit so SSR stays pure and
   each route keeps a stable store instance across hydration.
+- The playable-level catalog follows the same SSR discipline: route render reads it through a
+  hydration-safe external-store hook whose server snapshot contains built-in entries only, then the
+  client reconciles current-session session entries after commit without breaking hydration.
+- Session/local playable-catalog persistence is alpha-only browser state. Incompatible schema
+  versions are cleared intentionally instead of being migrated forward.
+- Playable identity is split deliberately: `level.id` is canonical/display identity, while
+  `levelRef` / `PlayableEntry.ref` is the exact runnable identity for the current browser session.
 - The root app shell owns the light/dark `<html>` class, resolves the initial theme before paint
   from persisted preference with `prefers-color-scheme` fallback, and exposes the toggle in
   `AppNav`.
+- The root document also publishes the canonical site title/description, branded Open Graph /
+  Twitter preview metadata, favicon + Apple touch icon links, and syncs the browser
+  `theme-color` meta tag from the token layer.
 - Shared navigation is play-first: the brand link returns to `/play`, while `/dev/ui-kit` is kept
   out of the primary workflow nav.
 - Web styling now uses semantic Tailwind utilities backed by `tokens.css`; `pnpm style:check`
@@ -35,6 +46,17 @@ Remix application containing the product UI, routes, and orchestration.
   files via `--all`.
 - Play:
   - `/` redirects here so gameplay is the first-load entry surface.
+  - `/play` accepts route handoff search params for exact `levelRef`, legacy `levelId`, and
+    optional `algorithmId`. Requested levels resolve by exact `levelRef` first and legacy
+    canonical-id fallback second, so built-ins remain backward-compatible while session-authored
+    variants keep distinct runnable identity.
+  - When a requested exact `levelRef` or legacy `levelId` cannot be resolved, `/play` keeps the
+    route shell but renders an explicit unavailable state instead of silently continuing on the
+    current active puzzle.
+  - `/play` route activation is atomic: the route resolves the requested playable entry, swaps the
+    active runtime, recomputes the recommendation, and then applies a valid requested algorithm
+    override once. This avoids recommendation recompute clobbering the requested algorithm during
+    combined handoffs.
   - GameState is derived from move history using core helpers.
   - Canvas rendering can use OffscreenCanvas sprite-atlas pre-rendering via a worker when
     supported, with main-thread draw fallback.
@@ -49,7 +71,7 @@ Remix application containing the product UI, routes, and orchestration.
   - Small screens make the board full-bleed, trim the visible side-panel and solver actions to the
     primary gameplay controls, and lock the mobile `Run Solve` action after non-success solver
     outcomes until the player changes levels.
-  - Solver panel runs/cancels solves, shows progress, and can apply/animate results.
+  - Solver panel runs/cancels solves, shows progress, can apply/animate results, and exposes the full implemented algorithm set with shared friendly labels (`BFS Push`, `A* Push`, `IDA* Push`, `Greedy Push`, `Tunnel Macro Push`, `PI-Corral Push`).
   - Settings include default solver budgets (time/node), and `/play` solve orchestration uses those defaults with defensive fallback to solver constants.
   - Optional env toggle: `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` enables light validation mode for high-frequency `SOLVE_PROGRESS` messages in the solver client; strict mode remains default.
   - Optional solver-kernel env wiring:
@@ -60,6 +82,10 @@ Remix application containing the product UI, routes, and orchestration.
     solve/bench flows.
 - Bench:
   - `/bench` renders suite builder, run/cancel controls, diagnostics, persisted results, and import/export controls.
+  - When a requested exact `levelRef` or legacy `levelId` cannot be resolved, `/bench` keeps the
+    route shell but renders an explicit unavailable state instead of silently loading a different
+    suite or the default builder selection.
+  - `/bench` exposes the same six friendly solver labels as `/play` when building suites.
   - Warm-up repetitions are configurable; warm-up runs execute but are excluded from measured persisted result history.
   - Analytics/comparison panel provides success rate and p50/p95 elapsed-time summaries plus
     versioned comparison snapshot export; deltas are computed only when stored comparable metadata
@@ -68,15 +94,44 @@ Remix application containing the product UI, routes, and orchestration.
     suites remain visible with explicit reasons and null deltas.
   - Bench workflow uses injected ports (`BenchmarkPort`, `PersistencePort`) via thunks; UI components do not call persistence adapters directly.
   - Route composition creates the browser-backed persistence adapter through `app/ports/persistencePort.client.ts`, keeping `app/infra/persistence` behind the port boundary.
-  - Worker-level benchmark progress streaming is spectator-only and adapter-gated; `/bench` keeps spectator stream disabled unless a per-run worker-progress consumer is explicitly attached.
+  - Worker-level benchmark progress streaming is spectator-only and adapter-gated; `/bench`
+    enables spectator stream automatically when a per-run worker-progress consumer is attached,
+    defaults it to `false` otherwise, and still allows explicit overrides when needed.
   - Persistence initialization feature-detects `navigator.storage.persist()` and records diagnostics (`granted | denied | unsupported`), with console logging only in dev+debug mode.
   - Diagnostics also surface repository durability health (`durable | memory-fallback | unavailable`) independently from `storage.persist()` outcomes; `memory-fallback` is sticky until storage reset/recreation.
   - Performance instrumentation (`performance.mark/measure`) is observed via `PerformanceObserver` and rendered in a debug perf panel.
   - File System Access API export/import is feature-detected with fallback to anchor download and file input.
-  - Level-pack import requires a versioned contract (`type` + `version`) and recognized built-in
-    level ids.
+  - Level-pack import requires a versioned contract (`type` + `version`) and may reference
+    recognized built-in ids or inline custom level definitions. When both `levelIds` and `levels`
+    are present, `levelIds` is authoritative and `levels` only supplies inline definitions for
+    referenced ids.
+  - Accepted imported/authored levels are normalized, validated, and stored as explicit session
+    playable entries for the current browser session. Built-ins use deterministic refs
+    (`builtin:<levelId>`); authored/imported session entries use opaque refs (`temp:<...>`).
+    Imported packs are materialized as app-owned temporary session collections so pack order and
+    next/previous navigation stay scoped to the imported pack instead of merging into the built-in
+    catalog. Hard reloads still hydrate safely because routes render against the built-in snapshot
+    first and reconcile session entries after commit.
+  - Recognized built-in ids win over same-id inline definitions only when the inline payload is the
+    same canonical built-in definition. Packs that would collapse same-`level.id` authored/session
+    variants are rejected explicitly instead of being deduplicated silently. Malformed/unrecognized
+    referenced entries are still skipped with a notice, and unused extra `levels[]` entries are
+    ignored.
   - App-generated benchmark report exports include `exportedAtIso` convenience metadata; app-
-    generated level-pack exports include both `levelIds` and `levels` plus `exportedAtIso`.
+    generated level-pack exports include both `levelIds` and `levels` plus `exportedAtIso`, but
+    export rejects selected same-`level.id` authored/session variants that the canonical-only pack
+    format cannot preserve exactly.
+  - Benchmark history rows hand a stored level back to `/play` or `/lab` only when an exact reopen
+    target can still be resolved. If the session entry is gone or its exact key no longer matches,
+    the row degrades to `level unavailable` instead of reopening a canonical built-in fallback.
+  - Public benchmark exports/imports now include an additive `runnableLevelKey` for exact reopen
+    identity plus `comparisonLevelKey` for stable comparison identity across import/export.
+    App-local exact reopen metadata is still retained only in local persistence and stripped from
+    public export payloads.
+  - The local reopen/comparison fingerprint is derived from the canonical committed
+    `LevelDefinition` payload (`id`, `name`, `rows`, `knownSolution`) rather than raw editor text.
+    Metadata-only changes can therefore make an old local result unavailable; refining that
+    behavior to parsed-structure equivalence is deferred work tracked by ADR-0032.
 - Lab:
   - `/lab` provides a CORG-first authoring surface plus format-aware single-level parsing
     (CORG/XSB/SOK/SLC), canvas preview, and one-click worker solve/bench checks. Multi-level
@@ -95,11 +150,21 @@ Remix application containing the product UI, routes, and orchestration.
     callbacks are ignored after the active level changes.
   - Failed parses leave the committed level and authored revision untouched, so in-flight
     solve/bench work continues against the last successful parse.
+  - `/lab` does not auto-publish on mount or parse. Explicit actions such as `Open in Play` and
+    `Send to Bench` publish or refresh a session playable entry for the committed level, preserve
+    any imported-pack collection metadata, and navigate using exact `levelRef` plus additive
+    `levelId` fallback metadata.
+  - When a requested exact `levelRef` or legacy `levelId` is unavailable, `/lab` keeps the page
+    shell but renders an explicit unavailable state instead of dropping into the starter editor.
+  - Lab can boot from a handed-off `levelRef` or legacy `levelId`; bootstrapping uses the full
+    playable entry so editing can continue against the same authored session identity.
 - Offline/PWA:
   - `vite-plugin-pwa` in `vite.config.ts` owns manifest and service-worker generation; keep the
     manifest source of truth there instead of maintaining a duplicate file under `public/`.
   - The generated manifest follows the play-first route contract with `start_url: '/play'` and
     `scope: '/'`.
+  - App-owned install assets now include dedicated PNG icons (`icon-192.png`, `icon-512.png`) and
+    `apple-touch-icon.png`; the branded social preview card is served from `public/social-card.png`.
   - Workbox-backed service worker registration is enabled in production builds.
   - Dev-only PWA worker registration can be enabled with `VITE_ENABLE_PWA_DEV=1` for local smoke validation.
 - Hosting/deploy:
@@ -115,7 +180,7 @@ Remix application containing the product UI, routes, and orchestration.
 - Store lifecycle: route-scoped stores inject ports and dispose worker/persistence resources on
   unmount for `/play` and `/bench`; `/lab` applies the same dispose discipline with direct
   `SolverPort` / `BenchmarkPort` refs.
-- Solver recommendation/availability contract: `chooseAlgorithm` only recommends implemented ids; when enabling new algorithms, keep solver `IMPLEMENTED_ALGORITHM_IDS` and `/play` option enablement in sync.
+- Solver recommendation/availability contract: `chooseAlgorithm` only recommends implemented ids; `/play` and `/bench` both consume the shared algorithm-label source, and when enabling new algorithms, keep solver `IMPLEMENTED_ALGORITHM_IDS` and both surfaces in sync.
 
 ## Non-responsibilities
 
@@ -166,6 +231,9 @@ Worker creation and browser-only APIs must be used in client-only contexts:
 - Component tests: React Testing Library
 - Route behavior tests: keep deterministic, prefer unit-style tests
 - Avoid snapshotting canvas pixels; test render plans where possible
+- Main-thread recommendation profiling lives in
+  `docs/verification/analyze-level-main-thread-profile.md`; use
+  `pnpm profile:analyze-level:browser` against preview for `/play` and `/lab` traces
 
 ## Key dependencies
 

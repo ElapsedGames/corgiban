@@ -1,6 +1,7 @@
 import type { LevelRuntime } from '@corgiban/core';
 import type { AlgorithmId, SolverOptions } from '@corgiban/solver';
-import type { BenchmarkRunRecord } from '@corgiban/benchmarks';
+import type { PlayableEntry } from '../levels/temporaryLevelCatalog';
+import type { BenchmarkRunRecord } from '../bench/benchmarkRecord';
 
 export type { BenchmarkRunRecord };
 
@@ -11,6 +12,7 @@ export type BenchmarkEnvironmentSnapshot = {
 };
 
 export type BenchmarkSuiteConfig = {
+  levelRefs?: string[];
   levelIds: string[];
   algorithmIds: AlgorithmId[];
   repetitions: number;
@@ -19,6 +21,10 @@ export type BenchmarkSuiteConfig = {
   nodeBudget: number;
   algorithmOptions?: Partial<Record<AlgorithmId, SolverOptions>>;
 };
+
+export function getBenchmarkSuiteLevelRefs(suite: BenchmarkSuiteConfig): string[] {
+  return suite.levelRefs ?? suite.levelIds ?? [];
+}
 
 export type BenchmarkProgress = {
   suiteRunId: string;
@@ -33,7 +39,9 @@ export type BenchmarkWorkerProgress = {
   planSequence: number;
   measuredSequence: number | null;
   warmup: boolean;
+  levelRef: string;
   levelId: string;
+  levelName: string;
   algorithmId: AlgorithmId;
   repetition: number;
   expanded: number;
@@ -48,7 +56,8 @@ export type BenchmarkWorkerProgress = {
 export type BenchmarkSuiteRunRequest = {
   suiteRunId: string;
   suite: BenchmarkSuiteConfig;
-  levelResolver: (levelId: string) => LevelRuntime;
+  levelResolver: (levelRef: string) => LevelRuntime;
+  levelEntryResolver?: (levelRef: string) => PlayableEntry | null;
   onResult?: (result: BenchmarkRunRecord) => void;
   onProgress?: (progress: BenchmarkProgress) => void;
   onWorkerProgress?: (progress: BenchmarkWorkerProgress) => void;

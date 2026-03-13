@@ -20,7 +20,7 @@ vi.mock('@remix-run/react', () => ({
   useLocation: () => ({ pathname: '/unknown-path' }),
 }));
 
-import NotFoundRoute, { loader } from '../$';
+import NotFoundRoute, { loader, meta } from '../$';
 
 describe('NotFoundRoute', () => {
   it('renders a 404 page with a link to play', () => {
@@ -67,5 +67,9 @@ describe('NotFoundRoute', () => {
     });
 
     expect(response.status).toBe(404);
+  });
+
+  it('publishes 404 metadata for missing routes', () => {
+    expect(meta({} as never)).toEqual([{ title: '404 Not Found | Corgiban' }]);
   });
 });

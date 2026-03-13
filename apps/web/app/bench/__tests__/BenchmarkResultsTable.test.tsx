@@ -107,6 +107,8 @@ describe('BenchmarkResultsTable', () => {
     expect(html).toContain('456');
     expect(html).toContain('789');
     expect(html).toContain('solved');
+    expect(html).toContain('href="/play?levelId=corgiban-test-18&amp;algorithmId=bfsPush"');
+    expect(html).toContain('href="/lab?levelId=corgiban-test-18"');
   });
 
   it('sorts results deterministically across sortable keys', () => {

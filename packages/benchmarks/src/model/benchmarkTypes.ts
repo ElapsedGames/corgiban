@@ -49,6 +49,8 @@ export type BenchmarkRunRecord = {
   runId: string;
   sequence: number;
   levelId: string;
+  runnableLevelKey?: string;
+  comparisonLevelKey?: string;
   algorithmId: AlgorithmId;
   repetition: number;
   warmup?: boolean;

@@ -8,6 +8,7 @@ import {
 } from '@corgiban/solver';
 
 import type { PersistOutcome, RepositoryHealth } from '../ports/persistencePort';
+import { toBuiltinLevelRef } from '../levels/temporaryLevelCatalog';
 import type { BenchmarkRunRecord, BenchmarkSuiteConfig } from '../ports/benchmarkPort';
 
 export type BenchRunStatus =
@@ -97,11 +98,12 @@ function isActiveBenchStatus(status: BenchRunStatus): boolean {
   return status === 'running' || status === 'cancelling';
 }
 
-const defaultLevelIds = builtinLevels.slice(0, 3).map((level) => level.id);
+const defaultLevelRefs = builtinLevels.slice(0, 3).map((level) => toBuiltinLevelRef(level.id));
 
 const initialState: BenchSliceState = {
   suite: {
-    levelIds: defaultLevelIds,
+    levelRefs: defaultLevelRefs,
+    levelIds: defaultLevelRefs,
     algorithmIds: [DEFAULT_ALGORITHM_ID],
     repetitions: 1,
     warmupRepetitions: 0,
@@ -131,14 +133,19 @@ export const benchSlice = createSlice({
   initialState,
   reducers: {
     setSuiteLevelIds(state, action: { payload: string[] }) {
-      state.suite.levelIds = uniqueStrings(action.payload);
+      const nextLevelRefs = uniqueStrings(action.payload);
+      state.suite.levelRefs = nextLevelRefs;
+      state.suite.levelIds = nextLevelRefs;
     },
     toggleSuiteLevelId(state, action: { payload: string }) {
-      const levelId = action.payload;
-      const hasLevel = state.suite.levelIds.includes(levelId);
-      state.suite.levelIds = hasLevel
-        ? state.suite.levelIds.filter((entry) => entry !== levelId)
-        : [...state.suite.levelIds, levelId];
+      const levelRef = action.payload;
+      const levelRefs = state.suite.levelRefs ?? state.suite.levelIds ?? [];
+      const hasLevel = levelRefs.includes(levelRef);
+      const nextLevelRefs = hasLevel
+        ? levelRefs.filter((entry) => entry !== levelRef)
+        : [...levelRefs, levelRef];
+      state.suite.levelRefs = nextLevelRefs;
+      state.suite.levelIds = nextLevelRefs;
     },
     setSuiteAlgorithmIds(state, action: { payload: BenchmarkSuiteConfig['algorithmIds'] }) {
       state.suite.algorithmIds = uniqueStrings(

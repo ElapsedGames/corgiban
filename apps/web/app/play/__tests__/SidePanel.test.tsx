@@ -14,6 +14,8 @@ const baseProps = {
   stats: { moves: 0, pushes: 0 },
   moves: [],
   isSolved: false,
+  labHref: '/lab?levelId=test-level-001',
+  benchHref: '/bench?levelId=test-level-001',
   canGoToPreviousLevel: false,
   onPreviousLevel: noop,
   onRestart: noop,
@@ -106,5 +108,14 @@ describe('SidePanel', () => {
     expect(html).toContain('hidden grid-cols-2 gap-3 text-sm lg:grid');
     expect(html).toContain('<div class="hidden lg:block">');
     expect(html).toContain('aria-label="Game controls"');
+  });
+
+  it('renders direct handoff links to lab and bench for the current level', () => {
+    const html = renderToStaticMarkup(<SidePanel {...baseProps} />);
+
+    expect(html).toContain('href="/lab?levelId=test-level-001"');
+    expect(html).toContain('Open in Lab');
+    expect(html).toContain('href="/bench?levelId=test-level-001"');
+    expect(html).toContain('Send to Bench');
   });
 });

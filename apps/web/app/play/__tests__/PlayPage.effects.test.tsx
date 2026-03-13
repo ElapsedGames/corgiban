@@ -5,6 +5,12 @@ import { createRoot, type Root } from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyMove, createGame, parseLevel } from '@corgiban/core';
+import { analyzeLevel, chooseAlgorithm } from '@corgiban/solver';
+
+import {
+  clearSessionPlayableEntries,
+  upsertSessionPlayableEntry,
+} from '../../levels/temporaryLevelCatalog';
 
 const effectState = vi.hoisted(() => ({
   controllerInstances: [] as Array<{
@@ -34,12 +40,16 @@ const testLevels = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@corgiban/levels', () => ({
-  builtinLevels: [testLevels.tinyLevel, testLevels.secondLevel],
-  builtinLevelsByCategory: {
-    test: [testLevels.tinyLevel, testLevels.secondLevel],
-  },
-}));
+vi.mock('@corgiban/levels', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@corgiban/levels')>();
+  return {
+    ...actual,
+    builtinLevels: [testLevels.tinyLevel, testLevels.secondLevel],
+    builtinLevelsByCategory: {
+      test: [testLevels.tinyLevel, testLevels.secondLevel],
+    },
+  };
+});
 
 vi.mock('../../canvas/GameCanvas', () => ({
   GameCanvas: (props: Record<string, unknown>) => {
@@ -119,7 +129,7 @@ function createRect({ top, height }: { top: number; height: number }): DOMRect {
   } as DOMRect;
 }
 
-async function renderPage() {
+async function renderPage(props: Parameters<typeof PlayPage>[0] = {}) {
   const store = createAppStore();
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -127,15 +137,19 @@ async function renderPage() {
   const root = createRoot(container);
   mountedRoots.push(root);
 
-  await act(async () => {
-    root.render(
-      <Provider store={store}>
-        <PlayPage />
-      </Provider>,
-    );
-  });
+  const renderWithProps = async (nextProps: Parameters<typeof PlayPage>[0] = props) => {
+    await act(async () => {
+      root.render(
+        <Provider store={store}>
+          <PlayPage {...nextProps} />
+        </Provider>,
+      );
+    });
+  };
 
-  return { container, root, store };
+  await renderWithProps(props);
+
+  return { container, root, store, rerender: renderWithProps };
 }
 
 async function flushEffects() {
@@ -175,6 +189,7 @@ describe('PlayPage effects', () => {
     effectState.gameCanvasProps = null;
     effectState.sidePanelProps = null;
     effectState.solverPanelProps = null;
+    clearSessionPlayableEntries();
     mockMatchMedia();
   });
 
@@ -185,6 +200,7 @@ describe('PlayPage effects', () => {
         root?.unmount();
       });
     }
+    clearSessionPlayableEntries();
   });
 
   it('restarts from the base level, reapplies the solver solution, and clears replay state when replay finishes', async () => {
@@ -242,6 +258,24 @@ describe('PlayPage effects', () => {
 
     expect(container.textContent).toContain('Puzzle solved!');
     expect(container.querySelectorAll('button')).toHaveLength(0);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('does not recreate the replay controller for unrelated solver-state rerenders', async () => {
+    const { root, store } = await renderPage();
+
+    expect(effectState.controllerInstances).toHaveLength(1);
+
+    await act(async () => {
+      store.dispatch(setReplayState('playing'));
+    });
+
+    await flushEffects();
+
+    expect(effectState.controllerInstances).toHaveLength(1);
 
     await act(async () => {
       root.unmount();
@@ -532,6 +566,270 @@ describe('PlayPage effects', () => {
 
     expect(effectState.controllerInstances[0]?.stop).toHaveBeenCalledTimes(1);
     expect(getCanvasPlayerIndex(container)).toBe(String(initialPlayerIndex));
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('applies a requested playable level id after mount', async () => {
+    const { root, store } = await renderPage({ requestedLevelId: testLevels.secondLevel.id });
+
+    await flushEffects();
+
+    expect(store.getState().game.levelId).toBe(testLevels.secondLevel.id);
+    expect(effectState.sidePanelProps?.levelId).toBe(testLevels.secondLevel.id);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('applies a requested level id only once so user navigation can diverge from the handoff param', async () => {
+    const { root, store } = await renderPage({ requestedLevelId: testLevels.secondLevel.id });
+
+    await flushEffects();
+
+    const onPreviousLevel = effectState.sidePanelProps?.onPreviousLevel as (() => void) | undefined;
+    expect(onPreviousLevel).toBeTypeOf('function');
+
+    await act(async () => {
+      onPreviousLevel?.();
+    });
+
+    await flushEffects();
+
+    expect(store.getState().game.levelId).toBe(testLevels.tinyLevel.id);
+    expect(effectState.sidePanelProps?.levelId).toBe(testLevels.tinyLevel.id);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('ignores requested level ids that are not playable', async () => {
+    const { root, store } = await renderPage({ requestedLevelId: 'missing-level' });
+
+    await flushEffects();
+
+    expect(store.getState().game.levelId).toBe(testLevels.tinyLevel.id);
+    expect(effectState.sidePanelProps?.levelId).toBe(testLevels.tinyLevel.id);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('reapplies a new requested level id when navigation updates the handoff param', async () => {
+    const { root, store, rerender } = await renderPage({
+      requestedLevelId: testLevels.secondLevel.id,
+    });
+
+    await flushEffects();
+    expect(store.getState().game.levelId).toBe(testLevels.secondLevel.id);
+
+    await rerender({ requestedLevelId: testLevels.tinyLevel.id });
+    await flushEffects();
+
+    expect(store.getState().game.levelId).toBe(testLevels.tinyLevel.id);
+    expect(effectState.sidePanelProps?.levelId).toBe(testLevels.tinyLevel.id);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('atomically applies a requested session level ref and algorithm id after mount', async () => {
+    const sessionEntry = upsertSessionPlayableEntry({
+      originRef: `builtin:${testLevels.tinyLevel.id}`,
+      level: {
+        ...testLevels.tinyLevel,
+        name: 'Edited Test Level',
+        rows: ['WWWWWW', 'WPBTEW', 'WEEEWW', 'WWWWWW'],
+      },
+    });
+
+    const { root, store } = await renderPage({
+      requestedLevelRef: sessionEntry.ref,
+      requestedAlgorithmId: 'astarPush',
+    });
+
+    await flushEffects();
+
+    expect(store.getState().game.activeLevelRef).toBe(sessionEntry.ref);
+    expect(store.getState().game.levelId).toBe(testLevels.tinyLevel.id);
+    expect(effectState.sidePanelProps?.levelId).toBe(testLevels.tinyLevel.id);
+    expect(effectState.sidePanelProps?.levelName).toBe('Edited Test Level');
+    expect(store.getState().solver.selectedAlgorithmId).toBe('astarPush');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('keeps the requested algorithm when legacy levelId handoff recomputes a different recommendation', async () => {
+    const requestedAlgorithmId = 'astarPush';
+    const expectedRecommendation = chooseAlgorithm(
+      analyzeLevel(parseLevel(testLevels.secondLevel)),
+    );
+    expect(expectedRecommendation).not.toBe(requestedAlgorithmId);
+
+    const { root, store } = await renderPage({
+      requestedLevelId: testLevels.secondLevel.id,
+      requestedAlgorithmId,
+    });
+
+    await flushEffects();
+
+    expect(store.getState().game.levelId).toBe(testLevels.secondLevel.id);
+    expect(store.getState().solver.recommendation?.algorithmId).toBe(expectedRecommendation);
+    expect(store.getState().solver.selectedAlgorithmId).toBe(requestedAlgorithmId);
+    expect(effectState.solverPanelProps?.selectedAlgorithmId).toBe(requestedAlgorithmId);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('applies a requested supported algorithm id after mount', async () => {
+    const { root, store } = await renderPage({ requestedAlgorithmId: 'astarPush' });
+
+    await flushEffects();
+
+    expect(store.getState().solver.selectedAlgorithmId).toBe('astarPush');
+    expect(effectState.solverPanelProps?.selectedAlgorithmId).toBe('astarPush');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('applies a requested algorithm id only once so user selection can diverge from the handoff param', async () => {
+    const { root, store } = await renderPage({ requestedAlgorithmId: 'astarPush' });
+
+    await flushEffects();
+
+    const onSelectAlgorithm = effectState.solverPanelProps?.onSelectAlgorithm as
+      | ((algorithmId: string) => void)
+      | undefined;
+    expect(onSelectAlgorithm).toBeTypeOf('function');
+
+    await act(async () => {
+      onSelectAlgorithm?.('bfsPush');
+    });
+
+    await flushEffects();
+
+    expect(store.getState().solver.selectedAlgorithmId).toBe('bfsPush');
+    expect(effectState.solverPanelProps?.selectedAlgorithmId).toBe('bfsPush');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('applies a combined route handoff only once so user changes survive same-param rerenders', async () => {
+    const { root, store, rerender } = await renderPage({
+      requestedLevelId: testLevels.secondLevel.id,
+      requestedAlgorithmId: 'astarPush',
+    });
+
+    await flushEffects();
+
+    const onSelectAlgorithm = effectState.solverPanelProps?.onSelectAlgorithm as
+      | ((algorithmId: string) => void)
+      | undefined;
+    expect(onSelectAlgorithm).toBeTypeOf('function');
+
+    await act(async () => {
+      onSelectAlgorithm?.('bfsPush');
+    });
+
+    await rerender({
+      requestedLevelId: testLevels.secondLevel.id,
+      requestedAlgorithmId: 'astarPush',
+    });
+    await flushEffects();
+
+    expect(store.getState().game.levelId).toBe(testLevels.secondLevel.id);
+    expect(store.getState().solver.selectedAlgorithmId).toBe('bfsPush');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('reapplies a new requested algorithm id when navigation updates the handoff param', async () => {
+    const { root, store, rerender } = await renderPage({ requestedAlgorithmId: 'astarPush' });
+
+    await flushEffects();
+    expect(store.getState().solver.selectedAlgorithmId).toBe('astarPush');
+
+    await rerender({ requestedAlgorithmId: 'bfsPush' });
+    await flushEffects();
+
+    expect(store.getState().solver.selectedAlgorithmId).toBe('bfsPush');
+    expect(effectState.solverPanelProps?.selectedAlgorithmId).toBe('bfsPush');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('updates the algorithm when only the algorithm handoff param changes for the same level', async () => {
+    const { root, store, rerender } = await renderPage({
+      requestedLevelId: testLevels.secondLevel.id,
+      requestedAlgorithmId: 'astarPush',
+    });
+
+    await flushEffects();
+    const activeLevelRef = store.getState().game.activeLevelRef;
+
+    await rerender({
+      requestedLevelId: testLevels.secondLevel.id,
+      requestedAlgorithmId: 'bfsPush',
+    });
+    await flushEffects();
+
+    expect(store.getState().game.activeLevelRef).toBe(activeLevelRef);
+    expect(store.getState().game.levelId).toBe(testLevels.secondLevel.id);
+    expect(store.getState().solver.selectedAlgorithmId).toBe('bfsPush');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('ignores requested algorithm ids that are not supported', async () => {
+    const { root, store } = await renderPage({
+      requestedAlgorithmId: 'unknown' as never,
+    });
+    const initialAlgorithmId = store.getState().solver.selectedAlgorithmId;
+
+    await flushEffects();
+
+    expect(store.getState().solver.selectedAlgorithmId).toBe(initialAlgorithmId);
+    expect(effectState.solverPanelProps?.selectedAlgorithmId).toBe(initialAlgorithmId);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('falls back to the recommended algorithm when a requested algorithm is invalid during level activation', async () => {
+    const expectedRecommendation = chooseAlgorithm(
+      analyzeLevel(parseLevel(testLevels.secondLevel)),
+    );
+    const { root, store } = await renderPage({
+      requestedLevelId: testLevels.secondLevel.id,
+      requestedAlgorithmId: 'unknown' as never,
+    });
+
+    await flushEffects();
+
+    expect(store.getState().game.levelId).toBe(testLevels.secondLevel.id);
+    expect(store.getState().solver.recommendation?.algorithmId).toBe(expectedRecommendation);
+    expect(store.getState().solver.selectedAlgorithmId).toBe(expectedRecommendation);
 
     await act(async () => {
       root.unmount();

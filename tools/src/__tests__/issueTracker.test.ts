@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import path from 'node:path';
 
 // @ts-ignore Script helpers are authored as Node ESM .mjs files.
 import * as issueTracker from '../../scripts/issueTracker.mjs';
@@ -7,6 +8,7 @@ const {
   buildKnownIssuesContent,
   closeIssueContent,
   getSectionBody,
+  loadIssues,
   issueFilePath,
   parseFrontmatter,
   replaceSection,
@@ -184,6 +186,15 @@ describe('parseFrontmatter', () => {
     expect(fm.id).toBe('X');
     expect(fm.title).toBe('Y');
   });
+
+  it('throws when frontmatter delimiters are missing', () => {
+    expect(() => parseFrontmatter('id: missing')).toThrow(
+      'Expected issue file to start with frontmatter',
+    );
+    expect(() => parseFrontmatter('---\nid: X\n')).toThrow(
+      'Expected closing frontmatter delimiter',
+    );
+  });
 });
 
 describe('updateFrontmatter', () => {
@@ -255,5 +266,25 @@ describe('issueFilePath', () => {
     const result = issueFilePath('BUG-001');
     expect(result).toContain('BUG-001.md');
     expect(result).toContain('.tracker');
+  });
+});
+
+describe('loadIssues', () => {
+  it('loads and sorts issues by id using the discovered issue file paths', () => {
+    const issues = loadIssues((filePath: string) => {
+      const issueId = path.basename(filePath, '.md');
+      return `---
+id: ${issueId}
+title: ${issueId}
+type: bug
+severity: low
+area: test
+regression: false
+status: open
+---`;
+    });
+
+    const ids = issues.map((issue: { id: string }) => issue.id);
+    expect(ids).toEqual([...ids].sort());
   });
 });

@@ -1,32 +1,31 @@
-import fg from 'fast-glob';
+import glob from 'fast-glob';
 
 export type ScanOptions = {
-  /** Absolute path to the repository root used as the cwd for glob resolution. */
   root: string;
-  /** Glob patterns of files to include (relative to root). */
   include: string[];
-  /** Glob patterns of files to exclude (relative to root). */
   exclude: string[];
 };
 
-/**
- * Scan the repository for files matching the include patterns, minus any
- * matches for the exclude patterns.
- *
- * Returns absolute paths sorted lexicographically.
- */
-export async function scanFiles(options: ScanOptions): Promise<string[]> {
-  if (options.include.length === 0) {
-    return [];
-  }
+export const DEFAULT_SCAN_INCLUDE = [
+  'packages/*/src/**/*.{ts,tsx,js,jsx,mjs}',
+  'apps/web/app/**/*.{ts,tsx,js,jsx,mjs}',
+];
 
-  const matches = await fg(options.include, {
+export const DEFAULT_SCAN_EXCLUDE = [
+  '**/node_modules/**',
+  '**/dist/**',
+  '**/dist-types/**',
+  '**/build/**',
+  '**/coverage/**',
+  '**/docs/_generated/**',
+];
+
+export async function scanFiles(options: ScanOptions): Promise<string[]> {
+  return glob(options.include, {
+    absolute: true,
     cwd: options.root,
     ignore: options.exclude,
-    absolute: true,
-    dot: false,
     onlyFiles: true,
+    unique: true,
   });
-
-  return matches.sort((a, b) => a.localeCompare(b));
 }

@@ -334,6 +334,28 @@ describe('toSuiteAnalytics', () => {
       }),
     );
   });
+
+  it('treats edited builtins as distinct comparison inputs when public comparison keys differ', () => {
+    const baselineAnalytics = toSuiteAnalytics([
+      createResult('suite-original', 10, 'solved', {
+        levelId: 'corgiban-test-18',
+      }),
+    ]);
+    const editedRecord = createResult('suite-edited', 12, 'solved', {
+      levelId: 'corgiban-test-18',
+    });
+    editedRecord.comparisonLevelKey = 'edited:corgiban-test-18:fingerprint-2';
+    const editedAnalytics = toSuiteAnalytics([editedRecord]);
+
+    expect(baselineAnalytics[0]?.comparisonFingerprint).toBeTruthy();
+    expect(editedAnalytics[0]?.comparisonFingerprint).toBeTruthy();
+    expect(editedAnalytics[0]?.comparisonInputs[0]?.levelId).toBe(
+      'edited:corgiban-test-18:fingerprint-2',
+    );
+    expect(editedAnalytics[0]?.comparisonFingerprint).not.toBe(
+      baselineAnalytics[0]?.comparisonFingerprint,
+    );
+  });
 });
 
 describe('buildSuiteLabel', () => {

@@ -140,7 +140,7 @@ describe('BenchPage', () => {
     expect(html).toContain('Results');
     expect(html).toContain('Diagnostics');
     expect(html).toContain(
-      'Run solver benchmarks across multiple levels and review execution outcomes separately from persistence durability.',
+      'Build a repeatable suite, compare solver outcomes across levels, and keep persistence and diagnostics available without letting them dominate the workflow.',
     );
     expect(html).toContain('Import / Export');
     expect(html).toContain('Performance');

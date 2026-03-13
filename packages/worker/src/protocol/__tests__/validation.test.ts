@@ -39,6 +39,37 @@ describe('protocol validation helpers', () => {
     expect(result.message.type).toBe('SOLVE_START');
   });
 
+  it('accepts new algorithm ids through validation helpers', () => {
+    const solveResult = validateInboundMessage({
+      type: 'SOLVE_START',
+      runId: 'run-new',
+      protocolVersion: PROTOCOL_VERSION,
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'tunnelMacroPush',
+      options: {
+        heuristicId: 'assignment',
+        heuristicWeight: 1,
+      },
+    });
+
+    expect(solveResult.ok).toBe(true);
+
+    const benchResult = validateInboundMessage({
+      type: 'BENCH_START',
+      runId: 'bench-new',
+      benchmarkCaseId: 'case-new',
+      protocolVersion: PROTOCOL_VERSION,
+      levelRuntime: sampleLevelRuntime,
+      algorithmId: 'piCorralPush',
+      options: {
+        heuristicId: 'assignment',
+        heuristicWeight: 1,
+      },
+    });
+
+    expect(benchResult.ok).toBe(true);
+  });
+
   it('accepts valid inbound BENCH_START messages', () => {
     const result = validateInboundMessage({
       type: 'BENCH_START',
@@ -199,8 +230,8 @@ describe('protocol validation helpers', () => {
       runId: 'run-5',
       protocolVersion: PROTOCOL_VERSION,
       status: 'error',
-      errorMessage: 'Algorithm "astarPush" is not registered in the solver registry.',
-      errorDetails: 'Missing registry entry.',
+      errorMessage: 'Domain failure while solving.',
+      errorDetails: 'Heuristic configuration mismatch.',
       metrics: {
         elapsedMs: 0,
         expanded: 0,
@@ -220,7 +251,7 @@ describe('protocol validation helpers', () => {
     if (message.status !== 'error') {
       return;
     }
-    expect(message.errorMessage).toContain('not registered');
+    expect(message.errorMessage).toContain('Domain failure');
   });
 
   it('rejects outbound BENCH_RESULT status error payloads without errorMessage', () => {

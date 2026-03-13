@@ -3,6 +3,9 @@ import { createSlice } from '@reduxjs/toolkit';
 import type { Direction } from '@corgiban/shared';
 import { builtinLevels } from '@corgiban/levels';
 
+import { createPlayableExactLevelKey } from '../levels/playableIdentity';
+import { toBuiltinLevelRef } from '../levels/temporaryLevelCatalog';
+
 export type GameMove = {
   direction: Direction;
   pushed: boolean;
@@ -14,15 +17,30 @@ export type GameStats = {
 };
 
 export type GameSliceState = {
+  activeLevelRef: string;
   levelId: string;
+  exactLevelKey?: string;
   history: GameMove[];
   stats: GameStats;
 };
 
+const builtinLevelsById = new Map(builtinLevels.map((level) => [level.id, level] as const));
 const defaultLevelId = builtinLevels[0]?.id ?? 'level-unknown';
+const defaultLevelRef = toBuiltinLevelRef(defaultLevelId);
+
+function resolveExactLevelKey(levelId: string, exactLevelKey?: string): string | undefined {
+  if (exactLevelKey) {
+    return exactLevelKey;
+  }
+
+  const builtinLevel = builtinLevelsById.get(levelId);
+  return builtinLevel ? createPlayableExactLevelKey(builtinLevel) : undefined;
+}
 
 const initialState: GameSliceState = {
+  activeLevelRef: defaultLevelRef,
   levelId: defaultLevelId,
+  exactLevelKey: resolveExactLevelKey(defaultLevelId),
   history: [],
   stats: {
     moves: 0,
@@ -89,8 +107,16 @@ export const gameSlice = createSlice({
       state.history = [];
       state.stats = { moves: 0, pushes: 0 };
     },
-    nextLevel(state, action: { payload: { levelId: string } }) {
+    nextLevel(
+      state,
+      action: { payload: { levelRef?: string; levelId: string; exactLevelKey?: string } },
+    ) {
+      state.activeLevelRef = action.payload.levelRef ?? toBuiltinLevelRef(action.payload.levelId);
       state.levelId = action.payload.levelId;
+      state.exactLevelKey = resolveExactLevelKey(
+        action.payload.levelId,
+        action.payload.exactLevelKey,
+      );
       state.history = [];
       state.stats = { moves: 0, pushes: 0 };
     },

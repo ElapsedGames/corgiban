@@ -45,43 +45,43 @@ function renderPanel(props: SolverPanelProps): string {
 }
 
 describe('SolverPanel', () => {
-  it('marks future algorithms as coming soon and disables them', () => {
+  it('lists every implemented algorithm without disabled placeholder labels', () => {
     const html = renderPanel(baseProps);
 
-    // bfsPush is implemented: its option must not have disabled attribute
     expect(html).toContain('value="bfsPush"');
-    expect(html).not.toContain('bfsPush (coming soon)');
-
-    // astarPush is not implemented: its option must have disabled attribute and "(coming soon)" label
-    expect(html).toContain('astarPush (coming soon)');
-    // The disabled option for astarPush appears as: value="astarPush" disabled=""
-    expect(html).toMatch(/value="astarPush" disabled=""/);
-
-    // idaStarPush is not implemented: its option must have disabled attribute and "(coming soon)" label
-    expect(html).toContain('idaStarPush (coming soon)');
-    expect(html).toMatch(/value="idaStarPush" disabled=""/);
+    expect(html).toContain('BFS Push');
+    expect(html).toContain('A* Push');
+    expect(html).toContain('IDA* Push');
+    expect(html).toContain('Greedy Push');
+    expect(html).toContain('Tunnel Macro Push');
+    expect(html).toContain('PI-Corral Push');
+    expect(html).not.toContain('coming soon');
+    expect(html).not.toMatch(/value="astarPush" disabled=""/);
+    expect(html).not.toMatch(/value="idaStarPush" disabled=""/);
   });
 
-  it('falls back to bfsPush when selected or recommended algorithm is unavailable', () => {
+  it('keeps the selected implemented algorithm active', () => {
     const html = renderPanel({
       ...baseProps,
-      selectedAlgorithmId: 'astarPush',
+      selectedAlgorithmId: 'piCorralPush',
       recommendation: {
-        algorithmId: 'astarPush',
+        algorithmId: 'piCorralPush',
         features: {
           width: 8,
           height: 8,
           boxCount: 7,
           walkableCount: 20,
           reachableCount: 16,
+          boxDensity: 0.35,
+          reachableRatio: 0.8,
+          tunnelCellCount: 0,
+          tunnelRatio: 0,
         },
       },
     });
 
-    // The resolved algorithm is bfsPush (fallback), so bfsPush option must be selected
-    expect(html).toContain('value="bfsPush" selected=""');
-    // astarPush option must NOT be selected
-    expect(html).not.toContain('value="astarPush" selected=""');
+    expect(html).toContain('value="piCorralPush" selected=""');
+    expect(html).not.toContain('value="bfsPush" selected=""');
   });
 
   it('uses recommendation when no algorithm is selected and recommendation is implemented', () => {
@@ -89,20 +89,23 @@ describe('SolverPanel', () => {
       ...baseProps,
       selectedAlgorithmId: null,
       recommendation: {
-        algorithmId: 'bfsPush',
+        algorithmId: 'greedyPush',
         features: {
           width: 6,
           height: 4,
           boxCount: 2,
           walkableCount: 18,
           reachableCount: 15,
+          boxDensity: 2 / 18,
+          reachableRatio: 15 / 18,
+          tunnelCellCount: 0,
+          tunnelRatio: 0,
         },
       },
     });
 
-    // bfsPush is the recommendation and is implemented, so it should be selected
-    expect(html).toContain('value="bfsPush" selected=""');
-    expect(html).toContain('Recommended: bfsPush (2 boxes, 6x4)');
+    expect(html).toContain('value="greedyPush" selected=""');
+    expect(html).toContain('Start with Greedy Push for this 2-box 6x4 level.');
   });
 
   it('uses fallback algorithm when both selected and recommended values are missing', () => {
@@ -114,7 +117,9 @@ describe('SolverPanel', () => {
 
     // bfsPush is the FALLBACK_ALGORITHM_ID and should be selected
     expect(html).toContain('value="bfsPush" selected=""');
-    expect(html).toContain('No recommendation available yet.');
+    expect(html).toContain(
+      'Pick an algorithm when you want to compare your playthrough with a worker solve.',
+    );
   });
 
   it('forwards algorithm selection changes to onSelectAlgorithm', () => {
@@ -182,7 +187,9 @@ describe('SolverPanel', () => {
   it('renders a compact mobile solver surface that only exposes replay speed after a solution exists', () => {
     const idleHtml = renderPanel(baseProps);
     expect(idleHtml).toContain('aria-label="Mobile solver controls"');
-    expect(idleHtml).toContain('Run Solve currently works for most smaller levels.');
+    expect(idleHtml).toContain(
+      'Play first. Run a worker solve when you want a hint, a replay, or an algorithm comparison.',
+    );
     expect(idleHtml).toContain('grid grid-cols-2 gap-2');
     expect(idleHtml).not.toContain('aria-label="Mobile replay speed"');
 
@@ -205,7 +212,9 @@ describe('SolverPanel', () => {
       },
     });
 
-    expect(solvedHtml).toContain('Run Solve currently works for most smaller levels.');
+    expect(solvedHtml).toContain(
+      'Play first. Run a worker solve when you want a hint, a replay, or an algorithm comparison.',
+    );
     expect(solvedHtml).toContain('aria-label="Mobile replay speed"');
     expect(solvedHtml).toContain('min-h-[42px] w-full px-4 py-2 text-sm');
   });

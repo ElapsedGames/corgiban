@@ -15,6 +15,7 @@ import {
   type BenchmarkPort,
   type BenchmarkRunRecord,
 } from '../../ports/benchmarkPort';
+import { getPlayableEntryByRef, toBuiltinLevelRef } from '../../levels/temporaryLevelCatalog';
 import { createNoopSolverPort } from '../../ports/solverPort';
 import {
   benchResultRecorded,
@@ -220,6 +221,7 @@ describe('benchThunks', () => {
       settings: { debug: false },
       bench: {
         suite: {
+          levelRefs: [toBuiltinLevelRef(levelId)],
           levelIds: [levelId],
           algorithmIds: ['bfsPush'],
           repetitions: 1,
@@ -672,7 +674,7 @@ describe('benchThunks', () => {
     await store.dispatch(runBenchSuite());
 
     expect(store.getState().bench.status).toBe('failed');
-    expect(store.getState().bench.diagnostics.lastError).toContain('Unknown level id');
+    expect(store.getState().bench.diagnostics.lastError).toContain('Unknown level id or ref');
     store.dispose();
   });
 
@@ -797,21 +799,28 @@ describe('benchThunks', () => {
       ),
     );
 
-    expect(store.getState().bench.suite.levelIds).toEqual(expectedLevelIds);
+    const importedLevelRefs = store.getState().bench.suite.levelRefs ?? [];
+    expect(importedLevelRefs).toHaveLength(expectedLevelIds.length);
+    expect(importedLevelRefs.every((levelRef) => levelRef.startsWith('temp:'))).toBe(true);
+    expect(
+      importedLevelRefs.map((levelRef) => getPlayableEntryByRef(levelRef)?.level.id ?? null),
+    ).toEqual(expectedLevelIds);
     expect(store.getState().bench.diagnostics.lastError).toBeNull();
-    expect(store.getState().bench.diagnostics.lastNotice).toContain('unrecognized ID was skipped');
+    expect(store.getState().bench.diagnostics.lastNotice).toContain(
+      'skipped because no matching built-in id or custom level definition was available',
+    );
 
-    const activeSuiteLevelIds = [...store.getState().bench.suite.levelIds];
+    const activeSuiteLevelIds = [...(store.getState().bench.suite.levelRefs ?? [])];
     const replacementLevelId = builtinLevels[2]?.id ?? secondLevelId;
 
     store.dispatch(benchRunStarted({ suiteRunId: 'bench-level-pack-active', totalRuns: 2 }));
     await store.dispatch(importLevelPackSelection(createLevelPackPayload([replacementLevelId])));
 
-    expect(store.getState().bench.suite.levelIds).toEqual(activeSuiteLevelIds);
+    expect(store.getState().bench.suite.levelRefs).toEqual(activeSuiteLevelIds);
 
     store.dispatch(benchRunCancelRequested({ suiteRunId: 'bench-level-pack-active' }));
     await store.dispatch(importLevelPackSelection(createLevelPackPayload([firstLevelId])));
-    expect(store.getState().bench.suite.levelIds).toEqual(activeSuiteLevelIds);
+    expect(store.getState().bench.suite.levelRefs).toEqual(activeSuiteLevelIds);
 
     store.dispose();
   });

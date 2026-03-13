@@ -1,6 +1,10 @@
 import type { AlgorithmId } from '@corgiban/solver';
 
-import type { BenchmarkRunRecord, BenchmarkSuiteConfig } from '../ports/benchmarkPort';
+import {
+  getBenchmarkSuiteLevelRefs,
+  type BenchmarkRunRecord,
+  type BenchmarkSuiteConfig,
+} from '../ports/benchmarkPort';
 import type { BenchDiagnosticsState, BenchPerfEntry, BenchRunStatus } from '../state/benchSlice';
 import { BenchDiagnosticsPanel } from './BenchDiagnosticsPanel';
 import { BenchmarkAnalyticsPanel } from './BenchmarkAnalyticsPanel';
@@ -28,7 +32,7 @@ export type BenchPageProps = {
   debug: boolean;
   availableLevels: SuiteLevelOption[];
   availableAlgorithms: SuiteAlgorithmOption[];
-  onToggleLevel: (levelId: string) => void;
+  onToggleLevel: (levelRef: string) => void;
   onToggleAlgorithm: (algorithmId: AlgorithmId) => void;
   onSetRepetitions: (value: number) => void;
   onSetWarmupRepetitions?: (value: number) => void;
@@ -78,8 +82,8 @@ export function BenchPage({
       <header aria-label="Benchmark Suite page header" className="page-header">
         <h1 className="page-title">Benchmark Suite</h1>
         <p className="page-subtitle">
-          Run solver benchmarks across multiple levels and review execution outcomes separately from
-          persistence durability.
+          Build a repeatable suite, compare solver outcomes across levels, and keep persistence and
+          diagnostics available without letting them dominate the workflow.
         </p>
       </header>
 
@@ -109,7 +113,7 @@ export function BenchPage({
 
           <BenchmarkExportImportControls
             disableExportReport={results.length === 0}
-            disableExportLevelPack={suite.levelIds.length === 0}
+            disableExportLevelPack={getBenchmarkSuiteLevelRefs(suite).length === 0}
             disableImports={isSuiteActive}
             disableClear={isSuiteActive || results.length === 0}
             onExportReport={onExportReport}

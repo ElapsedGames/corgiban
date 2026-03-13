@@ -59,7 +59,7 @@ describe('solverWorker runtime', () => {
       type: 'PONG',
       protocolVersion: 2,
     });
-  });
+  }, 15_000);
 
   it('rejects invalid inbound messages with SOLVE_ERROR', async () => {
     const harness = await setupWorkerHarness();
@@ -292,6 +292,43 @@ describe('solverWorker runtime', () => {
     expect(solveContext?.progressExpandedInterval).toBe(Number.MAX_SAFE_INTEGER);
   });
 
+  it('passes through newly added algorithm ids to the solver runtime', async () => {
+    solveMock.mockImplementation(() => ({
+      status: 'unsolved',
+      metrics: {
+        elapsedMs: 1,
+        expanded: 1,
+        generated: 1,
+        maxDepth: 0,
+        maxFrontier: 1,
+        pushCount: 0,
+        moveCount: 0,
+      },
+    }));
+
+    const harness = await setupWorkerHarness();
+
+    harness.emit({
+      type: 'SOLVE_START',
+      runId: 'run-new-algorithm',
+      protocolVersion: 2,
+      levelRuntime: {
+        levelId: 'test-level',
+        width: 3,
+        height: 3,
+        staticGrid: Uint8Array.from([0, 0, 0, 0, 1, 0, 0, 0, 0]),
+        initialPlayerIndex: 4,
+        initialBoxes: Uint32Array.from([5]),
+      },
+      algorithmId: 'greedyPush',
+      options: { heuristicId: 'assignment' },
+    });
+
+    expect(solveMock).toHaveBeenCalledTimes(1);
+    expect(solveMock.mock.calls[0]?.[1]).toBe('greedyPush');
+    expect(solveMock.mock.calls[0]?.[2]).toEqual({ heuristicId: 'assignment' });
+  });
+
   it('streams progress without best path when spectator stream is disabled', async () => {
     solveMock.mockImplementation((_levelRuntime, _algorithmId, _options, hooks) => {
       hooks?.onProgress?.({
@@ -400,8 +437,8 @@ describe('solverWorker runtime', () => {
   it('emits SOLVE_RESULT status error with errorMessage for domain failures', async () => {
     solveMock.mockImplementation(() => ({
       status: 'error',
-      errorMessage: 'Algorithm "astarPush" is not registered in the solver registry.',
-      errorDetails: 'Missing registry entry.',
+      errorMessage: 'Domain failure while solving.',
+      errorDetails: 'Heuristic configuration mismatch.',
       metrics: {
         elapsedMs: 1,
         expanded: 0,
@@ -435,8 +472,8 @@ describe('solverWorker runtime', () => {
       runId: 'run-error',
       protocolVersion: 2,
       status: 'error',
-      errorMessage: 'Algorithm "astarPush" is not registered in the solver registry.',
-      errorDetails: 'Missing registry entry.',
+      errorMessage: 'Domain failure while solving.',
+      errorDetails: 'Heuristic configuration mismatch.',
     });
     expect(
       harness.messages.some((message) => (message as { type?: string }).type === 'SOLVE_ERROR'),

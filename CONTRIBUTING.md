@@ -4,9 +4,11 @@ Thanks for checking out Corgiban. This repo is intentionally structured to keep 
 
 ## Contribution status
 
-- This repository is public for visibility and planning transparency.
-- Not accepting PRs yet.
-- Issues are disabled for now.
+- This repository is public as a proof-of-concept reference.
+- It is not actively maintained.
+- PRs may not be reviewed.
+- Forks are the recommended path if you want to continue the ideas or ship your own variant.
+- Issues are disabled.
 - Security reports are still accepted through the process in `SECURITY.md`.
 
 ## Ground rules
@@ -34,7 +36,9 @@ pnpm format          # Prettier (auto-format)
 pnpm format:check    # Prettier (check formatting)
 pnpm style:check     # apps/web styling contract (tokens + semantic Tailwind utilities)
 pnpm test            # Vitest workspace (unit tests)
-pnpm test:coverage   # Vitest with enforced coverage thresholds
+pnpm test:coverage   # coverage thresholds + compact hotspot summary
+pnpm test:coverage:full # raw Vitest coverage run without the formatter wrapper
+pnpm encoding:check  # encoding policy across the current worktree
 pnpm test:smoke      # Playwright smoke tests (routes incl. /lab, /play, /bench persistence, offline shell)
 pnpm dev             # start Remix dev server
 pnpm build           # build Remix app
@@ -45,8 +49,10 @@ pnpm issue:close --id BUG-001 --fixed-by "Your Name" --resolution "Short closure
 pnpm issue:generate  # regenerate KNOWN_ISSUES.md after issue edits
 pnpm issue:check     # verify KNOWN_ISSUES.md is in sync
 pnpm levels:rank     # benchmark built-in levels and suggest launch ordering
+pnpm profile:analyze-level:browser # capture /play and /lab analyzeLevel main-thread traces
+pnpm profile:analyze-level:report  # rebuild the analyzeLevel trace summary from saved traces
 pnpm graph:deps      # optional dependency graph -> docs/_generated/dep-graph.svg
-pnpm best-practices  # optional placeholder CLI; report artifact wiring is still tracked in DEBT-007
+pnpm best-practices  # generate docs/_generated/analysis/best_practices_report.md
 node tools/scripts/profile-worker-validation.mjs  # optional: protocol validation profiling report
 ```
 
@@ -65,15 +71,24 @@ Styling note: when changing `apps/web` tokens, Tailwind theme mappings, shared U
 Tailwind-class-heavy route/components, review `apps/web/app/styles/README.md` and run
 `pnpm style:check`.
 
+Coverage note: `pnpm test:coverage` runs the workspace Vitest coverage pass and then prints a
+compact hotspot summary from `coverage/coverage-final.json`. Use `pnpm test:coverage:full` when
+you want the raw Vitest coverage-only output without the formatter wrapper.
+
 Dev server note: use `pnpm dev -- --clearScreen=false` (single argument). Passing `--clearScreen false` can be treated as a positional projectDir and result in "Remix Vite plugin not found in Vite config".
 
 Validation profiling note: `node tools/scripts/profile-worker-validation.mjs` writes
 `docs/_generated/analysis/phase-04-protocol-validation-profile.md`.
+Analyze-level profiling note: `pnpm profile:analyze-level:browser` captures preview-based
+`/play` and `/lab` traces into `artifacts/analyze-level-browser-profile/`, and
+`pnpm profile:analyze-level:report` rebuilds the markdown trace summary from those artifacts.
+When recommendation heuristics or `compileLevel(...)` cost changes, refresh
+`docs/verification/analyze-level-main-thread-profile.md` alongside the profiling run.
 Optional architecture tooling:
 
 - `pnpm graph:deps` refreshes `docs/_generated/dep-graph.svg`.
-- `pnpm best-practices` currently exercises the CLI arg plumbing and reports that artifact
-  generation is still unavailable; wiring the final report output remains tracked in `DEBT-007`.
+- `pnpm best-practices` scans repo source files and writes
+  `docs/_generated/analysis/best_practices_report.md`.
 
 Optional runtime toggle: set `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` when running `/play` to
 exercise solver-client `light-progress` outbound validation for `SOLVE_PROGRESS` (default is strict).
@@ -110,9 +125,9 @@ The pre-commit hook runs:
 - `pnpm format:check`
 - `pnpm exec tsx tools/scripts/style-policy-check.ts` (staged files)
 - Deterministic affected unit tests via `node tools/scripts/run-affected-tests.mjs`
-- Encoding policy check via `node tools/scripts/encoding-check.mjs` (UTF-8 without BOM, ASCII-only text except allow list)
+- Encoding policy check via `pnpm encoding:check:staged` (UTF-8 without BOM, ASCII-only text except allow list)
 
-Run `pnpm lint` and `pnpm typecheck` locally before opening a PR. CI enforces both.
+Run `pnpm lint`, `pnpm typecheck`, and `pnpm encoding:check` locally before opening a PR. CI enforces the tracked-file encoding check.
 
 Affected test selection strategy (deterministic):
 
@@ -170,6 +185,7 @@ Common types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`, `perf
 
 ## Reporting issues
 
-- Issues are disabled for now.
+- Issues are disabled in this repo. If you are building on this work, track follow-up in your fork
+  or with the local tracker files described above.
 
 Security issues: see `SECURITY.md`.

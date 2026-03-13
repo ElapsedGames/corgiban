@@ -862,6 +862,37 @@ describe('createBenchmarkClient internal worker client path', () => {
     await expect(suitePromise).resolves.toEqual([buildResult('run-known')]);
   });
 
+  it('ignores SOLVE_ERROR messages for unknown run ids', async () => {
+    const harness = createWorkerHarness();
+    const client = createBenchmarkClient({
+      createWorker: harness.createWorker,
+      poolSize: 1,
+    });
+
+    const suitePromise = client.runSuite({
+      runs: [
+        {
+          runId: 'run-known',
+          levelRuntime: sampleLevelRuntime,
+          algorithmId: 'bfsPush',
+        },
+      ],
+    });
+
+    const worker = await waitForWorkerCreated(harness);
+    await waitForWorkerMessage(worker, 1);
+
+    worker.emitMessage({
+      type: 'SOLVE_ERROR',
+      runId: 'run-unknown',
+      protocolVersion: 2,
+      message: 'ignore me',
+    });
+    worker.emitMessage(buildResult('run-known'));
+
+    await expect(suitePromise).resolves.toEqual([buildResult('run-known')]);
+  });
+
   it('rejects suite when benchmark worker emits invalid outbound payload', async () => {
     const harness = createWorkerHarness();
     const client = createBenchmarkClient({
@@ -1030,6 +1061,29 @@ describe('createBenchmarkClient internal worker client path', () => {
     expect(worker.terminated).toBe(true);
   });
 
+  it('uses the generic crash fallback when worker error details are not strings or Error objects', async () => {
+    const harness = createWorkerHarness();
+    const client = createBenchmarkClient({
+      createWorker: harness.createWorker,
+      poolSize: 1,
+    });
+    const suite = client.runSuite({
+      runs: [
+        {
+          runId: 'run-object-error',
+          levelRuntime: sampleLevelRuntime,
+          algorithmId: 'bfsPush',
+        },
+      ],
+    });
+    const worker = await waitForWorkerCreated(harness);
+    await waitForWorkerMessage(worker, 1);
+
+    worker.onerror?.({ error: { unexpected: true } });
+    await expect(suite).rejects.toThrow('Benchmark worker crashed.');
+    expect(worker.terminated).toBe(true);
+  });
+
   it('rejects suite when worker postMessage throws', async () => {
     const harness = createWorkerHarness();
     const client = createBenchmarkClient({
@@ -1122,6 +1176,91 @@ describe('createBenchmarkClient internal worker client path', () => {
     recoveredWorker.emitMessage(buildResult('run-after-reset'));
 
     await expect(recoveredSuite).resolves.toEqual([buildResult('run-after-reset')]);
+  });
+
+  it('ignores stale messages and errors from a reset worker after a replacement suite starts', async () => {
+    const harness = createWorkerHarness();
+    const client = createBenchmarkClient({
+      createWorker: harness.createWorker,
+      poolSize: 1,
+    });
+
+    const failedSuite = client.runSuite({
+      runs: [
+        {
+          runId: 'run-invalid-first',
+          levelRuntime: sampleLevelRuntime,
+          algorithmId: 'bfsPush',
+        },
+      ],
+    });
+
+    const firstWorker = await waitForWorkerCreated(harness);
+    await waitForWorkerMessage(firstWorker, 1);
+    firstWorker.emitMessage({
+      type: 'BENCH_PROGRESS',
+      runId: 'run-invalid-first',
+      protocolVersion: 2,
+    });
+    await expect(failedSuite).rejects.toThrow('Invalid outbound protocol message');
+
+    const recoveredSuite = client.runSuite({
+      runs: [
+        {
+          runId: 'run-after-reset',
+          levelRuntime: sampleLevelRuntime,
+          algorithmId: 'bfsPush',
+        },
+      ],
+    });
+
+    const recoveredWorker = await waitForWorkerCreated(harness, 1);
+    await waitForWorkerMessage(recoveredWorker, 1);
+
+    firstWorker.emitMessage(buildResult('run-after-reset'));
+    firstWorker.emitError('stale worker error');
+    firstWorker.emitMessageError();
+
+    recoveredWorker.emitMessage(buildResult('run-after-reset'));
+    await expect(recoveredSuite).resolves.toEqual([buildResult('run-after-reset')]);
+  });
+
+  it('reuses the same worker for later suites after successful completion', async () => {
+    const harness = createWorkerHarness();
+    const client = createBenchmarkClient({
+      createWorker: harness.createWorker,
+      poolSize: 1,
+    });
+
+    const firstSuite = client.runSuite({
+      runs: [
+        {
+          runId: 'run-first',
+          levelRuntime: sampleLevelRuntime,
+          algorithmId: 'bfsPush',
+        },
+      ],
+    });
+
+    const worker = await waitForWorkerCreated(harness);
+    await waitForWorkerMessage(worker, 1);
+    worker.emitMessage(buildResult('run-first'));
+    await expect(firstSuite).resolves.toEqual([buildResult('run-first')]);
+
+    const secondSuite = client.runSuite({
+      runs: [
+        {
+          runId: 'run-second',
+          levelRuntime: sampleLevelRuntime,
+          algorithmId: 'bfsPush',
+        },
+      ],
+    });
+
+    await waitForWorkerMessage(worker, 2);
+    expect(harness.workers).toHaveLength(1);
+    worker.emitMessage(buildResult('run-second'));
+    await expect(secondSuite).resolves.toEqual([buildResult('run-second')]);
   });
 
   it('rejects invalid BENCH_START requests before posting to worker', async () => {

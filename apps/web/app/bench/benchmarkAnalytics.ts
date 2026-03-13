@@ -1,6 +1,11 @@
-import { buildSuiteComparisonInfo, type BenchmarkComparableRunInput } from '@corgiban/benchmarks';
+import {
+  buildSuiteComparisonInfo,
+  type BenchmarkComparableRunInput,
+  type BenchmarkRunRecord as PublicBenchmarkRunRecord,
+} from '@corgiban/benchmarks';
 
 import type { BenchmarkRunRecord } from '../ports/benchmarkPort';
+import { resolveBenchmarkComparisonLevelKey } from './benchmarkRecord';
 
 export type SuiteAnalytics = {
   suiteRunId: string;
@@ -140,7 +145,12 @@ export function toSuiteAnalytics(results: BenchmarkRunRecord[]): SuiteAnalytics[
         .map((result) => result.metrics.elapsedMs)
         .sort((left, right) => left - right);
       const solvedRuns = suiteResults.filter((result) => result.status === 'solved').length;
-      const comparisonInfo = buildSuiteComparisonInfo(suiteResults);
+      const comparisonInfo = buildSuiteComparisonInfo(
+        suiteResults.map((result) => ({
+          ...(result as PublicBenchmarkRunRecord),
+          comparisonLevelKey: resolveBenchmarkComparisonLevelKey(result),
+        })),
+      );
       const latestFinishedAtMs = Math.max(...suiteResults.map((result) => result.finishedAtMs));
       const algorithmSummary = summarizeAlgorithms(suiteResults);
 

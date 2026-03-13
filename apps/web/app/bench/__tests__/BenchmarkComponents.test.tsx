@@ -55,7 +55,11 @@ function createSuiteBuilderProps() {
     ],
     availableAlgorithms: [
       { id: 'bfsPush' as const, label: 'BFS Push' },
-      { id: 'idaStarPush' as const, label: 'IDA* Push', disabled: true },
+      { id: 'astarPush' as const, label: 'A* Push' },
+      { id: 'idaStarPush' as const, label: 'IDA* Push' },
+      { id: 'greedyPush' as const, label: 'Greedy Push' },
+      { id: 'tunnelMacroPush' as const, label: 'Tunnel Macro Push' },
+      { id: 'piCorralPush' as const, label: 'PI-Corral Push' },
     ],
     onToggleLevel: vi.fn(),
     onToggleAlgorithm: vi.fn(),
@@ -279,9 +283,8 @@ describe('BenchDiagnosticsPanel', () => {
     expect(html).toContain('Completed');
     expect(html).toContain('memory-fallback (sticky until reload)');
     expect(html).toContain(
-      'Sticky memory-fallback means execution can still complete while durable persistence is degraded.',
+      'Sticky memory-fallback means runs can still finish, but saved history is only available for this page session until you reload.',
     );
-    expect(html).toContain('Results stay in memory for the current page session until reload.');
   });
 });
 
@@ -393,7 +396,8 @@ describe('BenchmarkSuiteBuilder', () => {
 
     const classicLevelInput = getInputByLabelText(container, 'Classic 001');
     const bfsPushInput = getInputByLabelText(container, 'BFS Push');
-    const idaStarInput = getInputByLabelText(container, 'IDA* Push');
+    const tunnelMacroInput = getInputByLabelText(container, 'Tunnel Macro Push');
+    const piCorralInput = getInputByLabelText(container, 'PI-Corral Push');
 
     await act(async () => {
       classicLevelInput.click();
@@ -402,7 +406,8 @@ describe('BenchmarkSuiteBuilder', () => {
 
     expect(props.onToggleLevel).toHaveBeenCalledWith('corgiban-test-18');
     expect(props.onToggleAlgorithm).toHaveBeenCalledWith('bfsPush');
-    expect(idaStarInput.disabled).toBe(true);
+    expect(tunnelMacroInput.disabled).toBe(false);
+    expect(piCorralInput.disabled).toBe(false);
 
     const repetitionsInput = getInputByLabelText(container, 'Repetitions');
     const warmupRepetitionsInput = getInputByLabelText(container, 'Warm-up Repetitions');
@@ -420,6 +425,29 @@ describe('BenchmarkSuiteBuilder', () => {
     expect(props.onSetWarmupRepetitions).toHaveBeenCalledWith(3);
     expect(props.onSetTimeBudgetMs).toHaveBeenCalledWith(2500);
     expect(props.onSetNodeBudget).toHaveBeenCalledWith(12000);
+  });
+
+  it('renders disabled algorithm options with disabled affordances', async () => {
+    const props = createSuiteBuilderProps();
+    props.availableAlgorithms = [
+      {
+        id: 'bfsPush' as const,
+        label: 'BFS Push',
+        disabled: true,
+      } as (typeof props.availableAlgorithms)[number],
+      { id: 'astarPush' as const, label: 'A* Push' } as (typeof props.availableAlgorithms)[number],
+    ];
+
+    const { container } = await renderIntoDocument(<BenchmarkSuiteBuilder {...props} />);
+
+    const bfsInput = getInputByLabelText(container, 'BFS Push');
+    const bfsLabel = [...container.querySelectorAll('label')].find((candidate) =>
+      candidate.textContent?.includes('BFS Push'),
+    );
+
+    expect(bfsInput.disabled).toBe(true);
+    expect(bfsLabel?.className).toContain('cursor-not-allowed');
+    expect(bfsLabel?.className).toContain('opacity-50');
   });
 
   it('sets inputMode="numeric" and correct max on all numeric inputs', async () => {

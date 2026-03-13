@@ -37,6 +37,10 @@ export function LabEditorPanel({
       <h2 id={headingId} className="sr-only">
         Level Editor
       </h2>
+      <p className="text-sm text-muted">
+        Start with the source text. Parse Level applies the current editor contents to the preview
+        and worker tools below.
+      </p>
       <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
         <Select
           label="Input format"

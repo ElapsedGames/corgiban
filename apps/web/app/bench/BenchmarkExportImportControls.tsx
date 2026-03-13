@@ -36,8 +36,8 @@ export function BenchmarkExportImportControls({
         Import / Export
       </h2>
       <p className="mt-1 text-sm text-muted">
-        Share benchmark history reports and level packs. File System Access API is used when
-        available.
+        Share benchmark history and level packs. Imported packs stay separate from the built-in
+        catalog and reopen as temporary session collections in Play, Lab, and Bench.
       </p>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

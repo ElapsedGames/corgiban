@@ -75,6 +75,10 @@ Report contract baseline:
 - report imports/exports are expected to validate each `results` entry with `isBenchmarkRunRecord(...)`
 - `parseBenchmarkReportJson(...)` enforces size limits, supported version/model checks, and strict
   run-record validation with explicit errors
+- run records may include an additive `runnableLevelKey` field so public exports/imports can
+  preserve exact reopen identity for edited/session-authored variants
+- run records may include an additive `comparisonLevelKey` field so public exports/imports can
+  preserve stable comparison identity for edited/session-authored variants
 - App adapters may attach extra top-level metadata such as `exportedAtIso`; the parser keys off
   the required contract fields above and ignores extra top-level metadata.
 
@@ -82,6 +86,10 @@ Comparison contract baseline:
 
 - `toComparableRunInput(...)` and `buildSuiteComparisonInfo(...)` derive exact suite-input
   fingerprints from measured run metadata.
+- When present, `runnableLevelKey` is the public exact reopen identity for session/authored
+  variants.
+- When present, `comparisonLevelKey` is used as the comparison/fingerprinting identity instead of
+  the canonical display `levelId`.
 - `buildSuiteComparisonInfo(...)` sorts inputs in a canonical locale-independent order
   (`levelId`, `repetition`, serialized tiebreaker) before fingerprinting so comparison exports stay
   stable across runtimes.

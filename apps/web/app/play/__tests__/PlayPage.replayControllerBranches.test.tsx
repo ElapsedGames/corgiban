@@ -1,35 +1,35 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderToStaticMarkup } from 'react-dom/server';
+// @vitest-environment jsdom
+
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { Provider } from 'react-redux';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const replayBranchState = vi.hoisted(() => ({
   solverPanelProps: null as null | Record<string, unknown>,
   sidePanelProps: null as null | Record<string, unknown>,
-  refCallCount: 0,
-  controller: null as null | {
-    stop: () => void;
-    start: () => void;
-    pause: () => void;
-    stepBack: () => void;
-    stepForward: () => void;
-  },
+  controllerInstances: [] as Array<{
+    stop: ReturnType<typeof vi.fn>;
+    start: ReturnType<typeof vi.fn>;
+    pause: ReturnType<typeof vi.fn>;
+    stepBack: ReturnType<typeof vi.fn>;
+    stepForward: ReturnType<typeof vi.fn>;
+  }>,
 }));
 
-vi.mock('react', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react')>();
-  return {
-    ...actual,
-    useRef: <T,>(initial: T) => {
-      const ref = actual.useRef(initial);
-      replayBranchState.refCallCount += 1;
-      const refSlot = ((replayBranchState.refCallCount - 1) % 4) + 1;
-      if (refSlot === 2 && replayBranchState.controller) {
-        (ref as { current: unknown }).current = replayBranchState.controller;
-      }
-      return ref;
-    },
-  };
-});
+vi.mock('../../replay/replayController.client', () => ({
+  ReplayController: class {
+    stop = vi.fn();
+    start = vi.fn();
+    pause = vi.fn();
+    stepBack = vi.fn();
+    stepForward = vi.fn();
+
+    constructor() {
+      replayBranchState.controllerInstances.push(this);
+    }
+  },
+}));
 
 vi.mock('../../canvas/GameCanvas', () => ({
   GameCanvas: () => <div data-testid="game-canvas-stub" />,
@@ -53,36 +53,56 @@ vi.mock('../SolverPanel', () => ({
   },
 }));
 
+vi.mock('../useKeyboardControls', () => ({
+  useKeyboardControls: () => undefined,
+}));
+
 import { createAppStore } from '../../state/store';
 import { setReplayState } from '../../state/solverSlice';
 import { PlayPage } from '../PlayPage';
 
-function renderPage(store = createAppStore()) {
-  replayBranchState.refCallCount = 0;
-  renderToStaticMarkup(
-    <Provider store={store}>
-      <PlayPage />
-    </Provider>,
-  );
-  return store;
+Object.assign(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }, {
+  IS_REACT_ACT_ENVIRONMENT: true,
+});
+
+const mountedRoots: Root[] = [];
+
+async function renderPage(store = createAppStore()) {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  mountedRoots.push(root);
+
+  await act(async () => {
+    root.render(
+      <Provider store={store}>
+        <PlayPage />
+      </Provider>,
+    );
+  });
+
+  return { root, store };
 }
 
 describe('PlayPage replay controller branches', () => {
   beforeEach(() => {
+    document.body.innerHTML = '';
     replayBranchState.solverPanelProps = null;
     replayBranchState.sidePanelProps = null;
-    replayBranchState.refCallCount = 0;
-    replayBranchState.controller = {
-      stop: vi.fn(),
-      start: vi.fn(),
-      pause: vi.fn(),
-      stepBack: vi.fn(),
-      stepForward: vi.fn(),
-    };
+    replayBranchState.controllerInstances.length = 0;
   });
 
-  it('invokes replay controller callbacks when a controller ref is available', () => {
-    renderPage();
+  afterEach(async () => {
+    while (mountedRoots.length > 0) {
+      const root = mountedRoots.pop();
+      await act(async () => {
+        root?.unmount();
+      });
+    }
+  });
+
+  it('invokes replay controller callbacks when a controller ref is available', async () => {
+    await renderPage();
 
     const onReplayPlayPause = replayBranchState.solverPanelProps?.onReplayPlayPause as
       | (() => void)
@@ -100,31 +120,39 @@ describe('PlayPage replay controller branches', () => {
     expect(onReplayStepForward).toBeTypeOf('function');
     expect(onUndo).toBeTypeOf('function');
 
-    onReplayPlayPause?.();
-    onReplayStepBack?.();
-    onReplayStepForward?.();
-    onUndo?.();
+    await act(async () => {
+      onReplayPlayPause?.();
+      onReplayStepBack?.();
+      onReplayStepForward?.();
+      onUndo?.();
+    });
 
-    expect(replayBranchState.controller?.start).toHaveBeenCalledTimes(1);
-    expect(replayBranchState.controller?.stepBack).toHaveBeenCalledTimes(1);
-    expect(replayBranchState.controller?.stepForward).toHaveBeenCalledTimes(1);
-    expect(replayBranchState.controller?.stop).toHaveBeenCalledTimes(1);
+    const controller = replayBranchState.controllerInstances.at(-1);
+    expect(controller?.start).toHaveBeenCalledTimes(1);
+    expect(controller?.stepBack).toHaveBeenCalledTimes(1);
+    expect(controller?.stepForward).toHaveBeenCalledTimes(1);
+    expect(controller?.stop).toHaveBeenCalledTimes(1);
   });
 
-  it('pauses replay when replay state is playing', () => {
+  it('pauses replay when replay state is playing', async () => {
     const store = createAppStore();
-    store.dispatch(setReplayState('playing'));
+    await renderPage(store);
 
-    renderPage(store);
+    await act(async () => {
+      store.dispatch(setReplayState('playing'));
+    });
 
     const onReplayPlayPause = replayBranchState.solverPanelProps?.onReplayPlayPause as
       | (() => void)
       | undefined;
     expect(onReplayPlayPause).toBeTypeOf('function');
 
-    onReplayPlayPause?.();
+    await act(async () => {
+      onReplayPlayPause?.();
+    });
 
-    expect(replayBranchState.controller?.pause).toHaveBeenCalledTimes(1);
-    expect(replayBranchState.controller?.start).not.toHaveBeenCalled();
+    const controller = replayBranchState.controllerInstances.at(-1);
+    expect(controller?.pause).toHaveBeenCalledTimes(1);
+    expect(controller?.start).not.toHaveBeenCalled();
   });
 });

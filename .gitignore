@@ -21,6 +21,7 @@ apps/web/.wrangler/
 
 # Test and coverage
 coverage/
+coverage-temp/
 .nyc_output/
 
 # Playwright
@@ -78,3 +79,4 @@ Desktop.ini
 
 # Local commit message
 commit-message.md
+final-pass.md

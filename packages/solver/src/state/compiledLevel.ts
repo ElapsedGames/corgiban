@@ -13,6 +13,8 @@ const DIRECTION_DELTAS: Record<Direction, { dx: number; dy: number }> = {
   R: { dx: 1, dy: 0 },
 };
 
+const DIRECTION_MASKS = [1 << 0, 1 << 1, 1 << 2, 1 << 3] as const;
+
 export type CompiledLevel = {
   width: number;
   height: number;
@@ -24,6 +26,7 @@ export type CompiledLevel = {
   goalCells: Uint16Array;
   deadSquares: Bitset;
   goalDistances: Uint16Array[];
+  tunnelDirections: Uint8Array;
 };
 
 function buildCompaction(level: LevelRuntime): {
@@ -176,6 +179,41 @@ function buildGoalDistances(
   return distances;
 }
 
+function buildTunnelDirections(
+  cellCount: number,
+  neighbors: Int32Array,
+  goals: Bitset,
+): Uint8Array {
+  const tunnelDirections = new Uint8Array(cellCount);
+
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    if (goals.has(cellId)) {
+      continue;
+    }
+
+    const up = neighbors[cellId * 4 + 0] >= 0;
+    const down = neighbors[cellId * 4 + 1] >= 0;
+    const left = neighbors[cellId * 4 + 2] >= 0;
+    const right = neighbors[cellId * 4 + 3] >= 0;
+    const degree = Number(up) + Number(down) + Number(left) + Number(right);
+
+    if (degree !== 2) {
+      continue;
+    }
+
+    if (up && down) {
+      tunnelDirections[cellId] = DIRECTION_MASKS[0] | DIRECTION_MASKS[1];
+      continue;
+    }
+
+    if (left && right) {
+      tunnelDirections[cellId] = DIRECTION_MASKS[2] | DIRECTION_MASKS[3];
+    }
+  }
+
+  return tunnelDirections;
+}
+
 export function compileLevel(level: LevelRuntime): CompiledLevel {
   const { cellCount, globalToCell, cellToGlobal, goalCellIds } = buildCompaction(level);
   const neighbors = buildNeighbors(level, cellToGlobal, globalToCell);
@@ -185,6 +223,7 @@ export function compileLevel(level: LevelRuntime): CompiledLevel {
   }
   const deadSquares = buildDeadSquares(level, cellToGlobal);
   const goalDistances = buildGoalDistances(cellCount, neighbors, goalCellIds);
+  const tunnelDirections = buildTunnelDirections(cellCount, neighbors, goals);
 
   return {
     width: level.width,
@@ -197,6 +236,7 @@ export function compileLevel(level: LevelRuntime): CompiledLevel {
     goalCells: Uint16Array.from(goalCellIds),
     deadSquares,
     goalDistances,
+    tunnelDirections,
   };
 }
 
@@ -206,4 +246,16 @@ export function cellIdFromGlobal(level: CompiledLevel, index: number): number {
 
 export function globalIndexFromCell(level: CompiledLevel, cellId: number): number {
   return level.cellToGlobal[cellId];
+}
+
+export function hasTunnelDirection(
+  level: CompiledLevel,
+  cellId: number,
+  dirIndex: number,
+): boolean {
+  if (cellId < 0 || cellId >= level.cellCount || dirIndex < 0 || dirIndex >= 4) {
+    return false;
+  }
+
+  return (level.tunnelDirections[cellId] & DIRECTION_MASKS[dirIndex]) !== 0;
 }

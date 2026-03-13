@@ -13,6 +13,10 @@ vi.mock('../../canvas/GameCanvas', () => ({
   GameCanvas: () => <div data-testid="game-canvas-stub" />,
 }));
 
+vi.mock('@remix-run/react', () => ({
+  useNavigate: () => vi.fn(),
+}));
+
 import { LabPage } from '../LabPage';
 
 describe('LabPage empty builtin fallback behavior', () => {

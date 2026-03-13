@@ -8,6 +8,8 @@ export type SidePanelProps = {
   stats: GameStats;
   moves: GameMove[];
   isSolved: boolean;
+  labHref: string;
+  benchHref: string;
   canGoToPreviousLevel: boolean;
   onPreviousLevel: () => void;
   onRestart: () => void;
@@ -21,6 +23,8 @@ export function SidePanel({
   stats,
   moves,
   isSolved,
+  labHref,
+  benchHref,
   canGoToPreviousLevel,
   onPreviousLevel,
   onRestart,
@@ -87,6 +91,21 @@ export function SidePanel({
         >
           Next Level
         </Button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+        <a
+          className="rounded-app-md border border-border px-3 py-2 text-center font-medium text-accent transition hover:border-accent-border hover:bg-accent-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+          href={labHref}
+        >
+          Open in Lab
+        </a>
+        <a
+          className="rounded-app-md border border-border px-3 py-2 text-center font-medium text-accent transition hover:border-accent-border hover:bg-accent-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+          href={benchHref}
+        >
+          Send to Bench
+        </a>
       </div>
 
       <div className="hidden lg:block">

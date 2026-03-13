@@ -11,6 +11,35 @@ describe('normalizeSolverOptions', () => {
     expect(result.enableSpectatorStream).toBe(false);
   });
 
+  it('defaults idaStarPush to the assignment heuristic', () => {
+    const result = normalizeSolverOptions('idaStarPush', undefined);
+
+    expect(result.heuristicId).toBe('assignment');
+    expect(result.heuristicWeight).toBe(1);
+    expect(result.enableSpectatorStream).toBe(false);
+  });
+
+  it('defaults greedyPush to assignment and rejects heuristicWeight', () => {
+    const result = normalizeSolverOptions('greedyPush', undefined);
+
+    expect(result.heuristicId).toBe('assignment');
+    expect(result.heuristicWeight).toBeUndefined();
+    expect(result.enableSpectatorStream).toBe(false);
+    expect(() => normalizeSolverOptions('greedyPush', { heuristicWeight: 2 })).toThrow(
+      'heuristicWeight',
+    );
+  });
+
+  it('defaults tunnelMacroPush and piCorralPush to the assignment heuristic', () => {
+    const tunnelResult = normalizeSolverOptions('tunnelMacroPush', undefined);
+    const corralResult = normalizeSolverOptions('piCorralPush', undefined);
+
+    expect(tunnelResult.heuristicId).toBe('assignment');
+    expect(tunnelResult.heuristicWeight).toBe(1);
+    expect(corralResult.heuristicId).toBe('assignment');
+    expect(corralResult.heuristicWeight).toBe(1);
+  });
+
   it('rejects heuristic fields for bfsPush', () => {
     expect(() =>
       normalizeSolverOptions('bfsPush', {

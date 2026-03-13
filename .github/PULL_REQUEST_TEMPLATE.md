@@ -19,14 +19,14 @@ Why is this change needed?
 
 ## Validation
 
-- [{✅ or ❌}] `pnpm format:check`
-- [{✅ or ❌}] `pnpm typecheck`
-- [{✅ or ❌}] `pnpm lint`
-- [{✅ or ❌}] `pnpm test`
+- [{x or }] `pnpm format:check`
+- [{x or }] `pnpm typecheck`
+- [{x or }] `pnpm lint`
+- [{x or }] `pnpm test`
 - [{example:95.88%}] `pnpm test:coverage`
-- [{✅ or ❌}] `pnpm test:smoke`
-- [{✅ or ❌}] Boundary checks pass
-- [{✅ or ❌}] Encoding policy checks pass (UTF-8 without BOM, ASCII-default text)
+- [{x or }] `pnpm test:smoke`
+- [{x or }] Boundary checks pass
+- [{x or }] Encoding policy checks pass (UTF-8 without BOM, ASCII-default text)
 
 ## Notes / Follow-ups / ADRs
 

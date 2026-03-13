@@ -361,6 +361,46 @@ describe('useKeyboardControls', () => {
     expect(roleButtonEvent.preventDefault).not.toHaveBeenCalled();
   });
 
+  it('preserves Enter activation for summary and semantic role targets after solving', () => {
+    let keydownHandler: ((event: FakeKeyboardEvent) => void) | undefined;
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: FakeKeyboardEvent) => void) => {
+        keydownHandler = handler;
+      },
+      removeEventListener: () => undefined,
+    });
+
+    const onNextLevel = vi.fn();
+
+    useKeyboardControls({
+      onMove: () => undefined,
+      onUndo: () => undefined,
+      onRestart: () => undefined,
+      onNextLevel,
+      isSolved: true,
+    });
+
+    const summary = new FakeHTMLElement();
+    summary.tagName = 'SUMMARY';
+    const summaryEvent = createEvent('Enter', { target: summary });
+    keydownHandler?.(summaryEvent);
+
+    const interactiveRoles = ['menuitem', 'option', 'radio', 'switch', 'tab', 'treeitem'];
+    const roleEvents = interactiveRoles.map((role) => {
+      const target = new FakeHTMLElement();
+      target.setAttribute('role', role);
+      const event = createEvent('Enter', { target });
+      keydownHandler?.(event);
+      return event;
+    });
+
+    expect(onNextLevel).not.toHaveBeenCalled();
+    expect(summaryEvent.preventDefault).not.toHaveBeenCalled();
+    roleEvents.forEach((event) => {
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+  });
+
   it('maps Enter to next level only when the puzzle is solved', () => {
     let keydownHandler: ((event: FakeKeyboardEvent) => void) | undefined;
     vi.stubGlobal('window', {

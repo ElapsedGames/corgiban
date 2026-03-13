@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   BENCHMARK_REPORT_EXPORT_MODEL,
@@ -9,7 +9,12 @@ import { builtinLevels } from '@corgiban/levels';
 
 import type { PersistencePort } from '../../ports/persistencePort';
 import { LEVEL_PACK_TYPE, LEVEL_PACK_VERSION } from '../../bench/levelPackImport';
-import type { BenchmarkPort, BenchmarkRunRecord } from '../../ports/benchmarkPort';
+import { clearTemporaryLevels, getPlayableEntryByRef } from '../../levels/temporaryLevelCatalog';
+import {
+  getBenchmarkSuiteLevelRefs,
+  type BenchmarkPort,
+  type BenchmarkRunRecord,
+} from '../../ports/benchmarkPort';
 import { createNoopSolverPort } from '../../ports/solverPort';
 import { benchResultsReplaced } from '../benchSlice';
 import {
@@ -119,7 +124,21 @@ function createLevelPackPayload(levelIds: string[]): string {
   });
 }
 
+function createLevelPackWithLevels(
+  levels: Array<{ id: string; name?: string; rows?: string[] }>,
+): string {
+  return JSON.stringify({
+    type: LEVEL_PACK_TYPE,
+    version: LEVEL_PACK_VERSION,
+    levels,
+  });
+}
+
 describe('benchThunks edge cases', () => {
+  afterEach(() => {
+    clearTemporaryLevels();
+  });
+
   it('records load error when initializeBench loadResults rejects with a string', async () => {
     const benchmarkPort = createBenchmarkPortMock();
     const benchmarkStorage = createBenchmarkStorageMock();
@@ -294,9 +313,42 @@ describe('benchThunks edge cases', () => {
 
     expect(store.getState().bench.suite.levelIds).toEqual(beforeLevelIds);
     expect(store.getState().bench.diagnostics.lastError).toContain(
-      'No known built-in level ids were found',
+      'No usable level ids were found',
     );
     expect(store.getState().bench.diagnostics.lastNotice).toBeNull();
+    store.dispose();
+  });
+
+  it('imports custom level definitions into the active bench suite selection', async () => {
+    const benchmarkPort = createBenchmarkPortMock();
+    const benchmarkStorage = createBenchmarkStorageMock();
+    const store = createAppStore({
+      solverPort: createNoopSolverPort(),
+      benchmarkPort,
+      persistencePort: benchmarkStorage,
+    });
+
+    await expect(
+      store.dispatch(
+        importLevelPackSelection(
+          createLevelPackWithLevels([
+            {
+              id: 'custom-bench-001',
+              name: 'Custom Bench Level',
+              rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+            },
+          ]),
+        ),
+      ),
+    ).resolves.toBeUndefined();
+
+    const importedLevelRefs = getBenchmarkSuiteLevelRefs(store.getState().bench.suite);
+    expect(importedLevelRefs).toHaveLength(1);
+    expect(importedLevelRefs[0] ?? '').toMatch(/^temp:/);
+    expect(store.getState().bench.diagnostics.lastError).toBeNull();
+    expect(store.getState().bench.diagnostics.lastNotice ?? '').toContain(
+      'temporary custom level is now available in Play, Lab, and Bench',
+    );
     store.dispose();
   });
 
@@ -343,6 +395,82 @@ describe('benchThunks edge cases', () => {
 
     expect(store.getState().bench.results).toEqual([existing]);
     expect(store.getState().bench.diagnostics.lastError).toBe('clear failed');
+    store.dispose();
+  });
+
+  it('imports a dual-field payload with custom levels into the bench suite', async () => {
+    const benchmarkPort = createBenchmarkPortMock();
+    const benchmarkStorage = createBenchmarkStorageMock();
+    const store = createAppStore({
+      solverPort: createNoopSolverPort(),
+      benchmarkPort,
+      persistencePort: benchmarkStorage,
+    });
+
+    const knownId = builtinLevels[0]?.id ?? 'corgiban-test-18';
+    const dualFieldPayload = JSON.stringify({
+      type: LEVEL_PACK_TYPE,
+      version: LEVEL_PACK_VERSION,
+      levelIds: [knownId, 'custom-dual-001'],
+      levels: [
+        { id: knownId },
+        {
+          id: 'custom-dual-001',
+          name: 'Dual Custom',
+          rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+        },
+      ],
+    });
+
+    await expect(
+      store.dispatch(importLevelPackSelection(dualFieldPayload)),
+    ).resolves.toBeUndefined();
+
+    const importedLevelRefs = getBenchmarkSuiteLevelRefs(store.getState().bench.suite);
+    expect(importedLevelRefs).toHaveLength(2);
+    expect(importedLevelRefs.every((levelRef) => levelRef.startsWith('temp:'))).toBe(true);
+    expect(
+      importedLevelRefs.map((levelRef) => getPlayableEntryByRef(levelRef)?.level.id ?? null),
+    ).toEqual([knownId, 'custom-dual-001']);
+    expect(store.getState().bench.diagnostics.lastError).toBeNull();
+    expect(store.getState().bench.diagnostics.lastNotice ?? '').toContain(
+      'temporary custom level is now available in Play, Lab, and Bench',
+    );
+    store.dispose();
+  });
+
+  it('accepts dual-field payloads when unused inline entries are malformed', async () => {
+    const benchmarkPort = createBenchmarkPortMock();
+    const benchmarkStorage = createBenchmarkStorageMock();
+    const store = createAppStore({
+      solverPort: createNoopSolverPort(),
+      benchmarkPort,
+      persistencePort: benchmarkStorage,
+    });
+
+    const knownId = builtinLevels[0]?.id ?? 'corgiban-test-18';
+    const dualFieldPayload = JSON.stringify({
+      type: LEVEL_PACK_TYPE,
+      version: LEVEL_PACK_VERSION,
+      levelIds: [knownId],
+      levels: [
+        {
+          id: 'unused-malformed-level',
+          rows: ['WWWWW', 'WPXWW', 'WWWWW'],
+        },
+      ],
+    });
+
+    await expect(
+      store.dispatch(importLevelPackSelection(dualFieldPayload)),
+    ).resolves.toBeUndefined();
+
+    const importedLevelRefs = store.getState().bench.suite.levelRefs ?? [];
+    expect(importedLevelRefs).toHaveLength(1);
+    expect(importedLevelRefs[0] ?? '').toMatch(/^temp:/);
+    expect(getPlayableEntryByRef(importedLevelRefs[0] ?? '')?.level.id).toBe(knownId);
+    expect(store.getState().bench.diagnostics.lastError).toBeNull();
+    expect(store.getState().bench.diagnostics.lastNotice).toBeNull();
     store.dispose();
   });
 

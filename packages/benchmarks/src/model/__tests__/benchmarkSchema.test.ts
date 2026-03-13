@@ -184,6 +184,8 @@ describe('benchmarkSchema', () => {
     expect(
       isBenchmarkRunRecord({
         ...createValidRecord(),
+        runnableLevelKey: 'edited:corgiban-test-18:exact-1',
+        comparisonLevelKey: 'edited:corgiban-test-18:fingerprint-1',
         warmup: false,
         solutionMoves: 'R',
         errorDetails: 'none',
@@ -450,6 +452,26 @@ describe('benchmarkSchema', () => {
 
     expect(parsed).toHaveLength(1);
     expect(parsed[0].id).toBe('suite-1:1');
+  });
+
+  it('preserves additive public exact and comparison level keys on parsed reports', () => {
+    const parsed = parseBenchmarkReportJson(
+      JSON.stringify({
+        type: BENCHMARK_REPORT_TYPE,
+        version: BENCHMARK_REPORT_VERSION,
+        exportModel: BENCHMARK_REPORT_EXPORT_MODEL,
+        results: [
+          {
+            ...createValidRecord(),
+            runnableLevelKey: 'edited:corgiban-test-18:exact-1',
+            comparisonLevelKey: 'edited:corgiban-test-18:fingerprint-1',
+          },
+        ],
+      }),
+    );
+
+    expect(parsed[0]?.runnableLevelKey).toBe('edited:corgiban-test-18:exact-1');
+    expect(parsed[0]?.comparisonLevelKey).toBe('edited:corgiban-test-18:fingerprint-1');
   });
 
   it('rejects unsupported versions and invalid report entries', () => {

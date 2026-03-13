@@ -24,6 +24,20 @@ function DisableDialogButtonsOnMount() {
   return null;
 }
 
+function InertSection({ children }: { children: ReactElement }) {
+  return (
+    <div
+      ref={(element) => {
+        if (element) {
+          element.setAttribute('inert', '');
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 async function renderIntoDocument(element: ReactElement) {
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -333,6 +347,49 @@ describe('Dialog', () => {
     dispatchKeyDown(dialog, { key: 'Escape' });
 
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('ignores non-Tab key presses after the Escape branch', async () => {
+    const onClose = vi.fn();
+    const { container } = await renderIntoDocument(
+      <Dialog open={true} title="Export" onClose={onClose} />,
+    );
+
+    const dialog = getDialog(container);
+    const event = dispatchKeyDown(dialog, { key: 'ArrowDown' });
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('filters disabled, aria-hidden, inert, and hidden-input descendants from focusable targets', async () => {
+    const { container } = await renderIntoDocument(
+      <Dialog open={true} title="Filtered focus" onClose={() => {}}>
+        <input type="hidden" value="secret" />
+        <button type="button" disabled>
+          Disabled
+        </button>
+        <a href="/ignored" aria-hidden="true">
+          Hidden link
+        </a>
+        <InertSection>
+          <button type="button">Inert action</button>
+        </InertSection>
+        <input type="text" aria-label="Visible input" />
+      </Dialog>,
+    );
+
+    const closeButton = getButtonByAriaLabel(container, 'Close dialog');
+    expect(document.activeElement).toBe(closeButton);
+
+    const event = dispatchKeyDown(closeButton, { key: 'Tab' });
+    const visibleInput = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Visible input"]',
+    );
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(visibleInput).toBeInstanceOf(HTMLInputElement);
+    expect((document.activeElement as HTMLElement | null)?.textContent).not.toContain('Disabled');
   });
 
   it('sets overflow:hidden on both body and html when opened', async () => {

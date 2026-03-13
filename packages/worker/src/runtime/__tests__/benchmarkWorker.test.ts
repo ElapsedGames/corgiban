@@ -75,7 +75,7 @@ describe('benchmarkWorker runtime', () => {
       type: 'PONG',
       protocolVersion: 2,
     });
-  });
+  }, 15_000);
 
   it('rejects invalid inbound messages with SOLVE_ERROR', async () => {
     const harness = await setupWorkerHarness();

@@ -1,8 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Provider } from 'react-redux';
 import { builtinLevels } from '@corgiban/levels';
+import { parseLevel } from '@corgiban/core';
 
+import {
+  clearSessionPlayableEntries,
+  createPlayableLevelFingerprint,
+  toBuiltinLevelRef,
+  upsertSessionPlayableCollection,
+  upsertSessionPlayableEntry,
+} from '../../levels/temporaryLevelCatalog';
+import { createPlayableExactLevelKey } from '../../levels/playableIdentity';
+import { handleLevelChange } from '../../state';
 import { createAppStore } from '../../state/store';
 import { move, nextLevel } from '../../state/gameSlice';
 import { setWorkerHealth, solveRunCompleted, solveRunStarted } from '../../state/solverSlice';
@@ -42,18 +52,54 @@ vi.mock('../SolverPanel', () => ({
   },
 }));
 
+vi.mock('../../levels/RequestedEntryPending', () => ({
+  RequestedEntryPendingPage: (props: Record<string, unknown>) => (
+    <div data-testid="requested-entry-pending">{String(props.heading ?? '')}</div>
+  ),
+}));
+
+vi.mock('../../levels/RequestedEntryUnavailable', () => ({
+  RequestedEntryUnavailablePage: (props: Record<string, unknown>) => (
+    <div data-testid="requested-entry-unavailable">{String(props.heading ?? '')}</div>
+  ),
+}));
+
+vi.mock('../../levels/usePlayableLevels', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../levels/usePlayableLevels')>();
+  const catalog = await import('../../levels/temporaryLevelCatalog');
+  const { resolveRequestedPlayableEntryFromEntries } =
+    await import('../../levels/requestedPlayableEntry');
+  return {
+    ...actual,
+    usePlayableCatalogSnapshot: () => ({
+      entries: catalog.listPlayableEntries(),
+      completeness: 'client-session-aware' as const,
+    }),
+    usePlayableLevels: () => catalog.listPlayableEntries(),
+    useResolvedPlayableEntry: (request: { levelRef?: string | null; levelId?: string | null }) => {
+      const entries = catalog.listPlayableEntries();
+      const resolution = resolveRequestedPlayableEntryFromEntries(entries, request);
+      return resolution.status === 'resolved' ? resolution.entry : null;
+    },
+  };
+});
+
 import { PlayPage } from '../PlayPage';
 
-function renderPage(store = createAppStore()) {
+function renderPage(store = createAppStore(), props: Parameters<typeof PlayPage>[0] = {}) {
   const html = renderToStaticMarkup(
     <Provider store={store}>
-      <PlayPage />
+      <PlayPage {...props} />
     </Provider>,
   );
   return { store, html };
 }
 
 describe('PlayPage', () => {
+  afterEach(() => {
+    clearSessionPlayableEntries();
+  });
+
   beforeEach(() => {
     testState.solverPanelProps = null;
     testState.sidePanelProps = null;
@@ -111,28 +157,24 @@ describe('PlayPage', () => {
     expect(store.getState().solver.error).toContain('unavailable');
   });
 
-  it('falls back to the default level metadata when the active level id is unknown', () => {
+  it('renders an unavailable shell when the active level id is unknown', () => {
     const store = createAppStore();
     store.dispatch(nextLevel({ levelId: 'missing-level' }));
     store.dispatch(move({ direction: 'L', changed: true, pushed: false }));
 
-    renderPage(store);
+    const { html } = renderPage(store);
 
-    expect(testState.sidePanelProps).not.toBeNull();
-    expect(testState.sidePanelProps?.levelId).toBe(builtinLevels[0]?.id ?? 'level-unknown');
+    expect(html).toContain('Active level is unavailable');
+    expect(testState.sidePanelProps).toBeNull();
   });
 
-  it('uses fallback level metadata to compute next-level transitions from unknown ids', () => {
+  it('renders an unavailable shell instead of exposing next-level transitions from unknown ids', () => {
     const store = createAppStore();
     store.dispatch(nextLevel({ levelId: 'missing-level' }));
-    renderPage(store);
+    const { html } = renderPage(store);
 
-    const onNextLevel = testState.sidePanelProps?.onNextLevel as (() => void) | undefined;
-    expect(onNextLevel).toBeTypeOf('function');
-
-    onNextLevel?.();
-
-    expect(store.getState().game.levelId).toBe(builtinLevels[1]?.id ?? builtinLevels[0]?.id);
+    expect(html).toContain('Active level is unavailable');
+    expect(testState.sidePanelProps).toBeNull();
   });
 
   it('wires side-panel and sequence callbacks into game state updates', () => {
@@ -263,6 +305,58 @@ describe('PlayPage', () => {
     expect(store.getState().solver.error).toBeNull();
   });
 
+  it('keeps imported pack navigation scoped to the active session collection', () => {
+    const importedBuiltinA = builtinLevels[0];
+    const importedBuiltinB = builtinLevels[1];
+
+    if (!importedBuiltinA || !importedBuiltinB) {
+      const { store } = renderPage();
+      expect(store.getState().game.levelId).toBeDefined();
+      return;
+    }
+
+    const importedEntries = upsertSessionPlayableCollection([
+      {
+        originRef: toBuiltinLevelRef(importedBuiltinB.id),
+        level: importedBuiltinB,
+      },
+      {
+        originRef: toBuiltinLevelRef(importedBuiltinA.id),
+        level: importedBuiltinA,
+      },
+    ]);
+    const store = createAppStore();
+
+    store.dispatch(
+      handleLevelChange(parseLevel(importedEntries[0].level), {
+        levelRef: importedEntries[0].ref,
+        levelId: importedEntries[0].level.id,
+        exactLevelKey: createPlayableExactLevelKey(importedEntries[0].level),
+      }),
+    );
+    renderPage(store);
+
+    expect(testState.sidePanelProps?.levelId).toBe(importedBuiltinB.id);
+    expect(testState.sidePanelProps?.canGoToPreviousLevel).toBe(false);
+
+    const onNextLevel = testState.sidePanelProps?.onNextLevel as (() => void) | undefined;
+    expect(onNextLevel).toBeTypeOf('function');
+
+    onNextLevel?.();
+    expect(store.getState().game.activeLevelRef).toBe(importedEntries[1].ref);
+    expect(store.getState().game.levelId).toBe(importedBuiltinA.id);
+
+    renderPage(store);
+    expect(testState.sidePanelProps?.canGoToPreviousLevel).toBe(true);
+
+    const onPreviousLevel = testState.sidePanelProps?.onPreviousLevel as (() => void) | undefined;
+    expect(onPreviousLevel).toBeTypeOf('function');
+
+    onPreviousLevel?.();
+    expect(store.getState().game.activeLevelRef).toBe(importedEntries[0].ref);
+    expect(store.getState().game.levelId).toBe(importedBuiltinB.id);
+  });
+
   it('advances to the next level and resets game stats from side-panel callback', () => {
     const store = createAppStore();
     const initialLevelId = store.getState().game.levelId;
@@ -308,6 +402,70 @@ describe('PlayPage', () => {
     expect(store.getState().game.levelId).toBe(firstLevelId);
     expect(store.getState().game.stats.moves).toBe(0);
     expect(store.getState().game.stats.pushes).toBe(0);
+  });
+
+  it('renders an unavailable shell when the active session ref disappears from the playable catalog', () => {
+    const sessionEntry = upsertSessionPlayableEntry({
+      level: {
+        id: 'active-session-level',
+        name: 'Active Session Level',
+        rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+      },
+    });
+    const store = createAppStore();
+
+    store.dispatch(
+      handleLevelChange(parseLevel(sessionEntry.level), {
+        levelRef: sessionEntry.ref,
+        levelId: sessionEntry.level.id,
+        exactLevelKey: createPlayableExactLevelKey(sessionEntry.level),
+      }),
+    );
+    clearSessionPlayableEntries();
+
+    const { html } = renderPage(store);
+
+    expect(html).toContain('Active level is unavailable');
+    expect(html).not.toContain('Game board');
+    expect(testState.sidePanelProps).toBeNull();
+  });
+
+  it('renders an unavailable shell when a reused session ref no longer matches the active exact level key', () => {
+    const originalLevel = {
+      id: 'active-session-level',
+      name: 'Original Session Level',
+      rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+    };
+    const updatedLevel = {
+      id: 'active-session-level',
+      name: 'Updated Session Level',
+      rows: ['WWWWWW', 'WPBTEW', 'WEEEWW', 'WWWWWW'],
+    };
+    const sessionEntry = upsertSessionPlayableEntry({
+      ref: 'temp:active-session-reused',
+      level: originalLevel,
+    });
+    const store = createAppStore();
+
+    store.dispatch(
+      handleLevelChange(parseLevel(sessionEntry.level), {
+        levelRef: sessionEntry.ref,
+        levelId: sessionEntry.level.id,
+        exactLevelKey: createPlayableExactLevelKey(sessionEntry.level),
+      }),
+    );
+    upsertSessionPlayableEntry({
+      ref: sessionEntry.ref,
+      level: updatedLevel,
+    });
+
+    const { html } = renderPage(store);
+
+    expect(createPlayableLevelFingerprint(updatedLevel)).not.toBe(
+      createPlayableLevelFingerprint(originalLevel),
+    );
+    expect(html).toContain('Active level version is unavailable');
+    expect(testState.sidePanelProps).toBeNull();
   });
 
   it('keeps replay callbacks as no-ops when no replay controller is attached', () => {

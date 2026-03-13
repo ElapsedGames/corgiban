@@ -1,5 +1,6 @@
-import { DEFAULT_BENCHMARK_RETENTION_LIMIT, type BenchmarkRunRecord } from '@corgiban/benchmarks';
+import { DEFAULT_BENCHMARK_RETENTION_LIMIT } from '@corgiban/benchmarks';
 
+import type { BenchmarkRunRecord } from '../../bench/benchmarkRecord';
 import {
   applyRetentionLimit,
   createNoopBenchmarkStorage,

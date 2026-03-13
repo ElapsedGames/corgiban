@@ -96,6 +96,15 @@ describe('benchmark comparison helpers', () => {
     });
   });
 
+  it('uses comparisonLevelKey when present so exported/imported variants stay comparable', () => {
+    const record = createRecord({
+      levelId: 'corgiban-test-18',
+    });
+    record.comparisonLevelKey = 'edited:corgiban-test-18:fingerprint-2';
+
+    expect(toComparableRunInput(record)?.levelId).toBe('edited:corgiban-test-18:fingerprint-2');
+  });
+
   it('returns null when a run record does not include comparable metadata', () => {
     expect(
       toComparableRunInput(

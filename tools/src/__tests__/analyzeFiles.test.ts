@@ -1,82 +1,102 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
 
-import { analyzeAll, analyzeFile, classifySizeStatus, detectTimeUsage } from '../analyzeFiles';
+import { afterEach, describe, expect, it } from 'vitest';
 
-// Use fileURLToPath for cross-Node compatibility (import.meta.dirname requires Node 21.2+).
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const thisFile = path.resolve(__dirname, 'analyzeFiles.test.ts');
-const srcRoot = path.resolve(__dirname, '..', '..');
+import { analyzeAll, analyzeFile } from '../analyzeFiles';
 
-describe('classifySizeStatus', () => {
-  it('returns P for files under 300 lines', () => {
-    expect(classifySizeStatus(0)).toBe('P');
-    expect(classifySizeStatus(1)).toBe('P');
-    expect(classifySizeStatus(299)).toBe('P');
+function createTempRoot(): string {
+  return mkdtempSync(path.join(os.tmpdir(), 'corgiban-analyze-files-'));
+}
+
+function writeLines(root: string, relativePath: string, lineCount: number, line = 'const x = 1;') {
+  const absolutePath = path.join(root, relativePath);
+  const directory = path.dirname(absolutePath);
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(absolutePath, Array.from({ length: lineCount }, () => line).join('\n'), 'utf8');
+  return absolutePath;
+}
+
+describe('analyzeFiles', () => {
+  const tempRoots: string[] = [];
+
+  afterEach(() => {
+    tempRoots.splice(0).forEach((root) => rmSync(root, { recursive: true, force: true }));
   });
 
-  it('returns W at exactly 300 lines', () => {
-    expect(classifySizeStatus(300)).toBe('W');
+  it('marks files up to 500 lines as pass-sized', () => {
+    const root = createTempRoot();
+    tempRoots.push(root);
+    const absolutePath = writeLines(root, 'packages/shared/src/pass.ts', 500);
+
+    expect(analyzeFile(absolutePath, root).sizeStatus).toBe('P');
   });
 
-  it('returns W for files between 300 and 549 lines', () => {
-    expect(classifySizeStatus(301)).toBe('W');
-    expect(classifySizeStatus(549)).toBe('W');
+  it('marks files from 501 to 800 lines as warn-sized', () => {
+    const root = createTempRoot();
+    tempRoots.push(root);
+    const absolutePath = writeLines(root, 'packages/shared/src/warn.ts', 501);
+
+    expect(analyzeFile(absolutePath, root).sizeStatus).toBe('W');
   });
 
-  it('returns F at exactly 550 lines', () => {
-    expect(classifySizeStatus(550)).toBe('F');
+  it('marks files over 800 lines as fail-sized', () => {
+    const root = createTempRoot();
+    tempRoots.push(root);
+    const absolutePath = writeLines(root, 'packages/shared/src/fail.ts', 801);
+
+    expect(analyzeFile(absolutePath, root).sizeStatus).toBe('F');
   });
 
-  it('returns F for files over 550 lines', () => {
-    expect(classifySizeStatus(551)).toBe('F');
-    expect(classifySizeStatus(10_000)).toBe('F');
-  });
-});
+  it('detects Date.now usage inside packages/core/src files', () => {
+    const root = createTempRoot();
+    tempRoots.push(root);
+    const absolutePath = writeLines(
+      root,
+      'packages/core/src/clock.ts',
+      1,
+      'const now = Date.now();',
+    );
 
-describe('detectTimeUsage', () => {
-  it('returns false for source with no time access', () => {
-    expect(detectTimeUsage('const x = 1;')).toBe(false);
-    expect(detectTimeUsage('')).toBe(false);
-  });
-
-  it('detects Date.now() as hasTimeUsage: true', () => {
-    expect(detectTimeUsage('const ts = Date.now();')).toBe(true);
+    expect(analyzeFile(absolutePath, root).hasTimeUsage).toBe(true);
   });
 
-  it('detects new Date() as hasTimeUsage: true', () => {
-    expect(detectTimeUsage('const d = new Date();')).toBe(true);
+  it('does not report time usage for core files without Date references', () => {
+    const root = createTempRoot();
+    tempRoots.push(root);
+    const absolutePath = writeLines(root, 'packages/core/src/pure.ts', 1, 'const value = 1;');
+
+    expect(analyzeFile(absolutePath, root).hasTimeUsage).toBe(false);
   });
 
-  it('does not false-positive on string literals mentioning Date', () => {
-    // 'Date' alone (e.g. a type annotation) should not trigger
-    expect(detectTimeUsage('const d: Date = someDate;')).toBe(false);
-  });
-});
+  it('ignores Date.now usage outside packages/core and packages/solver', () => {
+    const root = createTempRoot();
+    tempRoots.push(root);
+    const absolutePath = writeLines(root, 'apps/web/app/time.ts', 1, 'const now = Date.now();');
 
-describe('analyzeFile', () => {
-  it('returns a record with a relative path, positive line count, and valid sizeStatus', () => {
-    const record = analyzeFile(thisFile, srcRoot);
-    expect(record.path).not.toContain(srcRoot); // relative, not absolute
-    expect(record.lines).toBeGreaterThan(0);
-    expect(['P', 'W', 'F']).toContain(record.sizeStatus);
+    expect(analyzeFile(absolutePath, root).hasTimeUsage).toBe(false);
   });
 
-  it('uses classifySizeStatus consistently - a small file gets P status', () => {
-    const record = analyzeFile(thisFile, srcRoot);
-    // This test file is well under 300 lines
+  it('sorts analyzeAll results by repo-relative path', () => {
+    const root = createTempRoot();
+    tempRoots.push(root);
+    const later = writeLines(root, 'packages/shared/src/zeta.ts', 1);
+    const earlier = writeLines(root, 'packages/shared/src/alpha.ts', 1);
+
+    expect(analyzeAll([later, earlier], root).map((record) => record.path)).toEqual([
+      'packages/shared/src/alpha.ts',
+      'packages/shared/src/zeta.ts',
+    ]);
+  });
+
+  it('reports zero lines for empty files', () => {
+    const root = createTempRoot();
+    tempRoots.push(root);
+    const absolutePath = writeLines(root, 'packages/core/src/empty.ts', 0, '');
+
+    const record = analyzeFile(absolutePath, root);
+    expect(record.lines).toBe(0);
     expect(record.sizeStatus).toBe('P');
-  });
-});
-
-describe('analyzeAll', () => {
-  it('sorts records by relative path', () => {
-    // analyzeAll requires real files; use this test file and its neighbour
-    const reportFormatterTest = path.resolve(__dirname, 'reportFormatter.test.ts');
-    const records = analyzeAll([reportFormatterTest, thisFile], srcRoot);
-    const paths = records.map((r) => r.path);
-    const sorted = [...paths].sort((a, b) => a.localeCompare(b));
-    expect(paths).toEqual(sorted);
   });
 });

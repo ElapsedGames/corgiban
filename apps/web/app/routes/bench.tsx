@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { isRouteErrorResponse, Link, useRouteError } from '@remix-run/react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { isRouteErrorResponse, Link, useRouteError, useSearchParams } from '@remix-run/react';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 
 import {
@@ -7,13 +7,26 @@ import {
   BENCHMARK_REPORT_TYPE,
   BENCHMARK_REPORT_VERSION,
 } from '@corgiban/benchmarks';
-import { builtinLevels } from '@corgiban/levels';
-import { ALGORITHM_IDS, isImplementedAlgorithmId } from '@corgiban/solver';
+import { ALGORITHM_IDS } from '@corgiban/solver';
 
 import { BenchPage } from '../bench/BenchPage';
+import { toPublicBenchmarkRunRecords } from '../bench/benchmarkRecord';
 import type { BenchmarkComparisonSnapshot } from '../bench/benchmarkAnalytics';
 import { exportTextFile, importTextFile } from '../bench/fileAccess.client';
-import { LEVEL_PACK_TYPE, LEVEL_PACK_VERSION } from '../bench/levelPackImport';
+import {
+  assertSupportedLevelPackInlineLevels,
+  LEVEL_PACK_TYPE,
+  LEVEL_PACK_VERSION,
+} from '../bench/levelPackImport';
+import { RequestedEntryPendingPage } from '../levels/RequestedEntryPending';
+import { RequestedEntryUnavailablePage } from '../levels/RequestedEntryUnavailable';
+import { isBuiltinLevelId } from '../levels/temporaryLevelCatalog';
+import {
+  usePlayableLevels,
+  useRequestedPlayableEntryResolution,
+  useResolvedPlayableEntry,
+} from '../levels/usePlayableLevels';
+import { buildBenchHref } from '../navigation/handoffLinks';
 import {
   clearBenchPerformanceEntries,
   observeBenchPerformance,
@@ -24,6 +37,8 @@ import { createNoopPersistencePort } from '../ports/persistencePort';
 import { createPersistencePort } from '../ports/persistencePort.client';
 import { createNoopSolverPort } from '../ports/solverPort';
 import { createSolverPort } from '../ports/solverPort.client';
+import { getBenchmarkSuiteLevelRefs } from '../ports/benchmarkPort';
+import { formatSolverAlgorithmLabel } from '../solver/algorithmLabels';
 import type { AppDispatch, AppStore, RootState } from '../state';
 import {
   benchErrorRecorded,
@@ -38,6 +53,7 @@ import {
   runBenchSuite,
   cancelBenchRun,
   setSuiteNodeBudget,
+  setSuiteLevelIds,
   setSuiteRepetitions,
   setSuiteWarmupRepetitions,
   setSuiteTimeBudgetMs,
@@ -79,10 +95,18 @@ function createBenchRouteStoreOwner(): BenchRouteStoreOwner {
   };
 }
 
-function BenchRoutePage() {
+export function BenchRoutePage() {
   const dispatch = useDispatch<AppDispatch>();
   const bench = useSelector((state: RootState) => state.bench);
   const debug = useSelector((state: RootState) => state.settings.debug);
+  const [searchParams] = useSearchParams();
+  const appliedRequestedLevelSignatureRef = useRef<string | null>(null);
+  const playableLevels = usePlayableLevels();
+  const requestedPlayableEntry = useResolvedPlayableEntry({
+    levelRef: searchParams.get('levelRef'),
+    levelId: searchParams.get('levelId'),
+    exactLevelKey: searchParams.get('exactLevelKey'),
+  });
 
   useEffect(() => {
     void dispatch(initializeBench());
@@ -94,20 +118,41 @@ function BenchRoutePage() {
     });
   }, [dispatch]);
 
-  const availableLevels = useMemo(
-    () => builtinLevels.map((level) => ({ id: level.id, name: level.name })),
-    [],
-  );
+  useEffect(() => {
+    const requestedLevelId = searchParams.get('levelId');
+    const requestedLevelRef = searchParams.get('levelRef');
+    const requestedExactLevelKey = searchParams.get('exactLevelKey');
+    if (!requestedLevelId && !requestedLevelRef && !requestedExactLevelKey) {
+      appliedRequestedLevelSignatureRef.current = null;
+      return;
+    }
 
-  const availableAlgorithms = useMemo(
-    () =>
-      ALGORITHM_IDS.map((algorithmId) => ({
-        id: algorithmId,
-        label: isImplementedAlgorithmId(algorithmId) ? algorithmId : `${algorithmId} (coming soon)`,
-        disabled: !isImplementedAlgorithmId(algorithmId),
-      })),
-    [],
-  );
+    const requestedLevelSignature = JSON.stringify({
+      levelId: requestedLevelId ?? null,
+      levelRef: requestedLevelRef ?? null,
+      exactLevelKey: requestedExactLevelKey ?? null,
+    });
+    if (appliedRequestedLevelSignatureRef.current === requestedLevelSignature) {
+      return;
+    }
+
+    if (!requestedPlayableEntry) {
+      return;
+    }
+
+    appliedRequestedLevelSignatureRef.current = requestedLevelSignature;
+    dispatch(setSuiteLevelIds([requestedPlayableEntry.ref]));
+  }, [dispatch, requestedPlayableEntry, searchParams]);
+
+  const availableLevels = playableLevels.map((level) => ({
+    id: level.ref,
+    name: level.source.kind === 'session' ? `${level.level.name} (session)` : level.level.name,
+  }));
+
+  const availableAlgorithms = ALGORITHM_IDS.map((algorithmId) => ({
+    id: algorithmId,
+    label: formatSolverAlgorithmLabel(algorithmId),
+  }));
 
   const handleExportReport = useCallback(() => {
     const payload = {
@@ -115,7 +160,7 @@ function BenchRoutePage() {
       version: BENCHMARK_REPORT_VERSION,
       exportModel: BENCHMARK_REPORT_EXPORT_MODEL,
       exportedAtIso: new Date().toISOString(),
-      results: bench.results,
+      results: toPublicBenchmarkRunRecords(bench.results),
     };
 
     void exportTextFile({
@@ -146,13 +191,40 @@ function BenchRoutePage() {
   }, [dispatch]);
 
   const handleExportLevelPack = useCallback(() => {
-    const selectedLevels = builtinLevels.filter((level) => bench.suite.levelIds.includes(level.id));
+    const selectedLevelRefs = getBenchmarkSuiteLevelRefs(bench.suite);
+    const playableLevelsByRef = new Map(playableLevels.map((level) => [level.ref, level] as const));
+    const missingLevelRefs = selectedLevelRefs.filter(
+      (levelRef) => !playableLevelsByRef.has(levelRef),
+    );
+
+    if (missingLevelRefs.length > 0) {
+      dispatch(benchNoticeRecorded(null));
+      dispatch(
+        benchErrorRecorded(
+          `Level pack export could not resolve selected suite entries in the current session: ${missingLevelRefs.join(', ')}.`,
+        ),
+      );
+      return;
+    }
+
+    const selectedLevels = selectedLevelRefs.map((levelRef) => playableLevelsByRef.get(levelRef)!);
+
+    try {
+      assertSupportedLevelPackInlineLevels(selectedLevels.map((level) => level.level));
+    } catch (error) {
+      dispatch(benchNoticeRecorded(null));
+      dispatch(
+        benchErrorRecorded(error instanceof Error ? error.message : 'Failed to export level pack.'),
+      );
+      return;
+    }
+
     const payload = {
       type: LEVEL_PACK_TYPE,
       version: LEVEL_PACK_VERSION,
       exportedAtIso: new Date().toISOString(),
-      levelIds: selectedLevels.map((level) => level.id),
-      levels: selectedLevels,
+      levelIds: selectedLevels.map((level) => level.level.id),
+      levels: selectedLevels.map((level) => level.level),
     };
 
     void exportTextFile({
@@ -170,7 +242,7 @@ function BenchRoutePage() {
           ),
         );
       });
-  }, [bench.suite.levelIds, dispatch]);
+  }, [bench.suite, dispatch, playableLevels]);
 
   const handleImportLevelPack = useCallback(() => {
     void importTextFile({ acceptMimeTypes: ['application/json'] })
@@ -261,8 +333,26 @@ function BenchRoutePage() {
 
 export default function BenchRoute() {
   const [storeOwner] = useState(createBenchRouteStoreOwner);
+  const [searchParams] = useSearchParams();
+  const requestedEntryResolution = useRequestedPlayableEntryResolution({
+    levelId: searchParams.get('levelId'),
+    levelRef: searchParams.get('levelRef'),
+    exactLevelKey: searchParams.get('exactLevelKey'),
+  });
+  const hasUnavailableRequest =
+    requestedEntryResolution.status === 'missingExactRef' ||
+    requestedEntryResolution.status === 'missingExactKey' ||
+    requestedEntryResolution.status === 'missingLevelId';
 
   useRouteStoreEffect(() => {
+    if (hasUnavailableRequest) {
+      return () => {
+        storeOwner.solverPort.replace(createNoopSolverPort());
+        storeOwner.benchmarkPort.replace(createNoopBenchmarkPort());
+        storeOwner.persistencePort.replace(createNoopPersistencePort());
+      };
+    }
+
     if (typeof document !== 'undefined') {
       storeOwner.solverPort.replace(createSolverPort());
       storeOwner.benchmarkPort.replace(createBenchmarkPort());
@@ -274,7 +364,95 @@ export default function BenchRoute() {
       storeOwner.benchmarkPort.replace(createNoopBenchmarkPort());
       storeOwner.persistencePort.replace(createNoopPersistencePort());
     };
-  }, [storeOwner]);
+  }, [hasUnavailableRequest, storeOwner]);
+
+  if (requestedEntryResolution.status === 'pendingClientCatalog') {
+    return (
+      <RequestedEntryPendingPage
+        routeTitle="Benchmark Suite"
+        routeSubtitle="Build repeatable suites here. Session-backed handoffs restore after the browser catalog hydrates."
+        heading="Restoring suite level"
+        message="This Bench handoff depends on browser-session level data that is not available during server render. The route will resume once the client catalog loads."
+      />
+    );
+  }
+
+  if (requestedEntryResolution.status === 'missingExactRef') {
+    const fallbackActions =
+      requestedEntryResolution.fallbackLevelId &&
+      isBuiltinLevelId(requestedEntryResolution.fallbackLevelId)
+        ? [
+            {
+              label: 'Open Built-In Suite',
+              to: buildBenchHref({ levelId: requestedEntryResolution.fallbackLevelId }),
+            },
+          ]
+        : [];
+
+    return (
+      <RequestedEntryUnavailablePage
+        routeTitle="Benchmark Suite"
+        routeSubtitle="Build repeatable suites here. Missing handoff targets fail closed instead of silently changing the measured input."
+        heading="Requested suite level is unavailable"
+        message="The exact session-backed level from this link is no longer available, so Bench will not substitute a different suite input."
+        requestedIdentity={requestedEntryResolution.requestedRef}
+        actions={[
+          ...fallbackActions,
+          { label: 'Open Bench', to: '/bench' },
+          { label: 'Open Lab', to: '/lab' },
+        ]}
+      />
+    );
+  }
+
+  if (requestedEntryResolution.status === 'missingExactKey') {
+    const fallbackActions =
+      requestedEntryResolution.fallbackLevelId &&
+      isBuiltinLevelId(requestedEntryResolution.fallbackLevelId)
+        ? [
+            {
+              label: 'Open Built-In Suite',
+              to: buildBenchHref({ levelId: requestedEntryResolution.fallbackLevelId }),
+            },
+          ]
+        : [];
+
+    return (
+      <RequestedEntryUnavailablePage
+        routeTitle="Benchmark Suite"
+        routeSubtitle="Build repeatable suites here. Missing handoff targets fail closed instead of silently changing the measured input."
+        heading="Requested level version is unavailable"
+        message="The exact playable version from this link is no longer available, so Bench will not substitute a different suite input."
+        requestedIdentity={
+          requestedEntryResolution.requestedRef ??
+          requestedEntryResolution.requestedLevelId ??
+          requestedEntryResolution.requestedExactLevelKey
+        }
+        actions={[
+          ...fallbackActions,
+          { label: 'Open Bench', to: '/bench' },
+          { label: 'Open Lab', to: '/lab' },
+        ]}
+      />
+    );
+  }
+
+  if (requestedEntryResolution.status === 'missingLevelId') {
+    return (
+      <RequestedEntryUnavailablePage
+        routeTitle="Benchmark Suite"
+        routeSubtitle="Build repeatable suites here. Missing handoff targets fail closed instead of silently changing the measured input."
+        heading="Requested suite level is unavailable"
+        message="This link requested a level id that is not available in the current playable catalog."
+        requestedIdentity={requestedEntryResolution.requestedLevelId}
+        actions={[
+          { label: 'Open Bench', to: '/bench' },
+          { label: 'Open Play', to: '/play' },
+          { label: 'Open Lab', to: '/lab' },
+        ]}
+      />
+    );
+  }
 
   return (
     <Provider store={storeOwner.store}>

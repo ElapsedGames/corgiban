@@ -9,22 +9,27 @@ import {
   parseLevel,
   type GameState,
 } from '@corgiban/core';
-import { builtinLevels } from '@corgiban/levels';
 import type { Direction } from '@corgiban/shared';
-import type { AlgorithmId } from '@corgiban/solver';
+import { ALGORITHM_IDS, type AlgorithmId } from '@corgiban/solver';
 
+import { RequestedEntryPendingPage } from '../levels/RequestedEntryPending';
+import { RequestedEntryUnavailablePage } from '../levels/RequestedEntryUnavailable';
+import { createPlayableExactLevelKey } from '../levels/playableIdentity';
+import { resolveRequestedPlayableEntryFromEntries } from '../levels/requestedPlayableEntry';
 import { GameCanvas } from '../canvas/GameCanvas';
+import { isBuiltinLevelId, type PlayableEntry } from '../levels/temporaryLevelCatalog';
+import { buildBenchHref, buildLabHref, buildPlayHref } from '../navigation/handoffLinks';
+import { usePlayableCatalogSnapshot, useResolvedPlayableEntry } from '../levels/usePlayableLevels';
 import { ReplayController } from '../replay/replayController.client';
 import type { AppDispatch, RootState } from '../state';
-import { cancelSolve, handleLevelChange, retryWorker, startSolve } from '../state';
 import {
-  applyMoveSequence,
-  move,
-  nextLevel,
-  restart,
-  undo,
-  type GameMove,
-} from '../state/gameSlice';
+  applyRequestedAlgorithmSelection,
+  cancelSolve,
+  handleLevelChange,
+  retryWorker,
+  startSolve,
+} from '../state';
+import { applyMoveSequence, move, restart, undo, type GameMove } from '../state/gameSlice';
 import { setSolverReplaySpeed } from '../state/settingsSlice';
 import { clearReplay, setSelectedAlgorithmId } from '../state/solverSlice';
 import type { SolverResultState, SolverRunStatus } from '../state/solverSlice';
@@ -36,25 +41,73 @@ import { useKeyboardControls } from './useKeyboardControls';
 import { getMaxWidthMediaQuery } from '../ui/responsive';
 import { useMediaQuery } from '../ui/useMediaQuery';
 
-const fallbackLevel = builtinLevels[0] ?? {
-  id: 'level-unknown',
-  name: 'Unknown',
-  rows: ['P'],
-};
 const boardAnimateScrollMediaQuery = getMaxWidthMediaQuery('lg');
-const levelOrder = builtinLevels.map((level) => level.id);
-const levelsById = new Map(builtinLevels.map((level) => [level.id, level]));
+const unknownPlayableFallback: PlayableEntry = {
+  ref: 'builtin:level-unknown',
+  source: { kind: 'builtin' },
+  level: {
+    id: 'level-unknown',
+    name: 'Unknown',
+    rows: ['P'],
+  },
+};
 
-function getLevelById(levelId: string) {
-  return levelsById.get(levelId) ?? fallbackLevel;
+function isKnownAlgorithmId(value: string | null | undefined): value is AlgorithmId {
+  return !!value && ALGORITHM_IDS.includes(value as AlgorithmId);
 }
 
-function getNextLevelId(levelId: string) {
-  if (levelOrder.length === 0) {
-    return levelId;
+function getPlayableEntryByRef(levelRef: string, levelsByRef: Map<string, PlayableEntry>) {
+  return levelsByRef.get(levelRef) ?? null;
+}
+
+function compareScopedSessionEntries(left: PlayableEntry, right: PlayableEntry): number {
+  const leftIndex =
+    left.source.kind === 'session' && typeof left.source.collectionIndex === 'number'
+      ? left.source.collectionIndex
+      : Number.MAX_SAFE_INTEGER;
+  const rightIndex =
+    right.source.kind === 'session' && typeof right.source.collectionIndex === 'number'
+      ? right.source.collectionIndex
+      : Number.MAX_SAFE_INTEGER;
+
+  if (leftIndex !== rightIndex) {
+    return leftIndex - rightIndex;
   }
 
-  const index = levelOrder.indexOf(levelId);
+  return left.ref.localeCompare(right.ref);
+}
+
+function getScopedLevelOrder(activePlayableEntry: PlayableEntry, playableLevels: PlayableEntry[]) {
+  if (activePlayableEntry.source.kind === 'builtin') {
+    return playableLevels
+      .filter((entry) => entry.source.kind === 'builtin')
+      .map((entry) => entry.ref);
+  }
+
+  const activeCollectionRef =
+    activePlayableEntry.source.kind === 'session'
+      ? activePlayableEntry.source.collectionRef
+      : undefined;
+
+  if (activeCollectionRef) {
+    return playableLevels
+      .filter(
+        (entry) =>
+          entry.source.kind === 'session' && entry.source.collectionRef === activeCollectionRef,
+      )
+      .sort(compareScopedSessionEntries)
+      .map((entry) => entry.ref);
+  }
+
+  return [activePlayableEntry.ref];
+}
+
+function getNextLevelRef(levelRef: string, levelOrder: string[]) {
+  if (levelOrder.length === 0) {
+    return levelRef;
+  }
+
+  const index = levelOrder.indexOf(levelRef);
   if (index === -1) {
     return levelOrder[0];
   }
@@ -63,12 +116,12 @@ function getNextLevelId(levelId: string) {
   return levelOrder[nextIndex];
 }
 
-function getPreviousLevelId(levelId: string) {
+function getPreviousLevelRef(levelRef: string, levelOrder: string[]) {
   if (levelOrder.length === 0) {
-    return levelId;
+    return levelRef;
   }
 
-  const index = levelOrder.indexOf(levelId);
+  const index = levelOrder.indexOf(levelRef);
   if (index <= 0) {
     return levelOrder[0];
   }
@@ -135,36 +188,195 @@ function isMobileSolverFailureOutcome(
   return status === 'succeeded' && lastResult?.status !== 'solved';
 }
 
-export function PlayPage() {
+function buildRouteSignature(params: {
+  requestedLevelRef?: string | null;
+  requestedLevelId?: string | null;
+  requestedExactLevelKey?: string | null;
+  requestedAlgorithmId?: AlgorithmId | null;
+}): string {
+  return JSON.stringify({
+    levelRef: params.requestedLevelRef ?? null,
+    levelId: params.requestedLevelId ?? null,
+    exactLevelKey: params.requestedExactLevelKey ?? null,
+    algorithmId: params.requestedAlgorithmId ?? null,
+  });
+}
+
+function buildPlayableHandoffTarget(level: PlayableEntry): {
+  levelId?: string;
+  levelRef?: string;
+  exactLevelKey?: string;
+} {
+  return {
+    levelId: level.level.id,
+    levelRef: level.ref,
+    exactLevelKey: createPlayableExactLevelKey(level.level),
+  };
+}
+
+export type PlayPageProps = {
+  requestedLevelId?: string | null;
+  requestedLevelRef?: string | null;
+  requestedExactLevelKey?: string | null;
+  requestedAlgorithmId?: AlgorithmId | null;
+};
+
+export function PlayPage({
+  requestedLevelId,
+  requestedLevelRef,
+  requestedExactLevelKey,
+  requestedAlgorithmId,
+}: PlayPageProps = {}) {
   const dispatch = useDispatch<AppDispatch>();
-  const { levelId, history, stats } = useSelector((state: RootState) => state.game);
+  const {
+    activeLevelRef,
+    exactLevelKey: activeExactLevelKey,
+    history,
+    levelId,
+    stats,
+  } = useSelector((state: RootState) => state.game);
   const solver = useSelector((state: RootState) => state.solver);
   const replaySpeed = useSelector((state: RootState) => state.settings.solverReplaySpeed);
-
-  const levelDefinition = useMemo(() => getLevelById(levelId), [levelId]);
+  const appliedRouteSignatureRef = useRef<string | null>(null);
+  const playableCatalog = usePlayableCatalogSnapshot();
+  const playableLevels = playableCatalog.entries;
+  const requestedPlayableEntry = useResolvedPlayableEntry({
+    levelRef: requestedLevelRef,
+    levelId: requestedLevelId,
+    exactLevelKey: requestedExactLevelKey,
+  });
+  const levelsByRef = useMemo(
+    () => new Map(playableLevels.map((level) => [level.ref, level] as const)),
+    [playableLevels],
+  );
+  const activePlayableResolution = useMemo(() => {
+    return resolveRequestedPlayableEntryFromEntries(
+      playableLevels,
+      {
+        levelRef: activeLevelRef,
+        levelId,
+        exactLevelKey: activeExactLevelKey,
+      },
+      { completeness: playableCatalog.completeness },
+    );
+  }, [activeExactLevelKey, activeLevelRef, levelId, playableCatalog.completeness, playableLevels]);
+  const activePlayableEntry =
+    activePlayableResolution.status === 'resolved' ? activePlayableResolution.entry : null;
+  const activePlayableRef = activePlayableEntry?.ref ?? activeLevelRef;
+  const levelOrder = useMemo(
+    () => (activePlayableEntry ? getScopedLevelOrder(activePlayableEntry, playableLevels) : []),
+    [activePlayableEntry, playableLevels],
+  );
   const currentLevelIndex = useMemo(
-    () => levelOrder.indexOf(levelDefinition.id),
-    [levelDefinition.id],
+    () => (activePlayableEntry ? levelOrder.indexOf(activePlayableEntry.ref) : -1),
+    [activePlayableEntry, levelOrder],
   );
   const canGoToPreviousLevel = currentLevelIndex > 0;
-  const levelRuntime = useMemo(() => parseLevel(levelDefinition), [levelDefinition]);
+  const fallbackLevelRuntime = useMemo(() => parseLevel(unknownPlayableFallback.level), []);
+  const levelRuntime = useMemo(
+    () => (activePlayableEntry ? parseLevel(activePlayableEntry.level) : null),
+    [activePlayableEntry],
+  );
   const moveDirections = useMemo(() => history.map((moveEntry) => moveEntry.direction), [history]);
   const gameState = useMemo(
-    () => buildState(levelRuntime, moveDirections),
+    () => (levelRuntime ? buildState(levelRuntime, moveDirections) : null),
     [levelRuntime, moveDirections],
   );
-  const solved = useMemo(() => isWin(gameState), [gameState]);
+  const solved = useMemo(() => (gameState ? isWin(gameState) : false), [gameState]);
   const shouldAutoScrollBoardOnAnimate = useMediaQuery(boardAnimateScrollMediaQuery);
+  const handoffTarget = useMemo(
+    () => (activePlayableEntry ? buildPlayableHandoffTarget(activePlayableEntry) : null),
+    [activePlayableEntry],
+  );
+  const labHref = handoffTarget ? buildLabHref(handoffTarget) : '/lab';
+  const benchHref = handoffTarget ? buildBenchHref(handoffTarget) : '/bench';
 
-  const gameStateRef = useRef(gameState);
   useEffect(() => {
-    gameStateRef.current = gameState;
+    if (!levelRuntime) {
+      return;
+    }
+
+    if (solver.recommendation) {
+      return;
+    }
+
+    dispatch(applyRequestedAlgorithmSelection(levelRuntime));
+  }, [dispatch, levelRuntime, solver.recommendation]);
+
+  useEffect(() => {
+    if (
+      !requestedLevelRef &&
+      !requestedLevelId &&
+      !requestedExactLevelKey &&
+      !requestedAlgorithmId
+    ) {
+      appliedRouteSignatureRef.current = null;
+      return;
+    }
+
+    const nextRouteSignature = buildRouteSignature({
+      requestedLevelRef,
+      requestedLevelId,
+      requestedExactLevelKey,
+      requestedAlgorithmId,
+    });
+    if (appliedRouteSignatureRef.current === nextRouteSignature) {
+      return;
+    }
+
+    const hasRequestedLevel = Boolean(
+      requestedLevelRef || requestedLevelId || requestedExactLevelKey,
+    );
+    if (hasRequestedLevel && !requestedPlayableEntry) {
+      return;
+    }
+
+    if (requestedPlayableEntry && requestedPlayableEntry.ref !== activePlayableRef) {
+      appliedRouteSignatureRef.current = nextRouteSignature;
+      dispatch(
+        handleLevelChange(parseLevel(requestedPlayableEntry.level), {
+          levelRef: requestedPlayableEntry.ref,
+          levelId: requestedPlayableEntry.level.id,
+          exactLevelKey: createPlayableExactLevelKey(requestedPlayableEntry.level),
+          pendingAlgorithmId: requestedAlgorithmId,
+        }),
+      );
+      return;
+    }
+
+    if (!levelRuntime) {
+      return;
+    }
+
+    if (requestedAlgorithmId) {
+      appliedRouteSignatureRef.current = nextRouteSignature;
+      dispatch(applyRequestedAlgorithmSelection(levelRuntime, requestedAlgorithmId));
+      return;
+    }
+
+    appliedRouteSignatureRef.current = nextRouteSignature;
+  }, [
+    activePlayableRef,
+    dispatch,
+    levelRuntime,
+    requestedAlgorithmId,
+    requestedExactLevelKey,
+    requestedLevelId,
+    requestedLevelRef,
+    requestedPlayableEntry,
+  ]);
+
+  const gameStateRef = useRef(gameState ?? createGame(fallbackLevelRuntime));
+  useEffect(() => {
+    if (gameState) {
+      gameStateRef.current = gameState;
+    }
   }, [gameState]);
 
   const replayControllerRef = useRef<ReplayController | null>(null);
   const replaySpeedRef = useRef(replaySpeed);
   const [replayShadowState, setReplayShadowState] = useState<GameState | null>(null);
-  const [mobileSolverRunLockedLevelId, setMobileSolverRunLockedLevelId] = useState<string | null>(
+  const [mobileSolverRunLockedLevelRef, setMobileSolverRunLockedLevelRef] = useState<string | null>(
     null,
   );
   const previousMobileFailureOutcomeRef = useRef(
@@ -176,19 +388,26 @@ export function PlayPage() {
   }, [replaySpeed]);
 
   useEffect(() => {
-    setMobileSolverRunLockedLevelId(null);
-  }, [levelDefinition.id]);
+    setMobileSolverRunLockedLevelRef(null);
+  }, [activePlayableRef]);
 
   useEffect(() => {
     const nextMobileFailureOutcome = isMobileSolverFailureOutcome(solver.status, solver.lastResult);
     if (!previousMobileFailureOutcomeRef.current && nextMobileFailureOutcome) {
-      setMobileSolverRunLockedLevelId(levelDefinition.id);
+      setMobileSolverRunLockedLevelRef(activePlayableRef);
     }
 
     previousMobileFailureOutcomeRef.current = nextMobileFailureOutcome;
-  }, [levelDefinition.id, solver.lastResult, solver.status]);
+  }, [activePlayableRef, solver.lastResult, solver.status]);
 
   useEffect(() => {
+    if (!levelRuntime) {
+      replayControllerRef.current = null;
+      setReplayShadowState(null);
+      dispatch(clearReplay());
+      return;
+    }
+
     const controller = new ReplayController({
       level: levelRuntime,
       dispatch,
@@ -201,7 +420,6 @@ export function PlayPage() {
     replayControllerRef.current = controller;
     setReplayShadowState(null);
     dispatch(clearReplay());
-    dispatch(handleLevelChange(levelRuntime));
 
     return () => {
       controller.pause();
@@ -219,6 +437,10 @@ export function PlayPage() {
 
   const handleMove = useCallback(
     (direction: Direction) => {
+      if (!levelRuntime) {
+        return;
+      }
+
       stopReplay();
       const result = applyMove(gameStateRef.current, direction);
       if (result.changed) {
@@ -230,6 +452,10 @@ export function PlayPage() {
   );
 
   const handleUndo = useCallback(() => {
+    if (!levelRuntime) {
+      return;
+    }
+
     stopReplay();
     if (history.length === 0) {
       return;
@@ -239,30 +465,58 @@ export function PlayPage() {
   }, [dispatch, history.length, levelRuntime, moveDirections, stopReplay]);
 
   const handleRestart = useCallback(() => {
+    if (!levelRuntime) {
+      return;
+    }
+
     stopReplay();
     dispatch(restart());
     gameStateRef.current = createGame(levelRuntime);
   }, [dispatch, levelRuntime, stopReplay]);
 
   const handlePreviousLevel = useCallback(() => {
-    if (!canGoToPreviousLevel) {
+    if (!activePlayableEntry || !canGoToPreviousLevel) {
       return;
     }
 
     stopReplay();
-    const previousId = getPreviousLevelId(levelDefinition.id);
-    dispatch(nextLevel({ levelId: previousId }));
-    const previousDefinition = getLevelById(previousId);
-    gameStateRef.current = createGame(parseLevel(previousDefinition));
-  }, [canGoToPreviousLevel, dispatch, levelDefinition.id, stopReplay]);
+    const previousLevelRef = getPreviousLevelRef(activePlayableEntry.ref, levelOrder);
+    const previousPlayableEntry = getPlayableEntryByRef(previousLevelRef, levelsByRef);
+    if (!previousPlayableEntry) {
+      return;
+    }
+
+    dispatch(
+      handleLevelChange(parseLevel(previousPlayableEntry.level), {
+        levelRef: previousPlayableEntry.ref,
+        levelId: previousPlayableEntry.level.id,
+        exactLevelKey: createPlayableExactLevelKey(previousPlayableEntry.level),
+      }),
+    );
+    gameStateRef.current = createGame(parseLevel(previousPlayableEntry.level));
+  }, [activePlayableEntry, canGoToPreviousLevel, dispatch, levelOrder, levelsByRef, stopReplay]);
 
   const handleNextLevel = useCallback(() => {
+    if (!activePlayableEntry) {
+      return;
+    }
+
     stopReplay();
-    const nextId = getNextLevelId(levelDefinition.id);
-    dispatch(nextLevel({ levelId: nextId }));
-    const nextDefinition = getLevelById(nextId);
-    gameStateRef.current = createGame(parseLevel(nextDefinition));
-  }, [dispatch, levelDefinition.id, stopReplay]);
+    const nextLevelRef = getNextLevelRef(activePlayableEntry.ref, levelOrder);
+    const nextPlayableEntry = getPlayableEntryByRef(nextLevelRef, levelsByRef);
+    if (!nextPlayableEntry) {
+      return;
+    }
+
+    dispatch(
+      handleLevelChange(parseLevel(nextPlayableEntry.level), {
+        levelRef: nextPlayableEntry.ref,
+        levelId: nextPlayableEntry.level.id,
+        exactLevelKey: createPlayableExactLevelKey(nextPlayableEntry.level),
+      }),
+    );
+    gameStateRef.current = createGame(parseLevel(nextPlayableEntry.level));
+  }, [activePlayableEntry, dispatch, levelOrder, levelsByRef, stopReplay]);
 
   const handleApplySequence = useCallback(
     (directions: Direction[]) => {
@@ -301,6 +555,10 @@ export function PlayPage() {
   );
 
   const handleRunSolver = useCallback(() => {
+    if (!levelRuntime) {
+      return;
+    }
+
     void dispatch(
       startSolve({
         levelRuntime,
@@ -319,12 +577,20 @@ export function PlayPage() {
 
   const handleSelectAlgorithm = useCallback(
     (algorithmId: AlgorithmId) => {
+      if (!isKnownAlgorithmId(algorithmId)) {
+        return;
+      }
+
       dispatch(setSelectedAlgorithmId(algorithmId));
     },
     [dispatch],
   );
 
   const handleApplySolution = useCallback(() => {
+    if (!levelRuntime) {
+      return;
+    }
+
     if (latestSolutionDirections.length === 0) {
       return;
     }
@@ -345,6 +611,10 @@ export function PlayPage() {
   }, [latestSolutionDirections, shouldAutoScrollBoardOnAnimate]);
 
   useEffect(() => {
+    if (!levelRuntime) {
+      return;
+    }
+
     if (solver.replayState !== 'done') {
       return;
     }
@@ -400,8 +670,66 @@ export function PlayPage() {
     onMove: handleMove,
   });
 
-  const canvasState = replayShadowState ?? gameState;
-  const mobileSolverRunLocked = mobileSolverRunLockedLevelId === levelDefinition.id;
+  const canvasState = replayShadowState ?? gameState ?? gameStateRef.current;
+  const mobileSolverRunLocked = mobileSolverRunLockedLevelRef === activePlayableRef;
+
+  if (activePlayableResolution.status === 'pendingClientCatalog') {
+    return (
+      <RequestedEntryPendingPage
+        routeTitle="Play"
+        routeSubtitle="Open exact session-scoped levels here. Session-backed levels restore after the browser catalog hydrates."
+        heading="Restoring active level"
+        message="The current play session depends on browser-session level data that has not finished loading yet."
+      />
+    );
+  }
+
+  if (!activePlayableEntry || !levelRuntime) {
+    const fallbackLevelId =
+      activePlayableResolution.status === 'missingLevelId'
+        ? activePlayableResolution.requestedLevelId
+        : activePlayableResolution.status === 'missingExactRef' ||
+            activePlayableResolution.status === 'missingExactKey'
+          ? activePlayableResolution.fallbackLevelId
+          : undefined;
+    const fallbackActions =
+      fallbackLevelId && isBuiltinLevelId(fallbackLevelId)
+        ? [{ label: 'Open Built-In', to: buildPlayHref({ levelId: fallbackLevelId }) }]
+        : [];
+
+    return (
+      <RequestedEntryUnavailablePage
+        routeTitle="Play"
+        routeSubtitle="Open exact session-scoped levels here. Missing active levels fail closed instead of loading a different puzzle."
+        heading={
+          activePlayableResolution.status === 'missingExactKey'
+            ? 'Active level version is unavailable'
+            : 'Active level is unavailable'
+        }
+        message={
+          activePlayableResolution.status === 'missingExactKey'
+            ? 'The exact playable version for the active session is no longer available, so Play will not swap to a different board.'
+            : 'The active playable entry is no longer available in the current catalog, so Play will not substitute a different board.'
+        }
+        requestedIdentity={
+          activePlayableResolution.status === 'missingLevelId'
+            ? activePlayableResolution.requestedLevelId
+            : activePlayableResolution.status === 'missingExactRef'
+              ? activePlayableResolution.requestedRef
+              : activePlayableResolution.status === 'missingExactKey'
+                ? (activePlayableResolution.requestedRef ??
+                  activePlayableResolution.requestedLevelId ??
+                  activePlayableResolution.requestedExactLevelKey)
+                : activeLevelRef
+        }
+        actions={[
+          ...fallbackActions,
+          { label: 'Open Bench', to: '/bench' },
+          { label: 'Open Lab', to: '/lab' },
+        ]}
+      />
+    );
+  }
 
   return (
     <main id="main-content" className="page-shell play-shell" aria-label="Play Corgiban">
@@ -414,11 +742,13 @@ export function PlayPage() {
       <div className="mt-3 grid gap-4 lg:gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)_22rem]">
         <div className="order-2 flex min-w-0 flex-col gap-6 lg:order-1">
           <SidePanel
-            levelName={levelDefinition.name}
-            levelId={levelDefinition.id}
+            levelName={activePlayableEntry.level.name}
+            levelId={activePlayableEntry.level.id}
             stats={stats}
             moves={history}
             isSolved={solved}
+            labHref={labHref}
+            benchHref={benchHref}
             canGoToPreviousLevel={canGoToPreviousLevel}
             onPreviousLevel={handlePreviousLevel}
             onRestart={handleRestart}
@@ -442,7 +772,9 @@ export function PlayPage() {
             </h2>
             <div className="mb-4 flex items-start justify-between gap-3 lg:hidden">
               <div className="min-w-0">
-                <p className="truncate text-xl font-semibold text-fg">{levelDefinition.name}</p>
+                <p className="truncate text-xl font-semibold text-fg">
+                  {activePlayableEntry.level.name}
+                </p>
               </div>
               <span
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success px-3 py-1 text-xs font-bold text-white shadow-sm ${
@@ -456,8 +788,10 @@ export function PlayPage() {
             <div className="mb-4 hidden gap-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,20rem)] md:items-start lg:grid">
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-wide text-muted">Board</p>
-                <h2 className="mt-1 text-xl font-semibold text-fg">{levelDefinition.name}</h2>
-                <p className="mt-1 text-sm text-muted">{levelDefinition.id}</p>
+                <h2 className="mt-1 text-xl font-semibold text-fg">
+                  {activePlayableEntry.level.name}
+                </h2>
+                <p className="mt-1 text-sm text-muted">{activePlayableEntry.level.id}</p>
               </div>
               <div className="flex flex-col gap-2 md:items-end">
                 <span

@@ -15,7 +15,7 @@
   - move history and replay
   - solution playback (step-by-step animation)
 - A solver subsystem that:
-  - supports multiple algorithms (BFS/A*/IDA*/...)
+  - supports multiple algorithms (BFS/A*/IDA*/Greedy/Tunnel-Macro/PI-Corral)
   - runs off-main-thread using Web Workers
   - streams progress (metrics + intermediate best solution)
   - supports cancellation, timeouts, and memory limits
@@ -308,6 +308,8 @@ See ADR-0022 (`docs/adr/0022-solver-progress-throttle-ownership.md`).
 **Decision:** Keep `/lab` authoring text, parsed level metadata, preview `GameState`, and
 single-run solve/bench status in route-local React state. `LabPage` creates/disposes
 `SolverPort` and `BenchmarkPort` refs directly instead of extending the shared Redux store.
+Shared playable-catalog publication happens only on explicit handoff actions; mount, parse, and
+normal committed edits do not auto-publish a synthetic playable entry.
 
 **Why**
 
@@ -317,7 +319,8 @@ single-run solve/bench status in route-local React state. `LabPage` creates/disp
 - Lets the route drop stale worker callbacks by guarding on `(runId, authoredRevision)` after
   edits, imports, or cancellations.
 
-See ADR-0023 (`docs/adr/0023-lab-route-local-state-ownership.md`).
+See ADR-0023 (`docs/adr/0023-lab-route-local-state-ownership.md`) and ADR-0031
+(`docs/adr/0031-session-playable-refs-and-atomic-route-handoff.md`).
 
 ### 3.21 Sprite atlas rendering: **app-owned OffscreenCanvas worker + canvas fallback**
 
@@ -339,16 +342,41 @@ See ADR-0024 (`docs/adr/0024-offscreen-sprite-atlas-worker-fallback.md`).
 
 **Decision:** Keep `/play` and `/bench` route stores stable across SSR/hydration by creating the
 store during render with mutable no-op ports, then replacing those ports with browser-backed
-implementations after commit.
+implementations after commit. Any render-time browser-backed external store that routes consume
+(for example the session-scoped playable catalog) must expose a deterministic server snapshot and
+reconcile browser session state only after hydration.
 
 **Why**
 
 - Keeps Remix route render pure; workers and persistence adapters are not created before mount.
 - Preserves one stable store instance per route so thunk wiring and subscriptions stay explicit.
+- Prevents hydration mismatches when route render depends on browser-session state such as
+  temporary imported levels.
 - Lets route modules own browser-resource cleanup without promoting those adapters into global
   singletons.
 
 See ADR-0025 (`docs/adr/0025-route-store-ssr-safe-port-bootstrap.md`).
+
+### 3.28 Playable identity and route handoff: **session-scoped playable refs + additive `levelRef`**
+
+**Decision:** Treat exact runnable identity in the web app as a `PlayableEntry.ref`, not as
+`LevelDefinition.id`. Built-ins use deterministic refs (`builtin:<levelId>`), authored/imported
+session entries use opaque refs (`temp:<session-id>`), and route handoff adds `levelRef` as the
+exact runnable identity while keeping legacy `levelId` for backward-compatible canonical fallback.
+`/play` applies level + algorithm handoff through one atomic activation flow, `/lab` publishes only
+on explicit user action, and `/bench` stores local-only exact reopen metadata while exporting
+additive public `runnableLevelKey` and `comparisonLevelKey` fields for exact reopen plus stable
+cross-session comparison identity.
+
+**Why**
+
+- Prevents edited built-ins from collapsing back to the original built-in by canonical id.
+- Removes React-effect ordering from `/play` level + algorithm handoff correctness.
+- Keeps `/lab` route-local authoring state isolated until the user explicitly hands it off.
+- Lets benchmark history reopen or compare authored variants without silently falling back to a
+  different runnable level.
+
+See ADR-0031 (`docs/adr/0031-session-playable-refs-and-atomic-route-handoff.md`).
 
 ### 3.23 App-shell theme ownership: **root-owned pre-paint theme bootstrap**
 
@@ -435,11 +463,14 @@ See ADR-0030 (`docs/adr/0030-app-local-board-skin-registry.md`).
       /infra
         /persistence
       /lab
+      /levels
+      /navigation
       /play
       /ports
       /replay
       /routes
       /server
+      /solver
       /state
       /theme
       /ui
@@ -511,11 +542,16 @@ See ADR-0030 (`docs/adr/0030-app-local-board-skin-registry.md`).
         bfsPush.ts
         astarPush.ts
         idaStarPush.ts
+        greedyPush.ts
+        tunnelMacroPush.ts
+        piCorralPush.ts
+        prioritySearchCore.ts
       heuristics/
         manhattan.ts
         assignment.ts
       deadlocks/
         corners.ts
+        piCorral.ts
         frozen.ts
       infra/
         frontier.ts
@@ -784,6 +820,8 @@ Worker lifecycle messages (`PING`/`PONG`) include `protocolVersion` only.
 - `BENCH_PROGRESS`
   - fields: `runId`, `protocolVersion`, `expanded`, `generated`, `depth`, `frontier`, `elapsedMs`, `bestHeuristic?`, `bestPathSoFar?`, `benchmarkCaseId?`
   - emitted only when `enableSpectatorStream === true` for the run
+  - app adapters default `enableSpectatorStream` to `true` only when they attach a worker-progress
+    consumer and default it to `false` otherwise
 - `BENCH_RESULT`
   - fields: `runId`, `protocolVersion`, `status`, `solutionMoves?`, `metrics`, `errorMessage?`, `errorDetails?`, `benchmarkCaseId?`
 
@@ -847,9 +885,16 @@ See ADR-0018 (`docs/adr/0018-solver-client-ping-liveness-timeout.md`).
 
 ### 8.1 Public solver API (package boundary)
 
-- `AlgorithmId` registry
+- `AlgorithmId` registry (`bfsPush`, `astarPush`, `idaStarPush`, `greedyPush`, `tunnelMacroPush`, `piCorralPush`)
 - `analyzeLevel(levelRuntime)` and `chooseAlgorithm(features)` for deterministic recommendation
   with fallback to implemented algorithms
+- Current recommendation table:
+  - tunnel-heavy levels -> `tunnelMacroPush`
+  - dense/constrained 7+ box levels -> `piCorralPush`
+  - sparse 0-2 box levels -> `greedyPush`
+  - remaining 0-3 box levels -> `bfsPush`
+  - remaining 4-6 box levels -> `astarPush` (default heuristic: Manhattan)
+  - remaining larger levels -> `idaStarPush` (default heuristic: assignment)
 - `solve(levelRuntime, algorithmId, options?, hooks?, context?)` entry point
 - `SolveResult` includes:
   - `status: "solved" | "unsolved" | "timeout" | "cancelled" | "error"`
@@ -878,8 +923,8 @@ All algorithms implement the same interface:
   - corner deadlocks (box in corner not on target)
   - frozen patterns (advanced; phased rollout)
 - Heuristics:
-  - Manhattan sum (fast baseline)
-  - assignment/matching heuristic (stronger; optional)
+  - Manhattan sum (fast baseline; default for A\*)
+  - assignment/matching heuristic (stronger; default for IDA\*)
 
 ### 8.4 Determinism and reproducibility
 
@@ -897,12 +942,16 @@ All algorithms implement the same interface:
 ### 9.1 Benchmark model
 
 - `BenchmarkSuite`:
-  - list of levelIds
+  - benchmark-package suite plans still use a `levelIds` field, but in the web app that field is
+    populated with exact runnable level refs for execution
+  - `/bench` route state stores exact execution identity as `levelRefs[]` and mirrors legacy/public
+    `levelIds[]` only for compatibility, display, and import/export paths
   - list of algorithm configs
   - run count (repetitions)
   - budgets (time/node)
-- `/bench` UI suite state stores `levelIds` + `algorithmIds`; benchmark orchestration expands
-  these into run plans with per-run solver options and environment metadata.
+- `/bench` UI suite state stores `levelRefs` + `algorithmIds`; benchmark orchestration expands
+  those into run plans with per-run solver options, environment metadata, and exact reopen /
+  comparison identity metadata.
 - `BenchmarkRunResult`:
   - solver result + metrics
   - environment snapshot: user agent, cores, build version
@@ -932,7 +981,7 @@ A dedicated route:
 - `/bench`
   - suite builder (levels, algorithms, repetitions, warm-up repetitions, budgets)
   - run/cancel controls with progress and diagnostics panels
-  - persisted results table (sortable)
+  - persisted results table (sortable, with reopen links into `/play` and `/lab`)
   - analytics/comparison panel (success rate + p50/p95 + baseline deltas)
   - export/import JSON for benchmark runs and level packs (File System Access API with fallback)
   - export comparison snapshots (`corgiban-benchmark-comparison`, versioned)
@@ -948,6 +997,9 @@ A dedicated route:
   - `results`
 - Exported `results` correspond to the currently retained benchmark history and may include multiple
   suite runs.
+- Exported run records may include additive `runnableLevelKey` and `comparisonLevelKey` fields so
+  public reports preserve exact reopen identity plus stable comparison identity for
+  edited/session-authored variants without exposing browser-session reopen refs.
 - App-generated report exports currently also include `exportedAtIso` convenience metadata; strict
   report parsing still keys off the required contract fields above.
 - Single-suite snapshot exports remain a future workflow decision.
@@ -986,10 +1038,40 @@ A dedicated route:
   - `version: 1`
   - payload level references via `levelIds: string[]` or `levels[].id`
 - App-generated level-pack exports currently include both `levelIds` and `levels` plus
-  `exportedAtIso`; imports accept either id-bearing shape.
-- Level-pack imports filter to recognized built-in level ids and reject unsupported types/versions
-  with explicit user-facing errors.
-- See ADR-0016 (`docs/adr/0016-benchmark-report-contract-versioning.md`).
+  `exportedAtIso`; imports accept either id-bearing shape. When both fields are present,
+  `levelIds` is authoritative and `levels` only supplies inline definitions for referenced ids.
+- Level-pack imports accept recognized built-in ids and inline custom level definitions. A
+  recognized built-in id takes precedence only when any same-id inline definition matches the
+  canonical built-in payload exactly.
+- Accepted custom/authored levels are normalized, parsed, and kept as explicit session-scoped
+  playable entries so `/play`, `/lab`, and `/bench` can reopen the exact runnable variant during
+  the active browser session without mutating the built-in catalog.
+- Session playable entries use opaque `levelRef` values as runnable identity; `level.id` remains
+  canonical/display identity only.
+- Browser-local temp/session catalog persistence is alpha-only state and may be invalidated across
+  incompatible releases instead of being migrated.
+- Local benchmark persistence may retain app-only exact reopen metadata (`levelRef`,
+  `exactLevelKey`, `levelFingerprint`, `comparisonLevelKey`, `levelName`) so `/bench` can reopen
+  session-backed levels safely while public report exports carry additive public
+  `runnableLevelKey` and `comparisonLevelKey` fields.
+- Current local benchmark fingerprints are derived from the canonical committed
+  `LevelDefinition` payload (`id`, `name`, `rows`, `knownSolution`). They are intentionally not
+  based on raw authored text, but they are also not yet parsed-structure canonical; metadata-only
+  edits can therefore invalidate a stored local reopen/comparison match.
+- Route render and hydration must treat that catalog as an external store: the server snapshot is
+  built-in levels only, and the client subscribes to reconcile session-backed playable entries
+  after commit.
+- Legacy `levelId` fallback remains supported for built-in links and unique session matches, but it
+  must not guess between multiple session entries that share the same canonical id.
+- When a requested `levelRef` or legacy `levelId` cannot be resolved, `/play`, `/bench`, and
+  `/lab` keep their route shells but show explicit unavailable states instead of silently falling
+  back to the active level, an empty suite, or a starter Lab draft.
+- Entries without a recognized built-in id or a valid inline custom definition are skipped with an
+  explicit user-facing notice; extra `levels[]` entries that are not referenced by authoritative
+  `levelIds` are ignored; unsupported same-`level.id` authored/session variants are rejected
+  explicitly; and unsupported types/versions are still rejected.
+- See ADR-0016 (`docs/adr/0016-benchmark-report-contract-versioning.md`) and ADR-0032
+  (`docs/adr/0032-benchmark-level-fingerprint-scope.md`).
 
 ### 9.6 Persistence diagnostics model
 
@@ -1050,10 +1132,16 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 ### 11.1 Pages
 
 - `/` (redirects to `/play`; no standalone in-app landing page)
-- `/play` (interactive play surface)
-- `/bench`
+- `/play` (interactive play surface; accepts exact `levelRef` handoffs plus legacy `levelId`
+  fallback, applies level + algorithm route handoff atomically, and shows an explicit unavailable
+  state when a requested handoff target cannot be resolved)
+- `/bench` (benchmark suite surface with result handoff links back into `/play` and `/lab`, using
+  `levelRef` when exact session identity is available and failing closed when a requested handoff
+  target is unavailable)
 - `/dev/ui-kit` (design system showcase; direct-access validation route, not a primary nav destination)
-- `/lab` (Level Lab route with format parsing, route-local tool state, and worker-backed checks)
+- `/lab` (Level Lab route with format parsing, route-local tool state, worker-backed checks, and
+  explicit publish-on-click handoff actions into `/play` / `/bench`, plus unavailable-state routing
+  when a requested source level is gone)
 - `/tests` (optional internal harness page for interactive debugging)
 
 ### 11.2 Component structure (current)
@@ -1064,7 +1152,7 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 - `SidePanel` (level info, restart/next level, move history, solved-state summary)
 - `GameCanvas` (responsive board canvas host)
 - `BottomControls` (sequence input)
-- `SolverPanel` (algorithm selection, run/cancel, progress, replay/apply actions)
+- `SolverPanel` (algorithm selection across all implemented solver ids, run/cancel, progress, replay/apply actions)
 - `styles/README.md` (web styling contract for token ownership, semantic Tailwind utilities, and
   `pnpm style:check`)
 
@@ -1099,14 +1187,16 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 ### 12.1 Redux slices
 
 - `gameSlice`
-  - current level id, move history (direction + pushed), stats (moves/pushes)
+  - active playable ref plus canonical level id, move history (direction + pushed), stats
+    (moves/pushes)
   - GameState is derived from history using core helpers; typed arrays stay out of Redux
 - `solverSlice`
   - active run id, selected algorithm id, latest progress snapshot, last result, status,
     recommendation, workerHealth
   - replay metadata: replayState, replayIndex, replayTotalSteps
 - `benchSlice`
-  - suite config, active benchmark status/progress, results, diagnostics, perf entries
+  - suite config keyed by playable refs (with legacy level-id mirror where needed), active
+    benchmark status/progress, results, diagnostics, perf entries
 - `settingsSlice`
   - tileAnimationDuration, solverReplaySpeed, solver time/node budget defaults, debug flags
 
@@ -1115,8 +1205,9 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 - Use RTK thunks for:
   - starting/cancelling solver
   - benchmark scheduling
-- Level changes route through a dedicated workflow thunk that cancels any active run before
-  resetting solver run state and recomputing recommendation.
+- Level changes route through a dedicated workflow thunk that cancels any active run, swaps the
+  active playable ref/runtime, recomputes recommendation, and applies any valid requested
+  algorithm override atomically.
 - Replay scheduling is handled by `ReplayController` (RAF loop + shadow state), not by a thunk.
 - Current thunks depend on injected ports at store creation:
   - `SolverPort` for `/play` solve orchestration
@@ -1126,6 +1217,9 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
   in browser-backed ports after commit so SSR/render stays pure and browser resources are not
   created before the route mounts. This preserves one stable store instance per route; route
   modules replace ports, not store identity. See ADR-0025.
+- Render-time browser state that routes consume outside Redux follows the same rule: expose a
+  deterministic server snapshot, subscribe after hydration, and do not read `sessionStorage` or
+  `localStorage` directly during SSR render.
 - The root app shell owns the light/dark theme class on `<html>`, resolves the initial value
   before paint from persisted preference with `prefers-color-scheme` fallback, and exposes the
   toggle through the shared app navigation. Route-scoped Redux stores do not manage theme.
@@ -1148,6 +1242,11 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
   ignored after the active level changes.
 - Failed parses leave the authored revision unchanged; in-flight solve/bench runs continue against
   the last successfully committed level.
+- `/lab` does not publish shared playable entries on mount, parse, or ordinary committed edits.
+  Explicit actions such as `Open in Play` and `Send to Bench` publish or refresh a session entry,
+  reuse the same session ref within the Lab flow, and navigate via `levelRef`.
+- Lab bootstraps from a full playable entry rather than a bare `LevelDefinition` so session-backed
+  edits continue against the same authored identity when opened from `/play` or `/bench`.
 - Route unmount disposes direct worker ports instead of relying on shared-store lifecycle.
 - Promote `/lab` state into Redux only when a concrete cross-route workflow requires shared
   ownership and the change is documented in an ADR.
@@ -1298,6 +1397,7 @@ Current accepted ADRs:
 - ADR-0028: Cloudflare Pages runtime adapter
 - ADR-0029: Play-first root entrypoint and specialist route charters
 - ADR-0030: App-local board skin registry
+- ADR-0031: Session-scoped playable refs and atomic route handoff
 
 ---
 

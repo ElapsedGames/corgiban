@@ -1,33 +1,49 @@
 import type { FileRecord } from './analyzeFiles';
 
-const STATUS_LABEL: Record<string, string> = {
-  P: 'pass',
-  W: 'warn',
-  F: 'fail',
-};
-
-/**
- * Format an array of FileRecords into a human-readable plain-text report.
- *
- * The report always includes:
- * - A generation timestamp header.
- * - A summary line with total record count.
- * - One line per record: relative path, line count, size status, and a
- *   time-usage marker when applicable.
- */
 export function formatReport(records: FileRecord[], generatedAt: Date): string {
-  const header = `Generated: ${generatedAt.toISOString()}`;
-  const summary = `Records: ${records.length}`;
+  const warningFiles = records.filter((record) => record.sizeStatus === 'W');
+  const failingFiles = records.filter((record) => record.sizeStatus === 'F');
+  const timeUsageFiles = records.filter((record) => record.hasTimeUsage);
 
-  if (records.length === 0) {
-    return `${header}\n${summary}\n`;
-  }
+  const warningSection =
+    warningFiles.length === 0
+      ? '- None'
+      : warningFiles.map((record) => `- ${record.path} (${record.lines} lines)`).join('\n');
 
-  const lines = records.map((record) => {
-    const status = STATUS_LABEL[record.sizeStatus] ?? record.sizeStatus;
-    const timeFlag = record.hasTimeUsage ? ' [time]' : '';
-    return `  ${record.path} (${record.lines} lines, ${status})${timeFlag}`;
-  });
+  const failingSection =
+    failingFiles.length === 0
+      ? '- None'
+      : failingFiles.map((record) => `- ${record.path} (${record.lines} lines)`).join('\n');
 
-  return `${header}\n${summary}\n\n${lines.join('\n')}\n`;
+  const timeUsageSection =
+    timeUsageFiles.length === 0
+      ? '- None'
+      : timeUsageFiles.map((record) => `- ${record.path}`).join('\n');
+
+  return [
+    '# Best Practices Report',
+    '',
+    `Generated: ${generatedAt.toISOString()}`,
+    '',
+    '## Legend',
+    '',
+    '- Pass: 500 lines or fewer',
+    '- Warn: 501-800 lines',
+    '- Fail: more than 800 lines',
+    '',
+    '## File Size Summary',
+    '',
+    `Scanned files: ${records.length}`,
+    `Warning-sized files (501-800 lines): ${warningFiles.length}`,
+    warningSection,
+    '',
+    `Fail-sized files (>800 lines): ${failingFiles.length}`,
+    failingSection,
+    '',
+    '## Time Usage Summary',
+    '',
+    'Informational only. ESLint enforces Date and Date.now restrictions in packages/core and packages/solver.',
+    timeUsageSection,
+    '',
+  ].join('\n');
 }

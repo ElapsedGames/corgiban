@@ -8,10 +8,15 @@ import {
 
 import benchmarkWorkerUrl from './benchmarkWorker.client.ts?worker&url';
 import {
+  createBenchmarkComparisonLevelKey,
+  createBenchmarkRunnableLevelKey,
+  type BenchmarkRunRecord,
+} from '../bench/benchmarkRecord';
+import {
   BenchmarkRunCancelledError,
+  getBenchmarkSuiteLevelRefs,
   type BenchmarkPort,
   type BenchmarkWorkerProgress,
-  type BenchmarkRunRecord,
   type BenchmarkSuiteConfig,
 } from './benchmarkPort';
 
@@ -45,6 +50,18 @@ type BenchmarkEnvironmentSnapshot = {
   hardwareConcurrency: number;
   appVersion: string;
 };
+
+function createFallbackLevelEntry(levelRef: string) {
+  return {
+    ref: levelRef,
+    source: { kind: 'session' as const },
+    level: {
+      id: levelRef,
+      name: levelRef,
+      rows: ['P'],
+    },
+  };
+}
 
 function resolveDefaultAppVersion(): string {
   const injectedBuildId = import.meta.env?.VITE_APP_BUILD_ID;
@@ -80,12 +97,13 @@ export function resolveBenchmarkConcurrency(navigatorLike?: BenchmarkPortNavigat
 }
 
 function buildRunPlans(suiteRunId: string, suite: BenchmarkSuiteConfig): RunPlan[] {
-  if (suite.levelIds.length === 0 || suite.algorithmIds.length === 0) {
+  const levelRefs = getBenchmarkSuiteLevelRefs(suite);
+  if (levelRefs.length === 0 || suite.algorithmIds.length === 0) {
     return [];
   }
 
   const benchmarkSuite: BenchmarkSuite = {
-    levelIds: suite.levelIds,
+    levelIds: levelRefs,
     solverConfigs: suite.algorithmIds.map((algorithmId) => ({
       algorithmId,
       options: suite.algorithmOptions?.[algorithmId],
@@ -124,19 +142,21 @@ function clampFinishedAtMs(startedAtMs: number, finishedAtMs: number): number {
 }
 
 function toRunRequestOptions(options: RunPlan['options'], streamWorkerProgress: boolean) {
-  if (streamWorkerProgress || options?.enableSpectatorStream !== true) {
+  if (options?.enableSpectatorStream !== undefined) {
     return options;
   }
 
   return {
     ...options,
-    enableSpectatorStream: false,
+    enableSpectatorStream: streamWorkerProgress,
   };
 }
 
 function toWorkerProgress(
   suiteRunId: string,
   plan: RunPlan,
+  levelId: string,
+  levelName: string,
   measuredSequence: number | null,
   progress: {
     expanded: number;
@@ -154,7 +174,9 @@ function toWorkerProgress(
     planSequence: plan.sequence,
     measuredSequence,
     warmup: plan.warmup,
-    levelId: plan.levelId,
+    levelRef: plan.levelId,
+    levelId,
+    levelName,
     algorithmId: plan.algorithmId,
     repetition: plan.repetition,
     expanded: progress.expanded,
@@ -322,6 +344,9 @@ export function createBenchmarkPort(options: CreateBenchmarkPortOptions = {}): B
               if (!plan) {
                 return;
               }
+              const levelEntry =
+                request.levelEntryResolver?.(plan.levelId) ??
+                createFallbackLevelEntry(plan.levelId);
 
               // Defensive fallback for unexpected paths where dispatch callback was not observed.
               if (startedAtMs === undefined) {
@@ -343,13 +368,18 @@ export function createBenchmarkPort(options: CreateBenchmarkPortOptions = {}): B
                 return;
               }
               const recordOptions = runRequest.options ?? plan.options;
+              const runnableLevelKey = createBenchmarkRunnableLevelKey(levelEntry.level);
+              const comparisonLevelKey = createBenchmarkComparisonLevelKey(levelEntry.level);
 
               const baseRecord = {
                 id: `${request.suiteRunId}:${resultSequence}`,
                 suiteRunId: request.suiteRunId,
                 runId: runRequest.runId,
                 sequence: resultSequence,
-                levelId: plan.levelId,
+                levelId: levelEntry.level.id,
+                runnableLevelKey,
+                comparisonLevelKey,
+                levelName: levelEntry.level.name,
                 algorithmId: plan.algorithmId,
                 repetition: plan.repetition,
                 warmup: false,
@@ -365,6 +395,12 @@ export function createBenchmarkPort(options: CreateBenchmarkPortOptions = {}): B
                   environment,
                   warmupRepetitions,
                 ),
+                localMetadata: {
+                  levelRef: levelEntry.ref,
+                  exactLevelKey: runnableLevelKey,
+                  levelFingerprint: runnableLevelKey,
+                  comparisonLevelKey,
+                },
               };
 
               const record: BenchmarkRunRecord =
@@ -403,11 +439,16 @@ export function createBenchmarkPort(options: CreateBenchmarkPortOptions = {}): B
               if (!plan) {
                 return;
               }
+              const levelEntry =
+                request.levelEntryResolver?.(plan.levelId) ??
+                createFallbackLevelEntry(plan.levelId);
 
               request.onWorkerProgress?.(
                 toWorkerProgress(
                   request.suiteRunId,
                   plan,
+                  levelEntry.level.id,
+                  levelEntry.level.name,
                   measuredSequenceByRunId.get(runRequest.runId) ?? null,
                   progressMsg,
                 ),

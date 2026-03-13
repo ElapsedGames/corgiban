@@ -82,7 +82,7 @@ export function toComparableRunInput(
   }
 
   return {
-    levelId: record.levelId,
+    levelId: record.comparisonLevelKey ?? record.levelId,
     repetition: record.repetition,
     solver: record.comparableMetadata.solver,
     environment: record.comparableMetadata.environment,

@@ -5,15 +5,15 @@ type: debt
 severity: medium
 area: build
 regression: false
-status: deferred
+status: fixed
 discovered_at: 2026-03-06
 introduced_in: null
-branch: null
+branch: main
 pr: null
 commit: null
 owner: null
-fixed_at: null
-fixed_by: null
+fixed_at: 2026-03-11
+fixed_by: JSly
 ---
 
 ## Summary
@@ -79,16 +79,7 @@ Bring the implementation back in line with `docs/dev-tools-spec.md`, then finish
 
 ## Resolution
 
-- Partial progress landed:
-- `tools/src/analyzeFiles.ts`: real file reads, line counts, size-status classification, and
-  time-usage detection now exist.
-- `tools/src/scanFiles.ts`: glob-based file discovery is implemented with `fast-glob`.
-- `tools/src/reportFormatter.ts`: report formatting now emits per-file rows with path, line
-  count, status label, and `[time]` marker.
-- `tools/src/bestPracticesReport.ts`: only `parseOutDir(...)` is implemented for now;
-  `run()` still intentionally logs that report generation is unavailable.
-- Tests now cover `analyzeFiles`, `reportFormatter`, and `parseOutDir`, but there is still no
-  end-to-end command path producing a report artifact.
+Implemented the best-practices report CLI, source scanning, analysis, markdown formatting, report file writing, and end-to-end tooling tests.
 
 ## Verification
 

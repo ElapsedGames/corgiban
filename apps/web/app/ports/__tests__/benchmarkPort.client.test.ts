@@ -218,7 +218,7 @@ describe('createBenchmarkPort (client)', () => {
     port.dispose();
   });
 
-  it('disables spectator stream in worker run options when no worker-progress consumer exists', async () => {
+  it('preserves explicit spectator-stream overrides when no worker-progress consumer exists', async () => {
     const clientMock = createClientMock();
     mocks.createBenchmarkClient.mockImplementation((options?: { createWorker?: () => unknown }) => {
       options?.createWorker?.();
@@ -257,21 +257,21 @@ describe('createBenchmarkPort (client)', () => {
 
     const runSuiteCalls = vi.mocked(clientMock.runSuite).mock.calls;
     expect(runSuiteCalls[0]?.[0].runs[0]?.options).toEqual({
-      enableSpectatorStream: false,
+      enableSpectatorStream: true,
       timeBudgetMs: 1_500,
       nodeBudget: 3_500,
     });
 
     expect(results).toHaveLength(1);
     expect(results[0]?.options).toEqual({
-      enableSpectatorStream: false,
+      enableSpectatorStream: true,
       timeBudgetMs: 1_500,
       nodeBudget: 3_500,
     });
     expect(results[0]?.comparableMetadata).toEqual({
       solver: {
         algorithmId: 'bfsPush',
-        enableSpectatorStream: false,
+        enableSpectatorStream: true,
         timeBudgetMs: 1_500,
         nodeBudget: 3_500,
       },
@@ -283,6 +283,50 @@ describe('createBenchmarkPort (client)', () => {
       warmupEnabled: false,
       warmupRepetitions: 0,
     });
+    expect(results[0]?.runnableLevelKey).toBe(results[0]?.localMetadata?.exactLevelKey);
+    expect(results[0]?.comparisonLevelKey).toBe(results[0]?.localMetadata?.comparisonLevelKey);
+
+    port.dispose();
+  });
+
+  it('defaults spectator stream to false when no worker-progress consumer is attached', async () => {
+    const clientMock = createClientMock();
+    mocks.createBenchmarkClient.mockImplementation((options?: { createWorker?: () => unknown }) => {
+      options?.createWorker?.();
+      return clientMock;
+    });
+
+    const port = createBenchmarkPort({
+      concurrency: 1,
+      navigatorLike: { userAgent: 'BenchTest', hardwareConcurrency: 8 },
+      performanceApi: { mark: vi.fn(), measure: vi.fn() },
+    });
+
+    const results = await port.runSuite({
+      suiteRunId: 'bench-default-no-stream',
+      suite: {
+        levelIds: ['corgiban-test-18'],
+        algorithmIds: ['bfsPush'],
+        repetitions: 1,
+        timeBudgetMs: 1_500,
+        nodeBudget: 3_500,
+      },
+      levelResolver: () => ({
+        levelId: 'corgiban-test-18',
+        width: 1,
+        height: 1,
+        staticGrid: new Uint8Array([0]),
+        initialPlayerIndex: 0,
+        initialBoxes: new Uint32Array([]),
+      }),
+    });
+
+    expect(vi.mocked(clientMock.runSuite).mock.calls[0]?.[0].runs[0]?.options).toEqual({
+      enableSpectatorStream: false,
+      timeBudgetMs: 1_500,
+      nodeBudget: 3_500,
+    });
+    expect(results[0]?.options?.enableSpectatorStream).toBe(false);
 
     port.dispose();
   });
@@ -370,7 +414,9 @@ describe('createBenchmarkPort (client)', () => {
       planSequence: 1,
       measuredSequence: 1,
       warmup: false,
+      levelRef: 'corgiban-test-18',
       levelId: 'corgiban-test-18',
+      levelName: 'corgiban-test-18',
       algorithmId: 'bfsPush',
       repetition: 1,
       expanded: 5,
@@ -402,6 +448,49 @@ describe('createBenchmarkPort (client)', () => {
       warmupEnabled: false,
       warmupRepetitions: 0,
     });
+
+    port.dispose();
+  });
+
+  it('enables spectator stream by default when a worker-progress consumer is attached', async () => {
+    const clientMock = createClientMock();
+    mocks.createBenchmarkClient.mockImplementation((options?: { createWorker?: () => unknown }) => {
+      options?.createWorker?.();
+      return clientMock;
+    });
+
+    const port = createBenchmarkPort({
+      concurrency: 1,
+      navigatorLike: { userAgent: 'BenchTest', hardwareConcurrency: 8 },
+      performanceApi: { mark: vi.fn(), measure: vi.fn() },
+    });
+
+    const results = await port.runSuite({
+      suiteRunId: 'bench-default-stream',
+      suite: {
+        levelIds: ['corgiban-test-18'],
+        algorithmIds: ['bfsPush'],
+        repetitions: 1,
+        timeBudgetMs: 1_500,
+        nodeBudget: 3_500,
+      },
+      levelResolver: () => ({
+        levelId: 'corgiban-test-18',
+        width: 1,
+        height: 1,
+        staticGrid: new Uint8Array([0]),
+        initialPlayerIndex: 0,
+        initialBoxes: new Uint32Array([]),
+      }),
+      onWorkerProgress: vi.fn(),
+    });
+
+    expect(vi.mocked(clientMock.runSuite).mock.calls[0]?.[0].runs[0]?.options).toEqual({
+      enableSpectatorStream: true,
+      timeBudgetMs: 1_500,
+      nodeBudget: 3_500,
+    });
+    expect(results[0]?.options?.enableSpectatorStream).toBe(true);
 
     port.dispose();
   });

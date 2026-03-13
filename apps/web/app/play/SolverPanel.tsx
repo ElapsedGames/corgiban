@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AlgorithmId } from '@corgiban/solver';
-import { ALGORITHM_IDS, DEFAULT_ALGORITHM_ID, isImplementedAlgorithmId } from '@corgiban/solver';
+import { ALGORITHM_IDS, DEFAULT_ALGORITHM_ID } from '@corgiban/solver';
 
 import type { WorkerHealth } from '../ports/solverPort';
 import type { AppDispatch, RootState } from '../state';
@@ -18,6 +18,7 @@ import type {
 import { Select } from '../ui/Select';
 import { REPLAY_SPEED_OPTIONS, SolverControls, inlineSelectClass } from './SolverControls';
 import { SolverProgress } from './SolverProgress';
+import { formatSolverAlgorithmLabel } from '../solver/algorithmLabels';
 
 export type SolverPanelProps = {
   recommendation: SolverRecommendation | null;
@@ -44,25 +45,16 @@ export type SolverPanelProps = {
   onRetryWorker: () => void;
 };
 
-const FALLBACK_ALGORITHM_ID =
-  ALGORITHM_IDS.find((algorithmId) => isImplementedAlgorithmId(algorithmId)) ??
-  DEFAULT_ALGORITHM_ID;
+const FALLBACK_ALGORITHM_ID = ALGORITHM_IDS[0] ?? DEFAULT_ALGORITHM_ID;
 export const MOBILE_RUNNING_INDICATOR_DELAY_MS = 750;
-
-function formatAlgorithmLabel(algorithmId: AlgorithmId): string {
-  if (isImplementedAlgorithmId(algorithmId)) {
-    return algorithmId;
-  }
-  return `${algorithmId} (coming soon)`;
-}
 
 function recommendationLabel(recommendation: SolverRecommendation | null): string {
   if (!recommendation) {
-    return 'No recommendation available yet.';
+    return 'Pick an algorithm when you want to compare your playthrough with a worker solve.';
   }
 
   const { algorithmId, features } = recommendation;
-  return `Recommended: ${algorithmId} (${features.boxCount} boxes, ${features.width}x${features.height})`;
+  return `Start with ${formatSolverAlgorithmLabel(algorithmId)} for this ${features.boxCount}-box ${features.width}x${features.height} level.`;
 }
 
 function toPositiveInt(value: string, fallback: number): number {
@@ -134,9 +126,7 @@ export function SolverPanel({
   const desktopHeadingId = `${headingId}-desktop`;
   const preferredAlgorithmId =
     selectedAlgorithmId ?? recommendation?.algorithmId ?? FALLBACK_ALGORITHM_ID;
-  const resolvedAlgorithmId = isImplementedAlgorithmId(preferredAlgorithmId)
-    ? preferredAlgorithmId
-    : FALLBACK_ALGORITHM_ID;
+  const resolvedAlgorithmId = preferredAlgorithmId;
   const isRunning = status === 'running' || status === 'cancelling';
   const hasSolution = Boolean(lastResult?.solutionMoves);
   const mobileReplaySelectClass = `${inlineSelectClass} min-h-[42px] w-full px-4 py-2 text-sm`;
@@ -177,7 +167,10 @@ export function SolverPanel({
             <h2 id={mobileHeadingId} className="text-lg font-semibold">
               Solver
             </h2>
-            <p className="text-sm text-muted">Run Solve currently works for most smaller levels.</p>
+            <p className="text-sm text-muted">
+              Play first. Run a worker solve when you want a hint, a replay, or an algorithm
+              comparison.
+            </p>
           </div>
         </div>
 
@@ -288,21 +281,26 @@ export function SolverPanel({
             label="Algorithm"
             value={resolvedAlgorithmId}
             onChange={(event) => onSelectAlgorithm(event.target.value as AlgorithmId)}
-            hint="Unavailable algorithms stay visible but are disabled until implemented."
+            hint="Use the recommendation first. Budgets below are the advanced controls when you need them."
           >
             {ALGORITHM_IDS.map((algorithmId) => (
-              <option
-                key={algorithmId}
-                value={algorithmId}
-                disabled={!isImplementedAlgorithmId(algorithmId)}
-              >
-                {formatAlgorithmLabel(algorithmId)}
+              <option key={algorithmId} value={algorithmId}>
+                {formatSolverAlgorithmLabel(algorithmId)}
               </option>
             ))}
           </Select>
         </div>
 
-        <SolverBudgetSettings />
+        <details className="mt-5 rounded-app-md border border-border bg-bg/40 p-3">
+          <summary className="cursor-pointer text-sm font-semibold text-fg">
+            Advanced budgets
+          </summary>
+          <p className="mt-2 text-sm text-muted">
+            Leave these at their defaults unless you are comparing algorithms or trying to keep a
+            long run bounded.
+          </p>
+          <SolverBudgetSettings />
+        </details>
 
         <hr className="my-5 border-border" />
 

@@ -156,6 +156,62 @@ describe('parseSlcXml', () => {
     ).toThrow('Malformed SLC XML: unterminated DOCTYPE declaration.');
   });
 
+  it('decodes quoted entities in attributes and text rows', () => {
+    const collection = parseSlcXml(
+      `<Collection><Level id="quoted" title="Tom &quot;Corgi&quot; &gt; Cat &#39;quoted&#39;"><L>#####</L><L>#.@ #</L><L># $ #</L><L># . #</L><L>#####</L></Level></Collection>`,
+    );
+
+    expect(collection.levels[0]?.name).toBe(`Tom "Corgi" > Cat 'quoted'`);
+  });
+
+  it('rejects malformed tag names, attributes, and comment/cdata delimiters', () => {
+    expect(() => parseSlcXml('<Collection><></></Collection>')).toThrow('expected a tag name');
+    expect(() =>
+      parseSlcXml(
+        '<Collection><Level id "broken"><L>#####</L><L>#.@ #</L><L># $ #</L><L># . #</L><L>#####</L></Level></Collection>',
+      ),
+    ).toThrow('expected "=" after attribute id');
+    expect(() => parseSlcXml('<Collection><!-- broken<Level /></Collection>')).toThrow(
+      'unterminated comment',
+    );
+    expect(() => parseSlcXml('<Collection><Level><![CDATA[broken</Level></Collection>')).toThrow(
+      'unterminated CDATA section',
+    );
+  });
+
+  it('rejects unterminated attributes and malformed closing tags', () => {
+    expect(() =>
+      parseSlcXml(
+        '<Collection><Level id="broken><L>#####</L><L>#.@ #</L><L># $ #</L><L># . #</L><L>#####</L></Level></Collection>',
+      ),
+    ).toThrow('unterminated attribute');
+    expect(() =>
+      parseSlcXml(
+        '<Collection><Level><L>#####</L><L>#.@ #</L><L># $ #</L><L># . #</L><L>#####</L></Level!</Collection>',
+      ),
+    ).toThrow('expected ">" after closing tag');
+    expect(() => parseSlcXml('<Collection></Collection></Level>')).toThrow(
+      'unexpected closing tag </Level>',
+    );
+  });
+
+  it('supports quoted DOCTYPE internals that contain brackets and angle brackets', () => {
+    const collection = parseSlcXml(`<!DOCTYPE Collection [
+      <!ENTITY writer "A [quoted] > value">
+    ]>
+    <Collection>
+      <Level id="alpha" title="Alpha">
+        <L>#####</L>
+        <L>#.@ #</L>
+        <L># $ #</L>
+        <L># . #</L>
+        <L>#####</L>
+      </Level>
+    </Collection>`);
+
+    expect(collection.levels).toHaveLength(1);
+  });
+
   it('rejects oversized multi-level XML payloads before parsing level entries', () => {
     const level =
       '<Level Id="alpha" Name="Alpha"><L>#####</L><L>#.@ #</L><L># $ #</L><L># . #</L><L>#####</L></Level>';

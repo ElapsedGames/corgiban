@@ -45,9 +45,30 @@ const allowedNonAsciiByFile = new Map([
   ],
 ]);
 
-// In CI (or when --all is passed) scan every tracked file.
-// In pre-commit, scan only staged files so the hook stays fast.
-const scanAll = process.argv.includes('--all') || Boolean(process.env.CI);
+function resolveScanMode(argv, env) {
+  const wantsStaged = argv.includes('--staged');
+  const wantsTracked = argv.includes('--all') || argv.includes('--tracked');
+  const wantsWorktree = argv.includes('--worktree');
+  const requestedModes = [wantsStaged, wantsTracked, wantsWorktree].filter(Boolean).length;
+
+  if (requestedModes > 1) {
+    throw new Error('Choose only one of --staged, --tracked/--all, or --worktree.');
+  }
+
+  if (wantsStaged) {
+    return 'staged';
+  }
+
+  if (wantsTracked || env.CI) {
+    return 'tracked';
+  }
+
+  if (wantsWorktree) {
+    return 'worktree';
+  }
+
+  return 'staged';
+}
 
 function getStagedFiles() {
   try {
@@ -55,6 +76,17 @@ function getStagedFiles() {
       encoding: 'utf8',
     }).trim();
     return output ? output.split(/\r?\n/) : [];
+  } catch {
+    return [];
+  }
+}
+
+function getWorktreeFiles() {
+  try {
+    const output = execSync('git ls-files --cached --others --exclude-standard', {
+      encoding: 'utf8',
+    }).trim();
+    return output ? Array.from(new Set(output.split(/\r?\n/))) : [];
   } catch {
     return [];
   }
@@ -103,7 +135,13 @@ function findInvalidAsciiByte(buffer) {
   return null;
 }
 
-const filesToCheck = scanAll ? getTrackedFiles() : getStagedFiles();
+const scanMode = resolveScanMode(process.argv, process.env);
+const filesToCheck =
+  scanMode === 'staged'
+    ? getStagedFiles()
+    : scanMode === 'tracked'
+      ? getTrackedFiles()
+      : getWorktreeFiles();
 const errors = [];
 
 for (const filePath of filesToCheck) {
@@ -165,5 +203,10 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-const scope = scanAll ? 'all tracked files' : 'staged files';
+const scope =
+  scanMode === 'staged'
+    ? 'staged files'
+    : scanMode === 'tracked'
+      ? 'all tracked files'
+      : 'worktree files';
 console.log(`Encoding policy check passed (${scope}).`);

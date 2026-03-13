@@ -9,11 +9,23 @@ import { Button } from '../ui/Button';
 
 type LabPreviewPanelProps = {
   previewState: GameState;
+  playHref?: string;
+  benchHref?: string;
   onMove: (direction: Direction) => void;
   onReset: () => void;
+  onOpenInPlay?: () => void;
+  onSendToBench?: () => void;
 };
 
-export function LabPreviewPanel({ previewState, onMove, onReset }: LabPreviewPanelProps) {
+export function LabPreviewPanel({
+  previewState,
+  playHref,
+  benchHref,
+  onMove,
+  onReset,
+  onOpenInPlay,
+  onSendToBench,
+}: LabPreviewPanelProps) {
   const headingId = useId();
   const previewStateRef = useRef(previewState);
   const [canvasNode, setCanvasNode] = useState<HTMLCanvasElement | null>(null);
@@ -37,9 +49,8 @@ export function LabPreviewPanel({ previewState, onMove, onReset }: LabPreviewPan
         Preview / Play
       </h2>
       <p className="text-sm text-muted">
-        Use tap/click adjacent tiles, swipe, or arrow keys / WASD to verify gameplay before running
-        solver or benchmark checks. Preview moves stay local here; worker runs always reset from the
-        authored level state.
+        Verify the authored board locally before you spend worker time on it. Preview moves stay
+        local here; solve and benchmark runs always restart from the parsed level state.
       </p>
 
       <div className="mt-4 flex justify-center overflow-auto rounded-app-md border border-border bg-bg p-3">
@@ -55,8 +66,8 @@ export function LabPreviewPanel({ previewState, onMove, onReset }: LabPreviewPan
           Moves: {previewState.stats.moves} | Pushes: {previewState.stats.pushes}
         </p>
         <p className="text-xs text-muted">
-          Controls: tap/click adjacent tiles, swipe, Arrow keys / WASD move, R resets. Keyboard
-          input pauses while typing in the editor.
+          Controls: tap/click adjacent tiles, swipe, Arrow keys / WASD move, R resets. Keyboard play
+          pauses while you are typing in the editor.
         </p>
       </div>
 
@@ -64,6 +75,38 @@ export function LabPreviewPanel({ previewState, onMove, onReset }: LabPreviewPan
         <Button variant="ghost" size="sm" onClick={onReset}>
           Reset preview
         </Button>
+        {onOpenInPlay ? (
+          <button
+            type="button"
+            className="inline-flex min-h-[32px] items-center justify-center rounded-app-md border border-border px-3 py-1.5 text-sm font-medium text-accent transition hover:border-accent-border hover:bg-accent-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+            onClick={onOpenInPlay}
+          >
+            Open in Play
+          </button>
+        ) : (
+          <a
+            className="inline-flex min-h-[32px] items-center justify-center rounded-app-md border border-border px-3 py-1.5 text-sm font-medium text-accent transition hover:border-accent-border hover:bg-accent-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+            href={playHref}
+          >
+            Open in Play
+          </a>
+        )}
+        {onSendToBench ? (
+          <button
+            type="button"
+            className="inline-flex min-h-[32px] items-center justify-center rounded-app-md border border-border px-3 py-1.5 text-sm font-medium text-accent transition hover:border-accent-border hover:bg-accent-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+            onClick={onSendToBench}
+          >
+            Send to Bench
+          </button>
+        ) : (
+          <a
+            className="inline-flex min-h-[32px] items-center justify-center rounded-app-md border border-border px-3 py-1.5 text-sm font-medium text-accent transition hover:border-accent-border hover:bg-accent-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+            href={benchHref}
+          >
+            Send to Bench
+          </a>
+        )}
       </div>
     </section>
   );

@@ -19,6 +19,18 @@ describe('selection', () => {
     expect(features.boxCount).toBe(1);
     expect(features.walkableCount).toBe(5);
     expect(features.reachableCount).toBe(4);
+    expect(features.boxDensity).toBe(0.2);
+    expect(features.reachableRatio).toBe(0.8);
+    expect(features.tunnelCellCount).toBe(0);
+    expect(features.tunnelRatio).toBe(0);
+  });
+
+  it('counts tunnel metadata for straight corridor levels', () => {
+    const level = buildLevel(['WWWWWWWWW', 'WPBEEEETW', 'WWWWWWWWW']);
+    const features = analyzeLevel(level);
+
+    expect(features.tunnelCellCount).toBe(5);
+    expect(features.tunnelRatio).toBe(5 / 7);
   });
 
   it('handles minimal grids with no boxes', () => {
@@ -28,6 +40,10 @@ describe('selection', () => {
     expect(features.boxCount).toBe(0);
     expect(features.walkableCount).toBe(1);
     expect(features.reachableCount).toBe(1);
+    expect(features.boxDensity).toBe(0);
+    expect(features.reachableRatio).toBe(1);
+    expect(features.tunnelCellCount).toBe(0);
+    expect(features.tunnelRatio).toBe(0);
   });
 
   it('handles max box counts', () => {
@@ -46,6 +62,7 @@ describe('selection', () => {
     expect(features.walkableCount).toBe(4);
     expect(features.reachableCount).toBe(2);
     expect(features.reachableCount).toBeLessThan(features.walkableCount);
+    expect(features.reachableRatio).toBe(0.5);
   });
 
   it('reports zero reachability when player is on a wall cell', () => {
@@ -61,55 +78,105 @@ describe('selection', () => {
 
     expect(features.walkableCount).toBe(0);
     expect(features.reachableCount).toBe(0);
+    expect(features.boxDensity).toBe(0);
+    expect(features.reachableRatio).toBe(0);
+    expect(features.tunnelCellCount).toBe(0);
+    expect(features.tunnelRatio).toBe(0);
   });
 
-  it('chooses bfsPush for small box counts', () => {
+  it('chooses tunnelMacroPush when tunnel-heavy levels meet the tunnel rule', () => {
     const features: LevelFeatures = {
-      width: 3,
+      width: 9,
       height: 3,
+      boxCount: 1,
+      walkableCount: 7,
+      reachableCount: 7,
+      boxDensity: 1 / 7,
+      reachableRatio: 1,
+      tunnelCellCount: 4,
+      tunnelRatio: 4 / 7,
+    };
+
+    expect(chooseAlgorithm(features)).toBe('tunnelMacroPush');
+  });
+
+  it('chooses piCorralPush for dense or constrained high-box levels', () => {
+    const features: LevelFeatures = {
+      width: 8,
+      height: 8,
+      boxCount: 8,
+      walkableCount: 40,
+      reachableCount: 24,
+      boxDensity: 0.2,
+      reachableRatio: 0.6,
+      tunnelCellCount: 0,
+      tunnelRatio: 0,
+    };
+
+    expect(chooseAlgorithm(features)).toBe('piCorralPush');
+  });
+
+  it('chooses greedyPush for low-density easy levels', () => {
+    const features: LevelFeatures = {
+      width: 5,
+      height: 5,
+      boxCount: 2,
+      walkableCount: 30,
+      reachableCount: 24,
+      boxDensity: 2 / 30,
+      reachableRatio: 24 / 30,
+      tunnelCellCount: 0,
+      tunnelRatio: 0,
+    };
+
+    expect(chooseAlgorithm(features)).toBe('greedyPush');
+  });
+
+  it('chooses bfsPush for small levels that do not qualify for greedy or tunnel rules', () => {
+    const features: LevelFeatures = {
+      width: 4,
+      height: 4,
       boxCount: 3,
-      walkableCount: 5,
+      walkableCount: 8,
       reachableCount: 5,
+      boxDensity: 3 / 8,
+      reachableRatio: 5 / 8,
+      tunnelCellCount: 1,
+      tunnelRatio: 1 / 8,
     };
 
     expect(chooseAlgorithm(features)).toBe('bfsPush');
   });
 
-  it.each([
-    {
-      label: 'lower A* boundary',
-      features: {
-        width: 4,
-        height: 4,
-        boxCount: 4,
-        walkableCount: 10,
-        reachableCount: 8,
-      },
-    },
-    {
-      label: 'upper A* boundary',
-      features: {
-        width: 5,
-        height: 5,
-        boxCount: 6,
-        walkableCount: 12,
-        reachableCount: 10,
-      },
-    },
-    {
-      label: 'large-box fallback range',
-      features: {
-        width: 8,
-        height: 8,
-        boxCount: 12,
-        walkableCount: 40,
-        reachableCount: 32,
-      },
-    },
-  ])(
-    'falls back to bfsPush for the $label until non-BFS algorithms are implemented',
-    ({ features }) => {
-      expect(chooseAlgorithm(features)).toBe('bfsPush');
-    },
-  );
+  it('chooses astarPush for mid-sized levels outside tunnel rules', () => {
+    const features: LevelFeatures = {
+      width: 5,
+      height: 5,
+      boxCount: 6,
+      walkableCount: 20,
+      reachableCount: 15,
+      boxDensity: 0.3,
+      reachableRatio: 0.75,
+      tunnelCellCount: 2,
+      tunnelRatio: 0.1,
+    };
+
+    expect(chooseAlgorithm(features)).toBe('astarPush');
+  });
+
+  it('chooses idaStarPush for larger open levels that miss pi-corral conditions', () => {
+    const features: LevelFeatures = {
+      width: 8,
+      height: 8,
+      boxCount: 9,
+      walkableCount: 100,
+      reachableCount: 90,
+      boxDensity: 0.09,
+      reachableRatio: 0.9,
+      tunnelCellCount: 0,
+      tunnelRatio: 0,
+    };
+
+    expect(chooseAlgorithm(features)).toBe('idaStarPush');
+  });
 });

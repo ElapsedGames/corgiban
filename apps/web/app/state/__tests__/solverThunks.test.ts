@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { parseLevel } from '@corgiban/core';
 import { DEFAULT_NODE_BUDGET, DEFAULT_SOLVER_TIME_BUDGET_MS } from '@corgiban/solver';
 import * as solverApi from '@corgiban/solver';
+import type { AlgorithmId } from '@corgiban/solver';
 
 import type { SolverPort } from '../../ports/solverPort';
 import {
@@ -86,7 +87,7 @@ describe('solverThunks', () => {
 
     await startSolve({ levelRuntime })(dispatch, getState, { solverPort });
 
-    expect(startCalls[0]).toBe('bfsPush');
+    expect(startCalls[0]).toBe('greedyPush');
   });
 
   it('uses an explicitly requested implemented algorithm without fallback', async () => {
@@ -121,11 +122,11 @@ describe('solverThunks', () => {
 
     const dispatch = vi.fn();
 
-    await startSolve({ levelRuntime, algorithmId: 'bfsPush' })(dispatch, () => baseState(), {
+    await startSolve({ levelRuntime, algorithmId: 'astarPush' })(dispatch, () => baseState(), {
       solverPort,
     });
 
-    expect(startCalls[0]).toBe('bfsPush');
+    expect(startCalls[0]).toBe('astarPush');
   });
 
   it('dispatches recommendation and selected algorithm for a level', () => {
@@ -139,11 +140,11 @@ describe('solverThunks', () => {
     expect(dispatch).toHaveBeenCalledTimes(2);
     expect(dispatch.mock.calls[0]?.[0].type).toBe(setRecommendation.type);
     expect(dispatch.mock.calls[1]?.[0].type).toBe(setSelectedAlgorithmId.type);
-    expect(dispatch.mock.calls[0]?.[0].payload.algorithmId).toBe('bfsPush');
-    expect(dispatch.mock.calls[1]?.[0].payload).toBe('bfsPush');
+    expect(dispatch.mock.calls[0]?.[0].payload.algorithmId).toBe('greedyPush');
+    expect(dispatch.mock.calls[1]?.[0].payload).toBe('greedyPush');
   });
 
-  it('falls back to bfsPush when an unavailable explicit algorithmId is provided', async () => {
+  it('falls back to the recommended algorithm when an unknown explicit algorithmId is provided', async () => {
     const levelRuntime = parseLevel({ id: 'level', name: 'Level', rows: ['P'] });
     const startCalls: string[] = [];
 
@@ -176,14 +177,18 @@ describe('solverThunks', () => {
     const dispatch = vi.fn();
     const getState = () => baseState();
 
-    await startSolve({ levelRuntime, algorithmId: 'astarPush' })(dispatch, getState, {
-      solverPort,
-    });
+    await startSolve({ levelRuntime, algorithmId: 'futurePush' as AlgorithmId })(
+      dispatch,
+      getState,
+      {
+        solverPort,
+      },
+    );
 
-    expect(startCalls[0]).toBe('bfsPush');
+    expect(startCalls[0]).toBe('greedyPush');
   });
 
-  it('falls back to bfsPush when selectedAlgorithmId in state is unavailable', async () => {
+  it('falls back to the recommended algorithm when selectedAlgorithmId in state is unknown', async () => {
     const levelRuntime = parseLevel({ id: 'level', name: 'Level', rows: ['P'] });
     const startCalls: string[] = [];
 
@@ -218,19 +223,21 @@ describe('solverThunks', () => {
       ...baseState(),
       solver: {
         ...baseState().solver,
-        selectedAlgorithmId: 'astarPush' as const,
+        selectedAlgorithmId: 'futurePush' as AlgorithmId,
       },
     });
 
     await startSolve({ levelRuntime })(dispatch, getState, { solverPort });
 
-    expect(startCalls[0]).toBe('bfsPush');
+    expect(startCalls[0]).toBe('greedyPush');
   });
 
-  it('falls back to default algorithm when recommendation resolves to an unavailable id', async () => {
+  it('falls back to default algorithm when recommendation resolves to an unknown id', async () => {
     const levelRuntime = parseLevel({ id: 'level', name: 'Level', rows: ['P'] });
     const startCalls: string[] = [];
-    const chooseSpy = vi.spyOn(solverApi, 'chooseAlgorithm').mockReturnValue('idaStarPush');
+    const chooseSpy = vi
+      .spyOn(solverApi, 'chooseAlgorithm')
+      .mockReturnValue('futurePush' as AlgorithmId);
 
     const solverPort: SolverPort = {
       startSolve: async (request) => {
@@ -684,8 +691,8 @@ describe('solverThunks', () => {
         runId: request.runId,
         algorithmId: request.algorithmId,
         status: 'error',
-        errorMessage: 'Algorithm "astarPush" is not registered in the solver registry.',
-        errorDetails: 'Missing registry entry.',
+        errorMessage: 'Domain failure while solving.',
+        errorDetails: 'Heuristic configuration mismatch.',
         metrics: {
           elapsedMs: 0,
           expanded: 0,

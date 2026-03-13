@@ -26,6 +26,8 @@ function createSolverPortMock() {
 
 const mocks = vi.hoisted(() => ({
   createSolverPort: vi.fn(),
+  useRequestedPlayableEntryResolution: vi.fn(() => ({ status: 'none' as const })),
+  useSearchParams: vi.fn(() => [new URLSearchParams(), vi.fn()]),
 }));
 
 vi.mock('../../play/PlayPage', () => ({
@@ -35,6 +37,18 @@ vi.mock('../../play/PlayPage', () => ({
 vi.mock('../../ports/solverPort.client', () => ({
   createSolverPort: mocks.createSolverPort,
 }));
+
+vi.mock('../../levels/usePlayableLevels', () => ({
+  useRequestedPlayableEntryResolution: mocks.useRequestedPlayableEntryResolution,
+}));
+
+vi.mock('@remix-run/react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@remix-run/react')>();
+  return {
+    ...actual,
+    useSearchParams: mocks.useSearchParams,
+  };
+});
 
 const mountedRoots: Root[] = [];
 

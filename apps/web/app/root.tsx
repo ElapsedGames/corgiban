@@ -17,20 +17,43 @@ import { useEffect } from 'react';
 
 import appStylesHref from './styles/app.css?url';
 import tokensHref from './styles/tokens.css?url';
-import { buildThemeInitScript } from './theme/theme';
+import { buildThemeInitScript, syncDocumentThemeColor, THEME_COLOR_META_NAME } from './theme/theme';
 import { useAppTheme } from './theme/useAppTheme';
 import { AppNav } from './ui/AppNav';
+
+const SITE_URL = 'https://corgiban.elapsedgames.com';
+const DEFAULT_TITLE = 'Corgiban';
+const DEFAULT_DESCRIPTION = 'Deterministic Sokoban game, solver, and benchmark suite.';
+const SOCIAL_IMAGE_URL = `${SITE_URL}/social-card.png`;
+const SOCIAL_IMAGE_ALT = 'Corgiban preview card with the corgi icon and a Sokoban board.';
 
 export const links: LinksFunction = () => [
   { rel: 'stylesheet', href: tokensHref },
   { rel: 'stylesheet', href: appStylesHref },
   { rel: 'manifest', href: '/manifest.webmanifest' },
+  { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+  { rel: 'shortcut icon', href: '/favicon.ico' },
   { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
 ];
 
 export const meta: MetaFunction = () => [
-  { title: 'Corgiban' },
+  { title: DEFAULT_TITLE },
+  { name: 'description', content: DEFAULT_DESCRIPTION },
   { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+  { property: 'og:type', content: 'website' },
+  { property: 'og:site_name', content: DEFAULT_TITLE },
+  { property: 'og:title', content: DEFAULT_TITLE },
+  { property: 'og:description', content: DEFAULT_DESCRIPTION },
+  { property: 'og:url', content: `${SITE_URL}/play` },
+  { property: 'og:image', content: SOCIAL_IMAGE_URL },
+  { property: 'og:image:alt', content: SOCIAL_IMAGE_ALT },
+  { property: 'og:image:width', content: '1200' },
+  { property: 'og:image:height', content: '630' },
+  { name: 'twitter:card', content: 'summary_large_image' },
+  { name: 'twitter:title', content: DEFAULT_TITLE },
+  { name: 'twitter:description', content: DEFAULT_DESCRIPTION },
+  { name: 'twitter:image', content: SOCIAL_IMAGE_URL },
+  { name: 'twitter:image:alt', content: SOCIAL_IMAGE_ALT },
 ];
 
 const themeInitScript = buildThemeInitScript();
@@ -49,18 +72,26 @@ function useFaviconTheme(theme: 'light' | 'dark') {
   }, [theme]);
 }
 
+function useThemeColorMeta(theme: 'light' | 'dark') {
+  useEffect(() => {
+    syncDocumentThemeColor();
+  }, [theme]);
+}
+
 function Document({ children, title }: DocumentProps) {
   const { isThemeReady, theme, toggleTheme } = useAppTheme();
   useFaviconTheme(theme);
+  useThemeColorMeta(theme);
 
   return (
     <html className="light" lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         {title ? <title>{title}</title> : null}
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <Meta />
+        <meta name={THEME_COLOR_META_NAME} content="" suppressHydrationWarning />
         <Links />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
         <a

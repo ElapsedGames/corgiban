@@ -26,6 +26,7 @@
   --color-shadow: rgba(15, 23, 42, 0.12);
   --solver-glow: rgba(37, 99, 235, 0.22);
   --color-nav-surface: rgb(248 250 252 / 0.88);
+  --color-browser-chrome: var(--color-bg);
   --color-accent-contrast: #f8fafc;
   --color-alpha-badge-bg: #dc2626;
   --color-alpha-badge-border: #f87171;
@@ -84,6 +85,7 @@
   --color-shadow: rgba(2, 6, 23, 0.6);
   --solver-glow: rgba(56, 189, 248, 0.22);
   --color-nav-surface: rgb(5 10 28 / 0.94);
+  --color-browser-chrome: var(--color-bg);
   --color-accent-contrast: #020617;
   --color-alpha-badge-bg: #b91c1c;
   --color-alpha-badge-border: #f87171;

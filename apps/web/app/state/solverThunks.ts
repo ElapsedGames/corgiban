@@ -9,6 +9,7 @@ import {
 } from '@corgiban/solver';
 import type { AlgorithmId, SolverOptions } from '@corgiban/solver';
 
+import { nextLevel } from './gameSlice';
 import type { AppThunk } from './store';
 import {
   resetSolverRunState,
@@ -59,6 +60,13 @@ export type StartSolveArgs = {
   activeRunPolicy?: 'reject' | 'replace';
 };
 
+type HandleLevelChangeOptions = {
+  levelRef?: string;
+  levelId?: string;
+  exactLevelKey?: string | null;
+  pendingAlgorithmId?: AlgorithmId | null;
+};
+
 function resolveRunnableAlgorithmId(
   requestedAlgorithmId: AlgorithmId | undefined,
   recommendedAlgorithmId: AlgorithmId,
@@ -81,16 +89,42 @@ export const recommendSolverForLevel =
     dispatch(setSelectedAlgorithmId(algorithmId));
   };
 
+export const applyRequestedAlgorithmSelection =
+  (levelRuntime: LevelRuntime, requestedAlgorithmId?: AlgorithmId | null): AppThunk =>
+  (dispatch) => {
+    const features = analyzeLevel(levelRuntime);
+    const recommendedAlgorithmId = chooseAlgorithm(features);
+    dispatch(setRecommendation({ algorithmId: recommendedAlgorithmId, features }));
+    dispatch(
+      setSelectedAlgorithmId(
+        resolveRunnableAlgorithmId(requestedAlgorithmId ?? undefined, recommendedAlgorithmId),
+      ),
+    );
+  };
+
 export const handleLevelChange =
-  (levelRuntime: LevelRuntime): AppThunk =>
+  (levelRuntime: LevelRuntime, options: HandleLevelChangeOptions = {}): AppThunk =>
   (dispatch, getState, { solverPort }) => {
     const activeRunId = getState().solver.activeRunId;
     if (activeRunId) {
       dispatch(solveCancelRequested({ runId: activeRunId }));
       solverPort.cancelSolve(activeRunId);
     }
+
+    if (options.levelRef && options.levelId) {
+      dispatch(
+        nextLevel({
+          levelRef: options.levelRef,
+          levelId: options.levelId,
+          ...(options.exactLevelKey ? { exactLevelKey: options.exactLevelKey } : {}),
+        }),
+      );
+    }
+
     dispatch(resetSolverRunState());
-    recommendSolverForLevel(levelRuntime)(dispatch, getState, { solverPort });
+    applyRequestedAlgorithmSelection(levelRuntime, options.pendingAlgorithmId)(dispatch, getState, {
+      solverPort,
+    });
   };
 
 export const startSolve =

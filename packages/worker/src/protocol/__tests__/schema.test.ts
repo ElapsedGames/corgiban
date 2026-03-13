@@ -85,6 +85,36 @@ describe('solverSchemas', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts newly added algorithm ids in solve and bench messages', () => {
+    expect(
+      solverSchemas.solveStartSchema.safeParse({
+        type: 'SOLVE_START',
+        runId: 'run-new-solver',
+        protocolVersion: PROTOCOL_VERSION,
+        levelRuntime: sampleLevelRuntime,
+        algorithmId: 'piCorralPush',
+        options: {
+          heuristicId: 'assignment',
+          heuristicWeight: 1,
+        },
+      }).success,
+    ).toBe(true);
+
+    expect(
+      solverSchemas.benchStartSchema.safeParse({
+        type: 'BENCH_START',
+        runId: 'run-new-bench',
+        benchmarkCaseId: 'case-new-bench',
+        protocolVersion: PROTOCOL_VERSION,
+        levelRuntime: sampleLevelRuntime,
+        algorithmId: 'greedyPush',
+        options: {
+          heuristicId: 'manhattan',
+        },
+      }).success,
+    ).toBe(true);
+  });
+
   it('accepts SOLVE_START when options are omitted', () => {
     const result = solverSchemas.solveStartSchema.safeParse({
       type: 'SOLVE_START',
@@ -269,8 +299,8 @@ describe('solverSchemas', () => {
       runId: 'run-5',
       protocolVersion: PROTOCOL_VERSION,
       status: 'error',
-      errorMessage: 'Algorithm "astarPush" is not registered in the solver registry.',
-      errorDetails: 'Missing registry entry.',
+      errorMessage: 'Domain failure while solving.',
+      errorDetails: 'Heuristic configuration mismatch.',
       metrics: {
         elapsedMs: 25,
         expanded: 0,

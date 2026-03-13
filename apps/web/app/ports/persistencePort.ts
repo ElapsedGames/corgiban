@@ -1,4 +1,4 @@
-import type { BenchmarkRunRecord } from '@corgiban/benchmarks';
+import type { BenchmarkRunRecord } from '../bench/benchmarkRecord';
 
 export { createNoopPersistencePort } from '../infra/persistence/persistenceMemory';
 

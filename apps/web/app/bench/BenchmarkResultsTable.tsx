@@ -1,6 +1,15 @@
 import { useId, useMemo, useState } from 'react';
 
+import { createPlayableExactLevelKey } from '../levels/playableIdentity';
+import { resolveRequestedPlayableEntryFromEntries } from '../levels/requestedPlayableEntry';
+import type { PlayableEntry } from '../levels/temporaryLevelCatalog';
+import { usePlayableLevels } from '../levels/usePlayableLevels';
+import { buildLabHref, buildPlayHref } from '../navigation/handoffLinks';
 import type { BenchmarkRunRecord } from '../ports/benchmarkPort';
+import {
+  resolveBenchmarkResultLevelName,
+  resolveBenchmarkRunnableLevelKey,
+} from './benchmarkRecord';
 
 export type SortKey =
   | 'finishedAtMs'
@@ -15,6 +24,11 @@ export type SortDirection = 'asc' | 'desc';
 export type BenchmarkResultsTableProps = {
   results: BenchmarkRunRecord[];
 };
+
+type ResultOpenTarget =
+  | { kind: 'playable-entry'; entry: PlayableEntry; exactLevelKey: string }
+  | { kind: 'legacy-level-id'; levelId: string }
+  | { kind: 'unavailable' };
 
 export function compareBenchmarkValues(left: string | number, right: string | number): number {
   if (left < right) {
@@ -70,10 +84,41 @@ export function getNextSortState(
   };
 }
 
+function buildResultOpenRequest(result: BenchmarkRunRecord) {
+  return {
+    levelRef: result.localMetadata?.levelRef,
+    levelId: result.levelId,
+    exactLevelKey: resolveBenchmarkRunnableLevelKey(result),
+  };
+}
+
+function resolveResultOpenTarget(
+  result: BenchmarkRunRecord,
+  playableLevels: PlayableEntry[],
+): ResultOpenTarget {
+  const request = buildResultOpenRequest(result);
+  const resolution = resolveRequestedPlayableEntryFromEntries(playableLevels, request);
+  if (resolution.status !== 'resolved') {
+    return { kind: 'unavailable' };
+  }
+
+  const hasStrongIdentity = Boolean(request.levelRef || request.exactLevelKey);
+  if (!hasStrongIdentity && resolution.entry.source.kind === 'builtin') {
+    return { kind: 'legacy-level-id', levelId: resolution.entry.level.id };
+  }
+
+  return {
+    kind: 'playable-entry',
+    entry: resolution.entry,
+    exactLevelKey: createPlayableExactLevelKey(resolution.entry.level),
+  };
+}
+
 export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
   const headingId = useId();
   const [sortKey, setSortKey] = useState<SortKey>('finishedAtMs');
   const [direction, setDirection] = useState<SortDirection>('desc');
+  const playableLevels = usePlayableLevels();
 
   const sortedResults = useMemo(
     () => sortBenchmarkResults(results, sortKey, direction),
@@ -105,7 +150,8 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
             Results
           </h2>
           <p className="text-sm text-muted">
-            Stored benchmark history ({results.length} runs). Click column labels to sort.
+            Stored benchmark history ({results.length} runs). Sort the table, then reopen a level in
+            Play or Lab when a result deserves a closer look.
           </p>
         </div>
       </div>
@@ -224,6 +270,9 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
                 <th scope="col" className="px-2 py-2 text-right">
                   Generated
                 </th>
+                <th scope="col" className="px-2 py-2">
+                  Open
+                </th>
                 <th
                   scope="col"
                   className="px-2 py-2"
@@ -246,26 +295,71 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
               </tr>
             </thead>
             <tbody>
-              {sortedResults.map((result) => (
-                <tr key={result.id} className="border-b border-border/60">
-                  <td className="px-2 py-2">{formatBenchmarkTimestamp(result.finishedAtMs)}</td>
-                  <td className="px-2 py-2">{result.suiteRunId}</td>
-                  <td className="px-2 py-2" data-testid="benchmark-result-level">
-                    {result.levelId}
-                  </td>
-                  <td className="px-2 py-2">{result.algorithmId}</td>
-                  <td className="px-2 py-2 text-right">
-                    {result.metrics.elapsedMs.toLocaleString()}
-                  </td>
-                  <td className="px-2 py-2 text-right">
-                    {result.metrics.expanded.toLocaleString()}
-                  </td>
-                  <td className="px-2 py-2 text-right">
-                    {result.metrics.generated.toLocaleString()}
-                  </td>
-                  <td className="px-2 py-2">{result.status}</td>
-                </tr>
-              ))}
+              {sortedResults.map((result) => {
+                const openTarget = resolveResultOpenTarget(result, playableLevels);
+                const levelName = resolveBenchmarkResultLevelName(result);
+
+                return (
+                  <tr key={result.id} className="border-b border-border/60">
+                    <td className="px-2 py-2">{formatBenchmarkTimestamp(result.finishedAtMs)}</td>
+                    <td className="px-2 py-2">{result.suiteRunId}</td>
+                    <td className="px-2 py-2" data-testid="benchmark-result-level">
+                      <div className="font-medium text-fg">{levelName}</div>
+                      <div className="text-xs text-muted">{result.levelId}</div>
+                    </td>
+                    <td className="px-2 py-2">{result.algorithmId}</td>
+                    <td className="px-2 py-2 text-right">
+                      {result.metrics.elapsedMs.toLocaleString()}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {result.metrics.expanded.toLocaleString()}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {result.metrics.generated.toLocaleString()}
+                    </td>
+                    <td className="px-2 py-2">
+                      {openTarget.kind === 'unavailable' ? (
+                        <span className="text-xs text-muted">level unavailable</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          <a
+                            className="font-medium text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                            href={
+                              openTarget.kind === 'playable-entry'
+                                ? buildPlayHref(
+                                    {
+                                      levelId: openTarget.entry.level.id,
+                                      levelRef: openTarget.entry.ref,
+                                      exactLevelKey: openTarget.exactLevelKey,
+                                    },
+                                    result.algorithmId,
+                                  )
+                                : buildPlayHref(openTarget.levelId, result.algorithmId)
+                            }
+                          >
+                            Play
+                          </a>
+                          <a
+                            className="font-medium text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                            href={
+                              openTarget.kind === 'playable-entry'
+                                ? buildLabHref({
+                                    levelId: openTarget.entry.level.id,
+                                    levelRef: openTarget.entry.ref,
+                                    exactLevelKey: openTarget.exactLevelKey,
+                                  })
+                                : buildLabHref(openTarget.levelId)
+                            }
+                          >
+                            Lab
+                          </a>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-2 py-2">{result.status}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

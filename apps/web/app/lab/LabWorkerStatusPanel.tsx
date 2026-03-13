@@ -33,7 +33,8 @@ export function LabWorkerStatusPanel({
         One-click Worker Checks
       </h2>
       <p className="text-sm text-muted">
-        Solve and benchmark runs execute through worker ports to keep the main thread responsive.
+        Use these checks after a successful parse: solve confirms the level is playable, and bench
+        gives you one measured run you can compare later in the full Bench route.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">

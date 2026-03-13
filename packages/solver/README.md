@@ -6,20 +6,24 @@ Solver algorithms, heuristics, and pruning logic.
 
 - Push-based search model (macro pushes)
 - Player reachability calculation between pushes
-- Algorithm registry (BFS/A*/IDA* etc.)
-- `analyzeLevel(levelRuntime): LevelFeatures` - pure; extracts box count, grid size, reachability complexity
+- Algorithm registry (`bfsPush`, `astarPush`, `idaStarPush`, `greedyPush`, `tunnelMacroPush`, `piCorralPush`)
+- `analyzeLevel(levelRuntime): LevelFeatures` - pure; extracts box count, grid size, reachability complexity, and tunnel density
 - `chooseAlgorithm(features): AlgorithmId` - deterministic rule table with fallback to implemented algorithms; both are part of the public API. The selector never returns ids outside `IMPLEMENTED_ALGORITHM_IDS`.
 - `expandSolutionFromStart(levelRuntime, pushes): Direction[]` - expands push sequences into full UDLR walk+push paths from the initial state
 - `expandSolution(levelRuntime, pushes, start): Direction[]` - expands push sequences from an explicit starting state (UDLR neighbor order)
-- Heuristics (Manhattan baseline; assignment heuristic optional)
+- Heuristics (Manhattan baseline and assignment matching)
 - Deadlock detection/pruning (corner deadlocks first, expand over time)
 - Deterministic progress reporting hooks
-- SolverOptions validation (budgets, heuristic defaults, weighted A\*, rejects heuristics for bfsPush)
+- SolverOptions validation (budgets, heuristic defaults, weighted A\*, rejects unsupported heuristic fields for `bfsPush` and `greedyPush`)
 
-## Current status (baseline solver + Phase 6 runtime follow-ups)
+## Current status
 
-- Implemented: solver option normalization/validation, solution expansion utilities, compiled level + solver state scaffolding, reachability, cancellation/progress hooks, BFS push-based solver, registry/solve entrypoint, and selection (`analyzeLevel`/`chooseAlgorithm` with implemented-algorithm fallback).
-- Pending: A* / IDA* algorithms, assignment heuristic integration, and additional deadlock pruning beyond corners.
+- Implemented: solver option normalization/validation, solution expansion utilities, compiled
+  level + tunnel metadata, shared priority-search infrastructure, solver state scaffolding,
+  reachability, cancellation/progress hooks, BFS/A*/IDA*/Greedy/Tunnel-Macro/PI-Corral
+  push-based solvers, Manhattan + assignment heuristics, corner + PI-corral pruning,
+  registry/solve entrypoint, and deterministic selection (`analyzeLevel`/`chooseAlgorithm`).
+- Pending: additional deadlock pruning and later solver-optimization follow-ups.
 
 ## Public API surface
 
@@ -79,6 +83,28 @@ Clock behavior:
 - This is an intentional contract: the solver does not fall back to `Date.now()` or any other
   non-monotonic source.
 - For deterministic tests and deterministic offline runners, pass `context.nowMs` explicitly.
+
+Current recommendation/defaults:
+
+- `chooseAlgorithm(...)` uses this ordered rule table:
+  - `tunnelMacroPush` when `tunnelCellCount >= 4 && tunnelRatio >= 0.18`
+  - `piCorralPush` when `boxCount >= 7 && (reachableRatio <= 0.72 || boxDensity >= 0.10)`
+  - `greedyPush` when `boxCount <= 2 && reachableRatio >= 0.70 && boxDensity <= 0.10`
+  - `bfsPush` when `boxCount <= 3`
+  - `astarPush` when `boxCount <= 6`
+  - `idaStarPush` otherwise
+- `normalizeSolverOptions(...)` defaults:
+  - `astarPush` -> `heuristicId: 'manhattan'`, `heuristicWeight: 1`
+  - `idaStarPush` / `tunnelMacroPush` / `piCorralPush` -> `heuristicId: 'assignment'`, `heuristicWeight: 1`
+  - `greedyPush` -> `heuristicId: 'assignment'` and rejects `heuristicWeight`
+- `heuristicWeight` defaults to `1` for heuristic-driven algorithms that support it.
+
+Performance note:
+
+- `analyzeLevel(...)` now inspects compiled tunnel metadata as part of recommendation selection.
+- If recommendation rules or `compileLevel(...)` cost changes, run
+  `pnpm profile:analyze-level:browser` against preview and keep
+  `docs/verification/analyze-level-main-thread-profile.md` current.
 
 Progress cadence:
 

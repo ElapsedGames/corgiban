@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { parseLevel } from '@corgiban/core';
 
-import { compileLevel } from '../compiledLevel';
+import { compileLevel, hasTunnelDirection } from '../compiledLevel';
 
 function buildLevel(rows: string[]) {
   return parseLevel({ id: 'test-level', name: 'Test Level', rows });
@@ -68,5 +68,21 @@ describe('compileLevel', () => {
     expect(distFromRightGoal[rightGoalCell]).toBe(0);
     expect(distFromRightGoal[playerCell]).toBe(2);
     expect(distFromRightGoal[leftGoalCell]).toBe(4);
+  });
+
+  it('marks straight non-goal corridors as tunnels but excludes branch and goal cells', () => {
+    const level = buildLevel(['WWWWWWWWW', 'WPBEEEETW', 'WWWWWEWWW', 'WWWWWWWWW']);
+    const compiled = compileLevel(level);
+
+    const tunnelGlobal = level.width + 4;
+    const tunnelCell = compiled.globalToCell[tunnelGlobal];
+    const goalCell = compiled.globalToCell[level.width + 7];
+    const branchCell = compiled.globalToCell[level.width + 5];
+
+    expect(compiled.tunnelDirections[tunnelCell]).not.toBe(0);
+    expect(hasTunnelDirection(compiled, tunnelCell, 2)).toBe(true);
+    expect(hasTunnelDirection(compiled, tunnelCell, 3)).toBe(true);
+    expect(compiled.tunnelDirections[goalCell]).toBe(0);
+    expect(compiled.tunnelDirections[branchCell]).toBe(0);
   });
 });

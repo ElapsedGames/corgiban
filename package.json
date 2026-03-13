@@ -13,10 +13,16 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "style:check": "pnpm exec tsx tools/scripts/style-policy-check.ts --all",
+    "encoding:check": "node tools/scripts/encoding-check.mjs --worktree",
+    "encoding:check:tracked": "node tools/scripts/encoding-check.mjs --tracked",
+    "encoding:check:staged": "node tools/scripts/encoding-check.mjs --staged",
     "encoding:fix": "pnpm exec tsx tools/scripts/normalize-ascii.ts --all",
     "levels:rank": "pnpm exec tsx tools/scripts/rank-levels.ts",
+    "profile:analyze-level:browser": "pnpm exec tsx tools/scripts/profile-analyze-level-browser.ts",
+    "profile:analyze-level:report": "pnpm exec tsx tools/scripts/report-analyze-level-traces.ts",
     "test": "vitest run --workspace vitest.workspace.ts",
-    "test:coverage": "vitest run --coverage --coverage.all false --workspace vitest.workspace.ts",
+    "test:coverage": "pnpm exec tsx tools/scripts/test-coverage.ts",
+    "test:coverage:full": "vitest run --coverage --coverage.all false --workspace vitest.workspace.ts",
     "test:smoke": "pnpm build && playwright test",
     "zip:source": "node tools/scripts/make-source-zip.mjs",
     "prepare": "simple-git-hooks",
@@ -28,7 +34,7 @@
     "issue:check": "node tools/scripts/generate-known-issues.mjs --check"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm exec tsx tools/scripts/normalize-ascii.ts --staged && pnpm format:check && pnpm exec tsx tools/scripts/style-policy-check.ts && node tools/scripts/run-affected-tests.mjs && node tools/scripts/encoding-check.mjs"
+    "pre-commit": "pnpm exec tsx tools/scripts/normalize-ascii.ts --staged && pnpm format:check && pnpm exec tsx tools/scripts/style-policy-check.ts && node tools/scripts/run-affected-tests.mjs && pnpm encoding:check:staged"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

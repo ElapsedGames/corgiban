@@ -47,6 +47,10 @@ describe('solverSlice', () => {
           boxCount: 2,
           walkableCount: 18,
           reachableCount: 15,
+          boxDensity: 2 / 18,
+          reachableRatio: 15 / 18,
+          tunnelCellCount: 0,
+          tunnelRatio: 0,
         },
       }),
     );
@@ -278,7 +282,7 @@ describe('solverSlice', () => {
         runId: 'run-6',
         algorithmId: 'bfsPush',
         status: 'error',
-        errorMessage: 'Algorithm "astarPush" is not registered.',
+        errorMessage: 'Domain failure while solving.',
         metrics: {
           elapsedMs: 0,
           expanded: 0,
@@ -292,7 +296,7 @@ describe('solverSlice', () => {
     );
 
     expect(state.status).toBe('failed');
-    expect(state.error).toBe('Algorithm "astarPush" is not registered.');
+    expect(state.error).toBe('Domain failure while solving.');
     expect(state.lastResult?.status).toBe('error');
   });
 

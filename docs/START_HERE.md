@@ -1,7 +1,8 @@
 # Start here
 
-This repository is the active Corgiban workspace with implementation, architecture, and process
-docs kept in sync:
+This repository is a public Corgiban proof-of-concept reference with implementation,
+architecture, and process docs kept in sync. It is not actively maintained; use these docs as a
+continuation baseline for forks:
 
 - Sokoban-style gameplay in a modern React/TypeScript/Tailwind app
 - Multiple solver algorithms running in Web Workers
@@ -45,9 +46,9 @@ Top-level layout (current):
 - `packages/benchmarks/` - benchmark contracts + runner (executed in workers). README exists.
 - `packages/embed/` - Web Component embed adapter. README exists.
 
-## 3) How to execute the plan
+## 3) How to use the plan
 
-The plan is intentionally phased to keep diffs reviewable and the repo consistently green.
+The plan is intentionally phased to keep diffs reviewable and quality gates explicit.
 
 - Implement **one phase per PR/prompt**.
 - Each phase ends with passing checks before moving to the next phase.

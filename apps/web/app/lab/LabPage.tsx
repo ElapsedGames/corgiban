@@ -1,9 +1,14 @@
+import type { PlayableEntry } from '../levels/temporaryLevelCatalog';
 import { LabEditorPanel } from './LabEditorPanel';
 import { LabPreviewPanel } from './LabPreviewPanel';
 import { LabWorkerStatusPanel } from './LabWorkerStatusPanel';
 import { useLabOrchestration } from './useLabOrchestration';
 
-export function LabPage() {
+export type LabPageProps = {
+  initialPlayable?: PlayableEntry;
+};
+
+export function LabPage({ initialPlayable }: LabPageProps) {
   const {
     format,
     input,
@@ -20,17 +25,19 @@ export function LabPage() {
     cancelSolve,
     applySolution,
     runBench,
+    openInPlay,
+    sendToBench,
     importLabPayload,
     exportLabPayload,
-  } = useLabOrchestration();
+  } = useLabOrchestration(initialPlayable);
 
   return (
     <main id="main-content" className="page-shell play-shell">
       <header aria-label="Level Lab" className="page-header">
         <h1 className="page-title">Level Lab</h1>
         <p className="page-subtitle">
-          Edit row encodings, preview gameplay, run worker-backed solve and bench checks, and
-          import/export level JSON.
+          Paste or edit a level, parse and validate it, preview the board, then run one-click worker
+          checks or hand the level off to Play or Bench.
         </p>
       </header>
 
@@ -51,6 +58,8 @@ export function LabPage() {
             previewState={previewState}
             onMove={movePreview}
             onReset={resetPreview}
+            onOpenInPlay={openInPlay}
+            onSendToBench={sendToBench}
           />
           <LabWorkerStatusPanel
             solveState={solveState}

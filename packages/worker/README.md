@@ -96,8 +96,9 @@ Deferred to a later protocol extension:
 - `createSolverClient().solve(...)` rejects while a `PING` is in flight to avoid ping/solve
   interleaving ambiguity
 - Benchmark-worker `BENCH_PROGRESS` is emitted only when `enableSpectatorStream` is true for the
-  run request; app adapters should enable spectator stream only when they actively consume
-  per-run worker progress
+  run request; app adapters should default spectator streaming to `true` when they attach a
+  per-run worker-progress consumer and default it to `false` otherwise, while still allowing an
+  explicit policy override
 - Worker runtimes must not inject non-monotonic time sources into solver context. When
   `performance.now()` is unavailable, they leave `context.nowMs` unset so the solver can surface
   the explicit clock-unavailable error contract.

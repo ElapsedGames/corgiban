@@ -45,6 +45,7 @@ const mocks = vi.hoisted(() => {
   return {
     solverPort,
     benchmarkPort,
+    navigate: vi.fn(),
     createSolverPort: vi.fn(() => solverPort),
     createBenchmarkPort: vi.fn(() => benchmarkPort),
     importTextFile: vi.fn(),
@@ -128,6 +129,10 @@ vi.mock('../../ports/benchmarkPort.client', () => ({
 vi.mock('../../bench/fileAccess.client', () => ({
   importTextFile: mocks.importTextFile,
   exportTextFile: mocks.exportTextFile,
+}));
+
+vi.mock('@remix-run/react', () => ({
+  useNavigate: () => mocks.navigate,
 }));
 
 vi.mock('../../runId', () => ({
@@ -352,6 +357,7 @@ beforeEach(() => {
   mocks.createSolverPort.mockImplementation(() => mocks.solverPort);
   mocks.createBenchmarkPort.mockReset();
   mocks.createBenchmarkPort.mockImplementation(() => mocks.benchmarkPort);
+  mocks.navigate.mockReset();
   mocks.importTextFile.mockReset();
   mocks.exportTextFile.mockReset();
   mocks.solverPort.startSolve.mockReset();

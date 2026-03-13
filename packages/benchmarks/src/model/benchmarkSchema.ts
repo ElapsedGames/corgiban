@@ -74,6 +74,8 @@ const benchmarkRunRecordKeys = new Set([
   'runId',
   'sequence',
   'levelId',
+  'runnableLevelKey',
+  'comparisonLevelKey',
   'algorithmId',
   'repetition',
   'warmup',
@@ -254,6 +256,8 @@ export function isBenchmarkRunRecord(value: unknown): value is BenchmarkRunRecor
     hasString(value.runId) &&
     hasPositiveInteger(value.sequence) &&
     hasString(value.levelId) &&
+    (value.runnableLevelKey === undefined ? true : hasString(value.runnableLevelKey)) &&
+    (value.comparisonLevelKey === undefined ? true : hasString(value.comparisonLevelKey)) &&
     hasString(value.algorithmId) &&
     algorithmIdSet.has(value.algorithmId) &&
     hasPositiveInteger(value.repetition) &&

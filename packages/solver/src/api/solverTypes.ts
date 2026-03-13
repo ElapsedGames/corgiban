@@ -73,4 +73,8 @@ export type LevelFeatures = {
   boxCount: number;
   walkableCount: number;
   reachableCount: number;
+  boxDensity: number;
+  reachableRatio: number;
+  tunnelCellCount: number;
+  tunnelRatio: number;
 };

@@ -1,7 +1,19 @@
-export const ALGORITHM_IDS = ['bfsPush', 'astarPush', 'idaStarPush'] as const;
+export const ALGORITHM_IDS = [
+  'bfsPush',
+  'astarPush',
+  'idaStarPush',
+  'greedyPush',
+  'tunnelMacroPush',
+  'piCorralPush',
+] as const;
 
 export const IMPLEMENTED_ALGORITHM_IDS = [
   'bfsPush',
+  'astarPush',
+  'idaStarPush',
+  'greedyPush',
+  'tunnelMacroPush',
+  'piCorralPush',
 ] as const satisfies readonly (typeof ALGORITHM_IDS)[number][];
 
 export const HEURISTIC_IDS = ['manhattan', 'assignment'] as const;

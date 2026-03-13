@@ -3,9 +3,9 @@ import {
   BENCHMARK_DB_NAME,
   BENCHMARK_DB_STORES,
   BENCHMARK_DB_VERSION,
-  type BenchmarkRunRecord,
-  isBenchmarkRunRecord,
 } from '@corgiban/benchmarks';
+import type { BenchmarkRunRecord } from '../../bench/benchmarkRecord';
+import { isPersistedBenchmarkRunRecord } from '../../bench/benchmarkRecordPersistence';
 
 type BenchmarkRepositoryLogger = Pick<Console, 'warn'>;
 
@@ -152,7 +152,7 @@ export function createBenchmarkRepository(
 
       const results: BenchmarkRunRecord[] = [];
       rawResults.forEach((record) => {
-        if (isBenchmarkRunRecord(record)) {
+        if (isPersistedBenchmarkRunRecord(record)) {
           results.push(record);
           return;
         }

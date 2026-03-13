@@ -187,7 +187,8 @@ Create tools/vitest.config.ts:
 
 - Include src/**tests**/\*_/_.test.ts.
 - Aligned with root Vitest config (same coverage provider, reporter).
-- Include tools tests in pnpm test and pnpm test:coverage via root Vitest workspace config.
+- Include tools tests in pnpm test, pnpm test:coverage, and pnpm test:coverage:full via the root
+  Vitest workspace config.
 
 Add tsx as a dev dependency at the repo root.
 
@@ -269,10 +270,16 @@ Add pnpm scripts at repo root (package.json):
 - best-practices: tsx tools/src/bestPracticesReport.ts --out-dir docs/\_generated/analysis
 - levels:rank: pnpm exec tsx tools/scripts/rank-levels.ts
 - style:check: pnpm exec tsx tools/scripts/style-policy-check.ts --all
+- test:coverage: pnpm exec tsx tools/scripts/test-coverage.ts
+- test:coverage:full: vitest run --coverage --coverage.all false --workspace vitest.workspace.ts
 
 `style:check` is intentionally separate from boundary linting. It enforces the web styling
 contract on `apps/web` components/styles and runs as its own workflow step locally, in
 pre-commit, and in CI.
+`test:coverage` is the default contributor/CI path: it runs the workspace Vitest coverage pass,
+reads `coverage/coverage-final.json`, and prints a compact hotspot summary after the run.
+`test:coverage:full` keeps the raw Vitest coverage-only path available for debugging coverage
+behavior without the formatter wrapper.
 
 CI gate (GitHub Actions, every PR):
 

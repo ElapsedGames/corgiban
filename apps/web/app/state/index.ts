@@ -38,6 +38,7 @@ export {
   runBenchSuite,
 } from './benchThunks';
 export {
+  applyRequestedAlgorithmSelection,
   cancelSolve,
   handleLevelChange,
   recommendSolverForLevel,

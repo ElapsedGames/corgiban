@@ -201,7 +201,6 @@ Avoid:
 
 - Implement one phase per prompt/PR.
 - Do not start later phases until the current phase acceptance criteria pass.
-- Use a prompt pack to track phases and status for agent-driven PRs (see `docs/prompt-packs/README.md`).
 
 ---
 
@@ -311,6 +310,10 @@ Validate both directions:
   during render/SSR and replace those ports with browser-backed implementations after commit;
   preserve one stable route-store instance across hydration and do not create workers or
   persistence adapters during route render.
+- Browser-session external stores consumed during route render (for example temporary level
+  catalogs backed by `sessionStorage`) must provide a deterministic server snapshot and subscribe
+  after hydration. Do not read `sessionStorage`/`localStorage` directly during SSR render for
+  feature-level state.
 - Hosting/runtime adapters stay isolated to the web app deployment layer.
   Host-specific files live under `apps/web/functions/*`, `apps/web/wrangler.jsonc`, and
   `preview:<host>` / `deploy:<host>` scripts. Keep `apps/web/app/server/*` and
@@ -374,8 +377,9 @@ Most bug fixes must include:
 - Pre-commit hooks (simple-git-hooks) run
   `pnpm exec tsx tools/scripts/normalize-ascii.ts --staged`, `pnpm format:check`,
   `pnpm exec tsx tools/scripts/style-policy-check.ts`, `node tools/scripts/run-affected-tests.mjs`,
-  and `node tools/scripts/encoding-check.mjs` on staged files (lint/typecheck remain required via
-  local verification + CI).
+  and `pnpm encoding:check:staged` on staged files. Local verification should run
+  `pnpm encoding:check` for the current worktree, and CI runs `pnpm encoding:check:tracked`
+  for tracked files (lint/typecheck remain required via local verification + CI).
 
 ---
 
@@ -514,6 +518,9 @@ the archive includes the current worktree.
 - regression tests added for any pruning/deadlock change
 - keep `IMPLEMENTED_ALGORITHM_IDS`, `chooseAlgorithm`, and UI availability in sync
 - no DOM/Web APIs used
+- if recommendation or `compileLevel(...)` cost changes, run
+  `pnpm profile:analyze-level:browser` against preview and keep
+  `docs/verification/analyze-level-main-thread-profile.md` current
 
 ### 13.3 If you touch `packages/worker` protocol
 
@@ -562,39 +569,7 @@ Example task prompt:
 
 ---
 
-## 15. Prompt packs (phase-scoped agent tasking)
-
-See `docs/prompt-packs/README.md` for the full workflow.
-
-Quick rules:
-
-- One prompt pack file per PR, stored in `docs/prompt-packs/`. Do not create a new folder.
-- Name files `phase-NN-slug.html` where NN is zero-padded and matches `docs/project-plan.md` (e.g. `phase-00-scaffold.html`).
-- Phase 1 is always Planning (no code); last phase is always Verification (never modify it).
-- Every implementation phase must reference the Phase 1 acceptance criteria and end with the verification commands.
-- Paste boundary constraints from section 4.2 verbatim into each implementation phase prompt.
-- Do not mark a phase complete until `pnpm typecheck`, `pnpm lint`, and `pnpm test:coverage` all pass.
-
-### 15.1 Prompt pack authoring standard (non-negotiable)
-
-When asked to create a prompt pack for a phase in `docs/project-plan.md`:
-
-1. Extract that phase's **Tasks** and **Integration Proofs** from `docs/project-plan.md` and include them verbatim in the pack.
-2. The pack must include a coverage map assigning every task and every integration proof to exactly one tab.
-3. Granularity rules:
-   - if the phase has more than 3 tasks, the pack must include at least 2 implementation tabs
-   - if the phase has Integration Proofs, the pack must include a dedicated `Integration Proofs` tab
-4. Each implementation tab must include:
-   - exact files to create and modify
-   - concrete, file-level steps (no vague "set up X" language)
-   - local verification commands relevant to that tab
-5. Each tab must include a file list so scope drift is visible and reviewable.
-6. Integration proofs must be validated explicitly (commands plus pass/fail signals) and the outcomes must be documented in-repo.
-7. Do not rely on the generic Verification tab to implicitly cover phase-specific integration proofs.
-
----
-
-## 16. Summary
+## 15. Summary
 
 This repo is designed for long-term solver iteration and benchmarking.
 The rules above keep changes:

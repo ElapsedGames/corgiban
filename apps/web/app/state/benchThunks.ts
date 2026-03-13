@@ -2,8 +2,17 @@ import { buildSuiteComparisonInfo, parseBenchmarkReportJson } from '@corgiban/be
 import { parseLevel } from '@corgiban/core';
 import { builtinLevels } from '@corgiban/levels';
 
-import { BenchmarkRunCancelledError, type BenchmarkRunRecord } from '../ports/benchmarkPort';
+import {
+  BenchmarkRunCancelledError,
+  getBenchmarkSuiteLevelRefs,
+  type BenchmarkRunRecord,
+} from '../ports/benchmarkPort';
 import type { PersistencePort } from '../ports/persistencePort';
+import {
+  resolvePlayableEntry,
+  toBuiltinLevelRef,
+  upsertSessionPlayableCollection,
+} from '../levels/temporaryLevelCatalog';
 import { formatLevelPackImportNotice, resolveLevelPackImport } from '../bench/levelPackImport';
 import { makeRunId } from '../runId';
 import type { AppThunk } from './store';
@@ -26,12 +35,8 @@ import {
   type BenchRunStatus,
 } from './benchSlice';
 
-const runtimesByLevelId = new Map(
-  builtinLevels.map((level) => {
-    return [level.id, parseLevel(level)] as const;
-  }),
-);
 const knownLevelIds = new Set(builtinLevels.map((level) => level.id));
+const builtinLevelsById = new Map(builtinLevels.map((level) => [level.id, level] as const));
 
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -105,12 +110,21 @@ async function reconcilePersistedResultsSafely(
   }
 }
 
-function resolveLevelRuntime(levelId: string) {
-  const runtime = runtimesByLevelId.get(levelId);
-  if (!runtime) {
-    throw new Error(`Unknown level id in benchmark suite: ${levelId}`);
+function resolvePlayableEntryForBench(levelRefOrLevelId: string) {
+  const isPlayableRef =
+    levelRefOrLevelId.startsWith('builtin:') || levelRefOrLevelId.startsWith('temp:');
+
+  return isPlayableRef
+    ? resolvePlayableEntry({ levelRef: levelRefOrLevelId })
+    : resolvePlayableEntry({ levelId: levelRefOrLevelId });
+}
+
+function resolveLevelRuntime(levelRefOrLevelId: string) {
+  const levelEntry = resolvePlayableEntryForBench(levelRefOrLevelId);
+  if (!levelEntry) {
+    throw new Error(`Unknown level id or ref in benchmark suite: ${levelRefOrLevelId}`);
   }
-  return runtime;
+  return parseLevel(levelEntry.level);
 }
 
 function formatImportedComparisonNotice(results: BenchmarkRunRecord[]): string | null {
@@ -230,13 +244,14 @@ export const runBenchSuite = (): AppThunk<Promise<void>> => {
       return;
     }
 
+    const suiteLevelRefs = getBenchmarkSuiteLevelRefs(suite);
     const totalRuns = computeTotalRuns(
-      suite.levelIds.length,
+      suiteLevelRefs.length,
       suite.algorithmIds.length,
       suite.repetitions,
     );
 
-    if (suite.levelIds.length === 0) {
+    if (suiteLevelRefs.length === 0) {
       dispatch(benchErrorRecorded('Select at least one level before running benchmarks.'));
       return;
     }
@@ -262,6 +277,7 @@ export const runBenchSuite = (): AppThunk<Promise<void>> => {
         suiteRunId,
         suite,
         levelResolver: resolveLevelRuntime,
+        levelEntryResolver: resolvePlayableEntryForBench,
         onResult: (result) => {
           dispatch(benchResultRecorded(result));
 
@@ -389,10 +405,36 @@ export const importLevelPackSelection = (jsonText: string): AppThunk<Promise<voi
       const { validLevelIds } = summary;
 
       if (validLevelIds.length === 0) {
-        throw new Error('No known built-in level ids were found in the imported level pack.');
+        throw new Error('No usable level ids were found in the imported level pack.');
       }
 
-      dispatch(setSuiteLevelIds(validLevelIds));
+      const temporaryLevelsById = new Map(
+        summary.temporaryLevels.map((level) => [level.id, level] as const),
+      );
+      const importedEntries = upsertSessionPlayableCollection(
+        validLevelIds.flatMap((levelId) => {
+          const builtinLevel = builtinLevelsById.get(levelId);
+          if (builtinLevel) {
+            return [
+              {
+                originRef: toBuiltinLevelRef(levelId),
+                level: builtinLevel,
+              },
+            ];
+          }
+
+          const temporaryLevel = temporaryLevelsById.get(levelId);
+          return temporaryLevel ? [{ level: temporaryLevel }] : [];
+        }),
+      );
+
+      if (importedEntries.length !== validLevelIds.length) {
+        throw new Error('Imported level pack could not be materialized exactly in this session.');
+      }
+
+      const nextLevelRefs = importedEntries.map((entry) => entry.ref);
+
+      dispatch(setSuiteLevelIds(nextLevelRefs));
       dispatch(benchErrorRecorded(null));
       dispatch(benchNoticeRecorded(formatLevelPackImportNotice(summary)));
     } catch (error) {

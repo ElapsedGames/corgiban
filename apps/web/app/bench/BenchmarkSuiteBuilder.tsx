@@ -2,7 +2,7 @@ import { useId } from 'react';
 
 import type { AlgorithmId } from '@corgiban/solver';
 
-import type { BenchmarkSuiteConfig } from '../ports/benchmarkPort';
+import { getBenchmarkSuiteLevelRefs, type BenchmarkSuiteConfig } from '../ports/benchmarkPort';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 
@@ -22,7 +22,7 @@ export type BenchmarkSuiteBuilderProps = {
   status: 'idle' | 'running' | 'cancelling' | 'completed' | 'cancelled' | 'failed';
   availableLevels: SuiteLevelOption[];
   availableAlgorithms: SuiteAlgorithmOption[];
-  onToggleLevel: (levelId: string) => void;
+  onToggleLevel: (levelRef: string) => void;
   onToggleAlgorithm: (algorithmId: AlgorithmId) => void;
   onSetRepetitions: (value: number) => void;
   onSetWarmupRepetitions?: (value: number) => void;
@@ -60,7 +60,7 @@ export function BenchmarkSuiteBuilder({
             Suite Builder
           </h2>
           <p className="text-sm text-muted">
-            Select levels, algorithms, and budgets for this benchmark suite.
+            Pick the level set, solver variants, warm-ups, and run budgets before you measure.
           </p>
         </div>
         <div className="flex gap-2">
@@ -83,7 +83,7 @@ export function BenchmarkSuiteBuilder({
               <label key={level.id} className="flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={suite.levelIds.includes(level.id)}
+                  checked={getBenchmarkSuiteLevelRefs(suite).includes(level.id)}
                   onChange={() => onToggleLevel(level.id)}
                 />
                 <span>{level.name}</span>
@@ -126,6 +126,7 @@ export function BenchmarkSuiteBuilder({
           step={1}
           value={suite.repetitions}
           onChange={(event) => onSetRepetitions(Number(event.target.value))}
+          hint="Measured runs stored in history for each level and algorithm combination."
         />
         <Input
           label="Warm-up Repetitions"
@@ -147,6 +148,7 @@ export function BenchmarkSuiteBuilder({
           step={1}
           value={suite.timeBudgetMs}
           onChange={(event) => onSetTimeBudgetMs(Number(event.target.value))}
+          hint="Per-run wall-clock budget before a solve is marked as timed out."
         />
         <Input
           label="Node Budget"
@@ -157,6 +159,7 @@ export function BenchmarkSuiteBuilder({
           step={1}
           value={suite.nodeBudget}
           onChange={(event) => onSetNodeBudget(Number(event.target.value))}
+          hint="Per-run expansion cap when you want deterministic upper bounds."
         />
       </div>
     </section>

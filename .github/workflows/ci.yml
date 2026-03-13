@@ -64,4 +64,4 @@ jobs:
           retention-days: 14
 
       - name: Encoding check
-        run: node tools/scripts/encoding-check.mjs
+        run: pnpm encoding:check:tracked

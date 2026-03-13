@@ -3,6 +3,7 @@ import { isWall } from '@corgiban/core';
 
 import type { AlgorithmId, LevelFeatures } from './solverTypes';
 import { DEFAULT_ALGORITHM_ID, isImplementedAlgorithmId } from './solverConstants';
+import { compileLevel } from '../state/compiledLevel';
 
 const DIRECTION_DELTAS = [
   { dx: 0, dy: -1 },
@@ -70,19 +71,48 @@ export function analyzeLevel(level: LevelRuntime): LevelFeatures {
     }
   }
 
+  const compiled = compileLevel(level);
+  let tunnelCellCount = 0;
+  for (let index = 0; index < compiled.tunnelDirections.length; index += 1) {
+    if (compiled.tunnelDirections[index] !== 0) {
+      tunnelCellCount += 1;
+    }
+  }
+
+  const boxDensity = walkableCount === 0 ? 0 : boxCount / walkableCount;
+  const reachableRatio = walkableCount === 0 ? 0 : reachableCount / walkableCount;
+  const tunnelRatio = walkableCount === 0 ? 0 : tunnelCellCount / walkableCount;
+
   return {
     width,
     height,
     boxCount,
     walkableCount,
     reachableCount,
+    boxDensity,
+    reachableRatio,
+    tunnelCellCount,
+    tunnelRatio,
   };
 }
 
 export function chooseAlgorithm(features: LevelFeatures): AlgorithmId {
-  const { boxCount } = features;
-  const preferredAlgorithm: AlgorithmId =
-    boxCount <= 3 ? 'bfsPush' : boxCount <= 6 ? 'astarPush' : 'astarPush';
+  const { boxCount, boxDensity, reachableRatio, tunnelCellCount, tunnelRatio } = features;
+
+  let preferredAlgorithm: AlgorithmId;
+  if (tunnelCellCount >= 4 && tunnelRatio >= 0.18) {
+    preferredAlgorithm = 'tunnelMacroPush';
+  } else if (boxCount >= 7 && (reachableRatio <= 0.72 || boxDensity >= 0.1)) {
+    preferredAlgorithm = 'piCorralPush';
+  } else if (boxCount <= 2 && reachableRatio >= 0.7 && boxDensity <= 0.1) {
+    preferredAlgorithm = 'greedyPush';
+  } else if (boxCount <= 3) {
+    preferredAlgorithm = 'bfsPush';
+  } else if (boxCount <= 6) {
+    preferredAlgorithm = 'astarPush';
+  } else {
+    preferredAlgorithm = 'idaStarPush';
+  }
 
   if (isImplementedAlgorithmId(preferredAlgorithm)) {
     return preferredAlgorithm;

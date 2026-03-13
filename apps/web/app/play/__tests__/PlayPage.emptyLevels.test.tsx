@@ -46,33 +46,27 @@ describe('PlayPage empty-level fallback behavior', () => {
     emptyLevelState.sidePanelProps = null;
   });
 
-  it('uses fallback level metadata when builtin levels are empty', () => {
+  it('renders a restore shell while the active level cannot be verified against an empty server snapshot', () => {
     const { html } = renderPage();
 
-    expect(html).toContain('board-heading');
-    expect(emptyLevelState.sidePanelProps?.levelId).toBe('level-unknown');
-    expect(emptyLevelState.sidePanelProps?.levelName).toBe('Unknown');
-    expect(emptyLevelState.sidePanelProps?.canGoToPreviousLevel).toBe(false);
+    expect(html).toContain('Restoring active level');
+    expect(emptyLevelState.sidePanelProps).toBeNull();
   });
 
-  it('keeps the current level id when next-level is requested with an empty level catalog', () => {
+  it('does not expose next-level navigation when the active level cannot be verified', () => {
     const { store } = renderPage();
     const onNextLevel = emptyLevelState.sidePanelProps?.onNextLevel as (() => void) | undefined;
-    expect(onNextLevel).toBeTypeOf('function');
-
-    onNextLevel?.();
+    expect(onNextLevel).toBeUndefined();
 
     expect(store.getState().game.levelId).toBe('level-unknown');
   });
 
-  it('keeps the current level id when previous-level is requested with an empty level catalog', () => {
+  it('does not expose previous-level navigation when the active level cannot be verified', () => {
     const { store } = renderPage();
     const onPreviousLevel = emptyLevelState.sidePanelProps?.onPreviousLevel as
       | (() => void)
       | undefined;
-    expect(onPreviousLevel).toBeTypeOf('function');
-
-    onPreviousLevel?.();
+    expect(onPreviousLevel).toBeUndefined();
 
     expect(store.getState().game.levelId).toBe('level-unknown');
   });

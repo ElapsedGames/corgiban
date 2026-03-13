@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from '@remix-run/react';
 
 import { applyMove, applyMoves, createGame, parseLevel, type GameState } from '@corgiban/core';
+import type { LevelDefinition } from '@corgiban/levels';
 import type { Direction } from '@corgiban/shared';
 import {
   DEFAULT_NODE_BUDGET,
@@ -10,12 +12,17 @@ import {
 } from '@corgiban/solver';
 
 import { exportTextFile, importTextFile } from '../bench/fileAccess.client';
+import { createPlayableExactLevelKey } from '../levels/playableIdentity';
+import type { PlayableEntry } from '../levels/temporaryLevelCatalog';
+import { upsertSessionPlayableEntry } from '../levels/temporaryLevelCatalog';
+import { buildBenchHref, buildPlayHref } from '../navigation/handoffLinks';
 import { makeRunId } from '../runId';
 import {
   LAB_INPUT_FORMAT_LABELS,
   convertLabInputFormat,
   defaultLabLevelText,
   parseLabInput,
+  serializeLabLevel,
   type LabInputFormat,
 } from './labFormat';
 import { subscribeLabKeyboardControls } from './labKeyboard';
@@ -45,11 +52,22 @@ export type LabOrchestrationState = {
   cancelSolve: () => void;
   applySolution: () => void;
   runBench: () => void;
+  openInPlay: () => void;
+  sendToBench: () => void;
   importLabPayload: () => void;
   exportLabPayload: () => void;
 };
 
-function createInitialLabData(): InitialLabData {
+function createInitialLabData(initialLevel?: LevelDefinition): InitialLabData {
+  if (initialLevel) {
+    const defaultInput = serializeLabLevel(initialLevel, 'corg');
+
+    return {
+      defaultInput,
+      parsed: parseLabInput('corg', defaultInput),
+    };
+  }
+
   const defaultInput = defaultLabLevelText();
 
   return {
@@ -66,14 +84,29 @@ function isBenchCancelledError(error: unknown): error is Error {
   return error instanceof Error && error.name === 'BenchmarkRunCancelledError';
 }
 
-export function useLabOrchestration(): LabOrchestrationState {
+export function useLabOrchestration(initialPlayable?: PlayableEntry): LabOrchestrationState {
   const initialLabRef = useRef<InitialLabData>();
   const authoredRevisionRef = useRef(0);
   const activeSolveRunRef = useRef<RunToken | null>(null);
   const activeBenchRunRef = useRef<RunToken | null>(null);
+  const navigate = useNavigate();
+  const publishedSessionRefRef = useRef<string | null>(
+    initialPlayable?.source.kind === 'session' ? initialPlayable.ref : null,
+  );
+  const publishOriginRefRef = useRef<string | undefined>(
+    initialPlayable?.source.kind === 'builtin'
+      ? initialPlayable.ref
+      : initialPlayable?.source.originRef,
+  );
+  const publishCollectionRefRef = useRef<string | undefined>(
+    initialPlayable?.source.kind === 'session' ? initialPlayable.source.collectionRef : undefined,
+  );
+  const publishCollectionIndexRef = useRef<number | undefined>(
+    initialPlayable?.source.kind === 'session' ? initialPlayable.source.collectionIndex : undefined,
+  );
 
   if (!initialLabRef.current) {
-    initialLabRef.current = createInitialLabData();
+    initialLabRef.current = createInitialLabData(initialPlayable?.level);
   }
 
   const { solverPortRef, benchmarkPortRef } = useLabOwnedPorts({
@@ -100,6 +133,7 @@ export function useLabOrchestration(): LabOrchestrationState {
   const [benchState, setBenchState] = useState<BenchState>({ status: 'idle' });
 
   const authoredLevelRuntime = useMemo(() => parseLevel(activeLevel), [activeLevel]);
+
   const movePreview = useCallback((direction: Direction) => {
     setPreviewState((current) => {
       const step = applyMove(current, direction);
@@ -201,6 +235,22 @@ export function useLabOrchestration(): LabOrchestrationState {
   const resetPreview = () => {
     setPreviewState(createGame(authoredLevelRuntime));
   };
+
+  const publishCommittedLevel = useCallback(() => {
+    const publishedEntry = upsertSessionPlayableEntry({
+      ref: publishedSessionRefRef.current ?? undefined,
+      originRef: publishOriginRefRef.current,
+      collectionRef: publishCollectionRefRef.current,
+      collectionIndex: publishCollectionIndexRef.current,
+      level: activeLevel,
+    });
+    publishedSessionRefRef.current = publishedEntry.ref;
+    if (publishedEntry.source.kind === 'session') {
+      publishCollectionRefRef.current = publishedEntry.source.collectionRef;
+      publishCollectionIndexRef.current = publishedEntry.source.collectionIndex;
+    }
+    return publishedEntry;
+  }, [activeLevel]);
 
   const runSolve = () => {
     void (async () => {
@@ -338,13 +388,19 @@ export function useLabOrchestration(): LabOrchestrationState {
         const records = await benchmarkPort.runSuite({
           suiteRunId,
           suite: {
-            levelIds: [activeLevel.id],
+            levelRefs: ['lab:preview'],
+            levelIds: ['lab:preview'],
             algorithmIds: [algorithmId],
             repetitions: 1,
             timeBudgetMs: DEFAULT_SOLVER_TIME_BUDGET_MS,
             nodeBudget: DEFAULT_NODE_BUDGET,
           },
           levelResolver: () => authoredLevelRuntime,
+          levelEntryResolver: () => ({
+            ref: 'lab:preview',
+            source: { kind: 'session' },
+            level: activeLevel,
+          }),
         });
 
         if (!isActiveRun(activeBenchRunRef.current, runToken)) {
@@ -394,6 +450,28 @@ export function useLabOrchestration(): LabOrchestrationState {
       }
     })();
   };
+
+  const openInPlay = useCallback(() => {
+    const publishedEntry = publishCommittedLevel();
+    navigate(
+      buildPlayHref({
+        levelId: publishedEntry.level.id,
+        levelRef: publishedEntry.ref,
+        exactLevelKey: createPlayableExactLevelKey(publishedEntry.level),
+      }),
+    );
+  }, [navigate, publishCommittedLevel]);
+
+  const sendToBench = useCallback(() => {
+    const publishedEntry = publishCommittedLevel();
+    navigate(
+      buildBenchHref({
+        levelId: publishedEntry.level.id,
+        levelRef: publishedEntry.ref,
+        exactLevelKey: createPlayableExactLevelKey(publishedEntry.level),
+      }),
+    );
+  }, [navigate, publishCommittedLevel]);
 
   const exportLabPayload = () => {
     const payload = createLabPayload({
@@ -446,6 +524,8 @@ export function useLabOrchestration(): LabOrchestrationState {
     cancelSolve,
     applySolution,
     runBench,
+    openInPlay,
+    sendToBench,
     importLabPayload: importLabPayloadHandler,
     exportLabPayload,
   };

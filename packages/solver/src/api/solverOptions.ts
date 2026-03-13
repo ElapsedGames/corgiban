@@ -48,7 +48,26 @@ export function normalizeSolverOptions(
     };
   }
 
-  const heuristicId = options?.heuristicId ?? 'manhattan';
+  if (algorithmId === 'greedyPush') {
+    if (options?.heuristicWeight !== undefined) {
+      throw new Error('heuristicWeight is not supported for greedyPush.');
+    }
+    return {
+      timeBudgetMs,
+      nodeBudget,
+      heuristicId: options?.heuristicId ?? 'assignment',
+      heuristicWeight: undefined,
+      enableSpectatorStream,
+    };
+  }
+
+  const defaultHeuristicId =
+    algorithmId === 'idaStarPush' ||
+    algorithmId === 'tunnelMacroPush' ||
+    algorithmId === 'piCorralPush'
+      ? 'assignment'
+      : 'manhattan';
+  const heuristicId = options?.heuristicId ?? defaultHeuristicId;
   const normalizedWeight = heuristicWeight ?? 1;
 
   return {

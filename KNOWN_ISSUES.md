@@ -2,12 +2,12 @@
 
 # Known Issues
 
-_0 open, 21 fixed, 2 deferred_
+_0 open, 22 fixed, 2 deferred_
 
 ## Deferred
 
-- DEBT-007 -- best-practices report tooling is still stubbed end-to-end (debt, build)
 - DEBT-011 -- Tabs keyboard navigation relies on document-global tab ids (debt, ui)
+- DEBT-012 -- analyzeLevel now pays compileLevel cost on the main thread (debt, solver)
 
 ## Fixed
 
@@ -29,6 +29,7 @@ _0 open, 21 fixed, 2 deferred_
 - DEBT-004 -- Sprite atlas worker response not validated for request correlation -- 2026-03-07 by JSly
 - DEBT-005 -- Lab payload schema not strict-closed on unknown keys -- 2026-03-07 by JSly
 - DEBT-006 -- Imported benchmark metadata comparison silently degrades without UI signal -- 2026-03-07 by JSly
+- DEBT-007 -- best-practices report tooling is still stubbed end-to-end -- 2026-03-11 by JSly
 - DEBT-008 -- UI primitives still have documented accessibility gaps before wider reuse -- 2026-03-07 by JSly
 - DEBT-009 -- Root theme is hardcoded to dark and ignores settings theme state -- 2026-03-06 by JSly
 - DEBT-010 -- Tooltip overwrites aria-describedby instead of merging with existing value -- 2026-03-06

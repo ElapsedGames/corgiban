@@ -46,23 +46,33 @@ Use a pnpm workspaces monorepo with this structure:
 /apps
 /web
 /app
-/ui
+/bench
 /canvas
 buildRenderPlan.ts
 renderPlan.ts
 draw.ts
 GameCanvas.tsx
+/infra
+/lab
+/levels
+/navigation
+/play
+/ports
+/replay
 /routes
-play.tsx
-bench.tsx
-dev.ui-kit.tsx
 /server
+/solver
+/ui
 /state
+/theme
 /styles
 tokens.css
 root.tsx
 entry.client.tsx
 entry.server.tsx
+/play.tsx
+/bench.tsx
+/dev.ui-kit.tsx
 /functions
 /scripts
 vite.config.ts (Remix in Vite mode)
@@ -124,11 +134,16 @@ algorithms/
 bfsPush.ts
 astarPush.ts
 idaStarPush.ts
+greedyPush.ts
+tunnelMacroPush.ts
+piCorralPush.ts
+prioritySearchCore.ts
 heuristics/
 manhattan.ts
 assignment.ts
 deadlocks/
 corners.ts
+piCorral.ts
 frozen.ts
 infra/
 frontier.ts
@@ -351,15 +366,18 @@ Solver action model MUST be push-based:
   - Walk-path reconstruction uses BFS from the player position to the push-entry cell,
     expanding neighbors in canonical order U, D, L, R (same order as reachability).
 
-Baseline algorithms (start with one, structure for many):
+Baseline algorithms (implemented today, structured for more):
 
 - BFS push-based (minimum viable)
-- A\* push-based (optional in first pass if time; keep interface ready)
-- IDA\* (optional later; stub/placeholder acceptable)
+- A\* push-based
+- IDA\* push-based
+- Greedy push-based
+- Tunnel-macro push-based
+- PI-corral push-based
 
 Solver API:
 
-- solve(levelRuntime, options, hooks) -> SolveResult
+- solve(levelRuntime, algorithmId, options?, hooks?, context?) -> SolveResult
 - deterministic given same inputs
 - cooperative cancellation via CancelToken (checked every N expansions)
 - progress callbacks are throttled and stable
@@ -368,15 +386,17 @@ SolverOptions (packages/solver/api/solverTypes.ts):
 
 - timeBudgetMs?: number (if provided, > 0)
 - nodeBudget?: number (if provided, > 0)
-- heuristicId?: 'manhattan' | 'assignment' (rejected for bfsPush)
-- heuristicWeight?: number (1.0-10.0; > 1.0 enables Weighted A\*)
+- heuristicId?: 'manhattan' | 'assignment' (rejected for bfsPush; `greedyPush` accepts only heuristicId)
+- heuristicWeight?: number (1.0-10.0; > 1.0 enables Weighted A\* where supported)
 - enableSpectatorStream?: boolean (when true, SOLVE_PROGRESS may include bestPathSoFar)
 
 Defaults and validation:
 
 - heuristicWeight outside [1.0, 10.0] is rejected.
-- heuristicId defaults to 'manhattan' for astarPush and idaStarPush.
-- heuristicWeight defaults to 1.0 for astarPush and idaStarPush.
+- heuristicId defaults to 'manhattan' for astarPush and 'assignment' for greedyPush,
+  idaStarPush, tunnelMacroPush, and piCorralPush.
+- heuristicWeight defaults to 1.0 for astarPush, idaStarPush, tunnelMacroPush, and piCorralPush.
+- greedyPush rejects heuristicWeight instead of silently ignoring it.
 
 Add at least one deadlock pruning rule early:
 
@@ -385,23 +405,26 @@ Add at least one deadlock pruning rule early:
 Heuristics:
 
 - Manhattan sum baseline
-- keep assignment heuristic as optional module (can be stubbed initially, but scaffold the interface)
+- assignment heuristic lives in a dedicated module so later tuning/WASM promotion stays isolated
 
 Algorithm selection (packages/solver/api/selection.ts):
 
-- analyzeLevel(levelRuntime): LevelFeatures - pure function; extracts box count, grid dimensions, and reachability complexity. No side effects.
+- analyzeLevel(levelRuntime): LevelFeatures - pure function; extracts box count, grid dimensions,
+  reachability complexity, and tunnel density. No side effects.
 - chooseAlgorithm(features): AlgorithmId - pure deterministic rule table:
+  - tunnelCellCount >= 4 and tunnelRatio >= 0.18 -> tunnelMacroPush
+  - boxCount >= 7 and (reachableRatio <= 0.72 or boxDensity >= 0.10) -> piCorralPush
+  - boxCount <= 2 and reachableRatio >= 0.70 and boxDensity <= 0.10 -> greedyPush
   - boxCount <= 3 -> bfsPush
-  - boxCount 4-6 -> astarPush (manhattan heuristic)
-  - boxCount >= 7 -> astarPush (assignment heuristic)
-  - (IDA\* slots into the table later without changing the interface)
+  - boxCount <= 6 -> astarPush (manhattan heuristic)
+  - otherwise -> idaStarPush (assignment heuristic by default)
 - The selector must only return runnable ids. If a preferred id is not implemented yet, it must
   fall back to `DEFAULT_ALGORITHM_ID` (Phase 3 baseline: `bfsPush`).
 - Both functions are part of the packages/solver public API (exported from src/index.ts).
 - Called on the main thread inside the startSolve thunk before SOLVE_START is dispatched. The protocol never carries an unresolved or 'auto' algorithmId.
 - solverSlice stores recommendation: { algorithmId, features } when a level loads.
-- Solver panel displays the recommendation (for example, "Recommended: bfsPush (7 boxes)") and
-  allows user override.
+- Solver panel displays the recommendation using the friendly shared labels (for example,
+  "Start with PI-Corral Push for this 7-box 13x11 level.") and allows user override.
 - selectedAlgorithmId is recorded in app-side run metadata and in all stored benchmark results.
 - Unit tests required for chooseAlgorithm covering every rule branch, and for analyzeLevel covering edge cases (0 boxes, max boxes, minimal grid).
 
@@ -472,6 +495,9 @@ Progress throttling:
   `progressThrottleMs` / `progressExpandedInterval` instead of applying a second throttle layer.
 - Keep emitted progress at a reasonable rate (for example <= 10-20 msgs/sec) for interactive
   surfaces; benchmark worker progress remains spectator-only.
+- App adapters that attach per-run benchmark worker-progress consumers should default
+  `enableSpectatorStream` to `true`; adapters without a consumer should default it to `false`
+  unless an explicit policy override is provided.
 
 Cancellation:
 
@@ -537,7 +563,7 @@ Initial Play page must mirror the existing UI shape:
 - Bottom controls (sequence input + apply)
   Additionally add:
 - Solver panel: shows algorithm recommendation from analyzeLevel/chooseAlgorithm (for example,
-  "Recommended: bfsPush (7 boxes)"), allows override, run/cancel, progress, apply/animate
+  "Start with PI-Corral Push for this 7-box 13x11 level."), allows override, run/cancel, progress, apply/animate
   solution, and Retry button when worker is crashed.
 - Board interaction remains main-thread owned and must support keyboard-first play plus
   adjacent-tile tap/click and swipe gestures.
@@ -610,7 +636,9 @@ Design system primitives (minimal, Tailwind-based):
 
 Benchmark model:
 
-- BenchmarkSuite (app): levelIds[], algorithmIds[], repetitions, warmupRepetitions, budgets (time/node)
+- BenchmarkSuite (app): exact execution identity is `levelRefs[]`; legacy/public compatibility
+  fields may still carry canonical `levelIds[]` alongside the refs for display, import/export, and
+  backward-compatible handoff paths.
 - Results captured with environment metadata (UA, cores, build version)
 
 Execution:
@@ -629,13 +657,23 @@ UI:
 - suite builder (levels, algorithms, repetitions, warmupRepetitions, budgets)
 - run/cancel
 - diagnostics panel for status/progress/persistence outcome/errors
-- results table (sortable; virtualize if large)
+- results table (sortable, with reopen links into `/play` and `/lab`; stale exact session entries
+  degrade to explicit unavailable states instead of silently reopening a fallback; virtualize if
+  large)
 - analytics/comparison panel (success rate, p50/p95 elapsed time, baseline deltas)
 - export/import JSON for benchmark runs and level packs (File System Access API with fallback to anchor-download)
 - comparison snapshot export for strictly comparable suites
 - Benchmark report export semantics (Phase 4 baseline): export retained benchmark history with explicit `type`, `version`, and `exportModel` (`multi-suite-history`) plus strict run-record `results`.
 - Benchmark report schema policy: accept only explicitly supported `type`/`version`/`exportModel` combinations; reject unsupported versions/models and invalid records with user-visible errors. Record validation must enforce required solver options and enum-like fields for comparability.
-- Level-pack import contract: require `type` + `version`, accept level references via `levelIds[]` or `levels[].id`, and filter to known built-in ids with explicit errors for unsupported payloads.
+- Public benchmark reports may include an additive `comparisonLevelKey` so exported/imported runs
+  preserve stable comparison identity without exposing browser-session reopen refs.
+- Level-pack import contract: require `type` + `version`, accept level references via `levelIds[]`
+  or `levels[].id` with `levelIds` authoritative when both are present, allow recognized built-in
+  ids plus inline custom level definitions, persist accepted custom levels in an app-owned
+  session-only temporary catalog for the active browser session, and reject unsupported
+  same-`level.id` authored/session variants instead of deduplicating silently.
+- Incompatible local temp/session catalog storage is intentionally invalidated across incompatible
+  alpha schema changes instead of being migrated forward.
 - perf panel (visible when debug flag is set): shows PerformanceObserver entries for solver and bench timing
 
 # ==================================================================== 8) TESTING, LINTING, CI SCRIPTS (MUST BE INCLUDED)
@@ -823,8 +861,7 @@ Deferred notes:
 Phase 6 - Adapters, tooling, and performance
 Decision dependencies: ADR-0006 (embed Shadow DOM and styling delivery strategy), ADR-0010 (format interop policy), ADR-0016 (benchmark export/import contract policy), ADR-0019 (benchmark persistence recovery semantics), ADR-0020 (benchmark comparison snapshot contract), ADR-0021 (solver-kernel delivery/preload contract), ADR-0022 (solver progress throttle ownership), ADR-0023 (Level Lab route-local state ownership), ADR-0024 (Offscreen sprite-atlas worker fallback), and ADR-0025 (SSR-safe route-store bootstrap).
 Status: Complete (Phase 6 scope delivered). Deferred debt now lives in `.tracker/issues/*.md` and
-`KNOWN_ISSUES.md`; it should not be treated as a Phase 6 closeout blocker. Phase 7 Task 10 owns
-the remaining `pnpm best-practices` CLI/report wiring work tracked in `DEBT-007`.
+`KNOWN_ISSUES.md`; it should not be treated as a Phase 6 closeout blocker.
 
 1. [done] Level Lab page (/lab): level editor (text input for row encoding) + keyboard-first preview/play area + one-click solver/bench run + export/import JSON
 2. [done] formats package: XSB/SOK/SLC import/export with the documented SOK subset, normalization rules, and variant detection; integrate with Level Lab and import/export flows
@@ -842,22 +879,28 @@ the remaining `pnpm best-practices` CLI/report wiring work tracked in `DEBT-007`
 
 Deferred notes:
 
-- Route-responsibility follow-up: `/play` should converge on primary gameplay, while `/lab` should retain authoring/debug workflows such as format conversion, worker checks, and preview diagnostics. Phase 7 owns this clarification; avoid expanding route overlap further before that pass lands.
+- Route charters are now explicit: `/play` owns primary gameplay, `/lab` owns authoring/debug workflows, and `/bench` owns suite benchmarking, comparison, and durability review. Future route work should preserve those boundaries unless a later ADR supersedes them.
 - `/lab` intentionally keeps authored text, preview state, and one-click worker status in route-local React state + direct ports (ADR-0023). Revisit only if Phase 7 handoff flows require shared store ownership.
 - `/play` and `/bench` now keep one stable route-scoped store instance and swap mutable no-op ports
   for browser-backed ports after commit (ADR-0025). Future shared-store work must preserve that
   SSR-safe browser-resource ownership model or supersede it explicitly.
+- Exact cross-route runnable identity now uses session-scoped playable refs (ADR-0031). `level.id`
+  remains canonical/display identity, `levelRef` is the exact runnable handoff contract, `/play`
+  applies level + algorithm handoff atomically, and `/lab` publishes session entries only on
+  explicit user actions.
+- `/bench` local reopen/comparison safety currently fingerprints the canonical committed
+  `LevelDefinition` payload rather than parsed board structure. That payload-level scope is
+  intentional for the current route-handoff fix; any later refinement is deferred in ADR-0032.
 
-Phase 7 - UX and route-responsibility pass (in progress)
+Phase 7 - UX and route-responsibility pass (completed)
 Decision dependencies: ADR-0029 (play-first root entrypoint and specialist route charters). Capture
 an additional ADR if store ownership or cross-route workflow contracts change materially beyond that
 baseline.
 
-Status: In progress (root app-shell theme ownership, shared navigation, the root redirect to
-`/play`, the route-level information-architecture/accessibility refresh, the initial `/lab`
-authoring-flow promotion for CORG-first format conversion, and the first `/play` mobile ergonomics
-pass have landed; explicit cross-route handoff flows and `pnpm best-practices` report wiring
-remain pending).
+Status: Completed (root app-shell theme ownership, shared navigation, the root redirect to
+`/play`, the route-level information-architecture/accessibility refresh, the `/play` mobile
+ergonomics pass, cross-route handoff flows, temporary custom-pack catalog support,
+`pnpm best-practices` report wiring, and route-level handoff/usability test coverage have landed).
 
 Current increment:
 
@@ -867,6 +910,18 @@ Current increment:
   gameplay-first actions, and lock the mobile `Run Solve` CTA after non-success solver outcomes
   until the level changes.
 - `/lab` Preview / Play now reuses the same adjacent-tile tap/click and swipe controls as `/play`.
+- Cross-route authored-level handoff now uses session-scoped playable refs so edited built-ins,
+  imported levels, and built-ins stay distinct runnable inputs across `/play`, `/lab`, and
+  `/bench`.
+- Benchmark history reopen/comparison now uses local-only exact reopen metadata plus a canonical
+  committed-level fingerprint so stale session entries degrade to unavailable state instead of
+  reopening a different runnable level.
+- Missing requested exact session entries now fail closed in `/play`, `/bench`, and `/lab` with
+  explicit unavailable UI instead of silently falling back to another runnable level, empty suite,
+  or starter draft.
+- Public benchmark reports now carry an additive `comparisonLevelKey`, while public level-pack
+  export/import remains canonical-only and rejects same-`level.id` authored/session variants that
+  would otherwise collapse lossy.
 
 1. Define explicit route charters, entry points, and non-goals for `/play`, `/lab`, and `/bench`:
    - `/play`: primary gameplay, undo/restart/history, replay, lightweight solver help, and quick open/import actions
@@ -876,42 +931,44 @@ Current increment:
    - batch/suite operations belong in `/bench`
    - raw format conversion and parser diagnostics belong in `/lab`
    - normal play, replay, and friendly solver assist belong in `/play`
-3. Add explicit cross-route handoff flows instead of duplicating full toolsets:
+3. [done] Add explicit cross-route handoff flows instead of duplicating full toolsets:
    - open the current level in `/play`
    - open the current level or imported text in `/lab`
    - send a level or pack from `/lab` to `/bench`
    - support opening imported custom level packs in `/play` as an app-owned temporary collection
      with next/previous navigation, without merging them into the built-in catalog by default
    - jump from benchmark results back to `/play` or `/lab`
+   - exact authored handoff now uses `levelRef`; legacy `levelId` remains a backward-compatible
+     canonical fallback for built-ins
 4. [done] Rework route navigation and page information architecture around primary jobs rather than implementation detail:
    - clearer route labels and help text
    - route-local sections ordered by frequency and user intent
    - advanced/debug controls visually secondary to the main task
-5. Simplify `/play` for first-time and repeat play:
+5. [done] Simplify `/play` for first-time and repeat play:
    - friendlier solver recommendation copy and defaults
    - advanced solver controls behind disclosure panels
    - restart/undo/replay controls more prominent than debug metadata
-6. Rework `/lab` around an authoring flow:
+6. [done] Rework `/lab` around an authoring flow:
    - input/edit -> parse/validate -> preview/play -> worker checks -> export/share
    - parser warnings/errors easier to scan and map back to the source text
    - import/export and format conversion promoted to first-class actions
-7. Rework `/bench` around benchmark workflow clarity:
+7. [done] Rework `/bench` around benchmark workflow clarity:
    - suite setup, warm-up, active run status, analytics, comparisons, and history clearly separated
    - diagnostics remain available but secondary to benchmark outcomes
    - saved suites/baselines become the starting point for comparison workflows
-8. Improve route-level UX states across the app:
+8. [done] Improve route-level UX states across the app:
    - empty/loading/error/success states
    - worker crashed/retry states
    - persistence degraded/offline messaging
    - keyboard-shortcut discoverability and responsive/mobile ergonomics
-9. Add usability-oriented tests for at least one primary happy path per route plus cross-route handoff flows.
-10. Finish the remaining best-practices CLI/report wiring in `tools/` so `pnpm best-practices` produces a real report artifact (tracked in `DEBT-007`):
+9. [done] Add usability-oriented tests for at least one primary happy path per route plus cross-route handoff flows.
+10. [done] Finish the remaining best-practices CLI/report wiring in `tools/` so `pnpm best-practices` produces a real report artifact:
 
 - connect the implemented `scanFiles` / `analyzeFiles` helpers to the CLI entrypoint and write the generated report to disk
 - replace opaque `P` / `W` / `F` issue labels in human-facing output with descriptive severity/size wording
 - make the generated report explicitly define the meaning of each reported size/severity bucket instead of assuming shorthand knowledge
 
-11. Add external/custom pack support to primary gameplay flows:
+11. [done] Add external/custom pack support to primary gameplay flows:
 
 - accept an app-owned imported pack/catalog contract for `/play` instead of relying only on
   `builtinLevels`
@@ -1033,7 +1090,7 @@ Phase 11 - Race Mode and multi-runner play (planned)
 - `pnpm dev` runs:
   - / redirects to /play
   - /play supports keyboard moves, adjacent-tile tap/click + swipe board input, restart, undo, and move history
-  - /play solver panel shows algorithm recommendation (for example, "Recommended: bfsPush (7 boxes)") and allows override
+  - /play solver panel shows algorithm recommendation (for example, "Start with PI-Corral Push for this 7-box 13x11 level.") and allows override
   - /play solver panel can start/cancel a solve; progress updates; result can be applied/animated
   - /play solver panel shows Retry button when worker is crashed; clicking it recreates the worker
   - /lab route loads level editor controls, defaults to a CORG authoring surface, supports parsing and converting CORG/XSB/SOK/SLC input, offers keyboard preview controls, and can run one-click worker solve/bench checks

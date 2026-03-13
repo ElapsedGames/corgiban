@@ -492,4 +492,93 @@ describe('spriteAtlas.client', () => {
 
     await expect(getSpriteAtlas(12, 1)).resolves.toBeNull();
   });
+
+  it('cleans up a ready atlas if the pending cache entry is cleared before the promise settles', async () => {
+    const { WorkerMock, instances } = createWorkerMock();
+    installSpriteAtlasCapabilities(WorkerMock);
+
+    const { clearSpriteAtlasCache, getSpriteAtlas } = await importSpriteAtlasModule();
+
+    const request = getSpriteAtlas(18, 2);
+    const worker = instances[0];
+    const postedRequest = getPostedRequest(worker);
+    const { sprites, closeSpies } = createSpriteBitmapSet();
+
+    worker.onmessage?.({
+      data: {
+        type: 'SPRITE_ATLAS_READY',
+        requestId: postedRequest.requestId,
+        skinId: 'classic',
+        mode: 'dark',
+        cellSize: 18,
+        dpr: 2,
+        sprites,
+      },
+    } as MessageEvent<SpriteAtlasWorkerMessage>);
+
+    clearSpriteAtlasCache();
+
+    await expect(request).resolves.toBeNull();
+    expect(closeSpies.floorClose).toHaveBeenCalledTimes(1);
+    expect(closeSpies.wallClose).toHaveBeenCalledTimes(1);
+    expect(closeSpies.targetClose).toHaveBeenCalledTimes(1);
+    expect(closeSpies.boxClose).toHaveBeenCalledTimes(1);
+    expect(closeSpies.boxOnTargetClose).toHaveBeenCalledTimes(1);
+    expect(closeSpies.playerClose).toHaveBeenCalledTimes(1);
+    expect(closeSpies.playerOnTargetClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears pending cache entries and ignores plain or already-closed atlases on release', async () => {
+    const { WorkerMock, instances } = createWorkerMock();
+    installSpriteAtlasCapabilities(WorkerMock);
+
+    const { clearSpriteAtlasCache, getSpriteAtlas, releaseSpriteAtlas, retainSpriteAtlas } =
+      await importSpriteAtlasModule();
+
+    const pendingRequest = getSpriteAtlas(11, 1);
+    expect(instances).toHaveLength(1);
+
+    clearSpriteAtlasCache();
+    await expect(pendingRequest).resolves.toBeNull();
+
+    const plainBitmapSet = createSpriteBitmapSet();
+    const plainAtlas = {
+      key: 'plain',
+      sprites: plainBitmapSet.sprites,
+    };
+
+    releaseSpriteAtlas(plainAtlas);
+    expect(plainBitmapSet.closeSpies.floorClose).not.toHaveBeenCalled();
+
+    const readyRequest = getSpriteAtlas(13, 1);
+    const worker = instances[1];
+    const postedRequest = getPostedRequest(worker, worker.postMessage.mock.calls.length - 1);
+    const readyBitmapSet = createSpriteBitmapSet();
+    worker.onmessage?.({
+      data: {
+        type: 'SPRITE_ATLAS_READY',
+        requestId: postedRequest.requestId,
+        skinId: 'classic',
+        mode: 'dark',
+        cellSize: 13,
+        dpr: 1,
+        sprites: readyBitmapSet.sprites,
+      },
+    } as MessageEvent<SpriteAtlasWorkerMessage>);
+
+    const atlas = await readyRequest;
+    expect(atlas).not.toBeNull();
+
+    clearSpriteAtlasCache();
+    retainSpriteAtlas(atlas);
+    releaseSpriteAtlas(atlas);
+
+    expect(readyBitmapSet.closeSpies.floorClose).toHaveBeenCalledTimes(1);
+    expect(readyBitmapSet.closeSpies.wallClose).toHaveBeenCalledTimes(1);
+    expect(readyBitmapSet.closeSpies.targetClose).toHaveBeenCalledTimes(1);
+    expect(readyBitmapSet.closeSpies.boxClose).toHaveBeenCalledTimes(1);
+    expect(readyBitmapSet.closeSpies.boxOnTargetClose).toHaveBeenCalledTimes(1);
+    expect(readyBitmapSet.closeSpies.playerClose).toHaveBeenCalledTimes(1);
+    expect(readyBitmapSet.closeSpies.playerOnTargetClose).toHaveBeenCalledTimes(1);
+  });
 });

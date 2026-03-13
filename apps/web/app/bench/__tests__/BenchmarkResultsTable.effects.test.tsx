@@ -5,6 +5,11 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { BenchmarkRunRecord } from '../../ports/benchmarkPort';
+import {
+  clearSessionPlayableEntries,
+  createPlayableLevelFingerprint,
+  upsertSessionPlayableEntry,
+} from '../../levels/temporaryLevelCatalog';
 import { BenchmarkResultsTable } from '../BenchmarkResultsTable';
 
 Object.assign(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }, {
@@ -70,9 +75,18 @@ function findButton(container: HTMLElement, label: string): HTMLButtonElement | 
 }
 
 function getRenderedLevelOrder(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('[data-testid="benchmark-result-level"]')].map(
-    (cell) => cell.textContent ?? '',
-  );
+  return [...container.querySelectorAll('[data-testid="benchmark-result-level"]')].map((cell) => {
+    return (
+      cell.querySelector('.font-medium')?.textContent ??
+      cell.firstElementChild?.textContent ??
+      cell.textContent ??
+      ''
+    );
+  });
+}
+
+function encodeSearchParamValue(value: string): string {
+  return new URLSearchParams({ value }).toString().replace('value=', '');
 }
 
 function expectRenderedLevelOrder(container: HTMLElement, expectedLevelIds: string[]) {
@@ -87,6 +101,7 @@ afterEach(async () => {
     });
   }
 
+  clearSessionPlayableEntries();
   document.body.innerHTML = '';
 });
 
@@ -306,5 +321,195 @@ describe('BenchmarkResultsTable interactions', () => {
     });
 
     expectRenderedLevelOrder(container, ['zebra-level', 'middle-level', 'alpha-level']);
+  });
+
+  it('marks non-default sortable headers as descending after a second click', async () => {
+    const suiteAlpha = createResult({
+      id: 'suite-alpha',
+      suiteRunId: 'suite-alpha',
+      algorithmId: 'astarPush',
+      levelId: 'alpha-level',
+      status: 'solved',
+      finishedAtMs: 1_000,
+      metrics: { ...createResult().metrics, elapsedMs: 10 },
+    });
+    const suiteBeta = createResult({
+      id: 'suite-beta',
+      suiteRunId: 'suite-beta',
+      algorithmId: 'bfsPush',
+      levelId: 'beta-level',
+      status: 'timeout',
+      finishedAtMs: 2_000,
+      metrics: { ...createResult().metrics, elapsedMs: 25 },
+    });
+    const suiteGamma = createResult({
+      id: 'suite-gamma',
+      suiteRunId: 'suite-gamma',
+      algorithmId: 'idaStarPush',
+      levelId: 'gamma-level',
+      status: 'unsolved',
+      finishedAtMs: 3_000,
+      metrics: { ...createResult().metrics, elapsedMs: 40 },
+    });
+
+    const { container } = await renderTable([suiteAlpha, suiteGamma, suiteBeta]);
+    const descendingHeaders = ['Suite', 'Algorithm', 'Elapsed (ms)', 'Status'];
+
+    for (const label of descendingHeaders) {
+      const button = findButton(container, label);
+      expect(button).toBeInstanceOf(HTMLButtonElement);
+
+      await act(async () => {
+        button?.click();
+      });
+      await act(async () => {
+        button?.click();
+      });
+
+      expect(button?.closest('th')?.getAttribute('aria-sort')).toBe('descending');
+    }
+  });
+
+  it('uses exact session level refs for reopen links when a matching session entry exists', async () => {
+    const sessionEntry = upsertSessionPlayableEntry({
+      level: {
+        id: 'bench-session-level',
+        name: 'Bench Session Level',
+        rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+      },
+    });
+
+    const exactLevelKey = createPlayableLevelFingerprint(sessionEntry.level);
+    const { container } = await renderTable([
+      createResult({
+        id: 'session-result',
+        levelId: sessionEntry.level.id,
+        levelName: sessionEntry.level.name,
+        localMetadata: {
+          levelRef: sessionEntry.ref,
+          exactLevelKey,
+          levelFingerprint: exactLevelKey,
+        },
+      }),
+    ]);
+
+    const links = [...container.querySelectorAll('a')].map((link) => link.getAttribute('href'));
+    const encodedRef = encodeURIComponent(sessionEntry.ref);
+    const encodedExactLevelKey = encodeSearchParamValue(exactLevelKey);
+    expect(links).toContain(
+      `/play?levelRef=${encodedRef}&levelId=${sessionEntry.level.id}&exactLevelKey=${encodedExactLevelKey}&algorithmId=bfsPush`,
+    );
+    expect(links).toContain(
+      `/lab?levelRef=${encodedRef}&levelId=${sessionEntry.level.id}&exactLevelKey=${encodedExactLevelKey}`,
+    );
+  });
+
+  it('renders an unavailable state instead of falling back when the exact session ref is missing', async () => {
+    const { container } = await renderTable([
+      createResult({
+        id: 'missing-session-result',
+        levelId: 'bench-session-level',
+        localMetadata: {
+          levelRef: 'temp:missing-session',
+          exactLevelKey: createPlayableLevelFingerprint({
+            id: 'bench-session-level',
+            name: 'Bench Session Level',
+            rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+          }),
+          levelFingerprint: createPlayableLevelFingerprint({
+            id: 'bench-session-level',
+            name: 'Bench Session Level',
+            rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+          }),
+        },
+      }),
+    ]);
+
+    expect(container.textContent).toContain('level unavailable');
+    expect(container.querySelector('a')).toBeNull();
+  });
+
+  it('renders an unavailable state when a reused session ref no longer matches the stored fingerprint', async () => {
+    const sessionEntry = upsertSessionPlayableEntry({
+      ref: 'temp:bench-reused',
+      level: {
+        id: 'bench-session-level',
+        name: 'Updated Bench Session Level',
+        rows: ['WWWWWW', 'WPBTEW', 'WEEEWW', 'WWWWWW'],
+      },
+    });
+    const staleFingerprint = createPlayableLevelFingerprint({
+      id: sessionEntry.level.id,
+      name: 'Original Bench Session Level',
+      rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+    });
+
+    const { container } = await renderTable([
+      createResult({
+        id: 'stale-session-result',
+        levelId: sessionEntry.level.id,
+        localMetadata: {
+          levelRef: sessionEntry.ref,
+          exactLevelKey: staleFingerprint,
+          levelFingerprint: staleFingerprint,
+        },
+      }),
+    ]);
+
+    expect(container.textContent).toContain('level unavailable');
+    expect(container.querySelector('a')).toBeNull();
+  });
+
+  it('uses public exact level keys to reopen imported results without local metadata', async () => {
+    const sessionEntry = upsertSessionPlayableEntry({
+      level: {
+        id: 'corgiban-test-18',
+        name: 'Edited Imported Builtin',
+        rows: ['WWWWWW', 'WPBTEW', 'WEEEWW', 'WWWWWW'],
+      },
+    });
+    const exactLevelKey = createPlayableLevelFingerprint(sessionEntry.level);
+
+    const { container } = await renderTable([
+      createResult({
+        id: 'public-imported-result',
+        levelId: 'corgiban-test-18',
+        runnableLevelKey: exactLevelKey,
+        comparisonLevelKey: 'comparison-key-1',
+        localMetadata: undefined,
+      }),
+    ]);
+
+    const encodedRef = encodeURIComponent(sessionEntry.ref);
+    const encodedExactLevelKey = encodeSearchParamValue(exactLevelKey);
+    const links = [...container.querySelectorAll('a')].map((link) => link.getAttribute('href'));
+
+    expect(links).toContain(
+      `/play?levelRef=${encodedRef}&levelId=${sessionEntry.level.id}&exactLevelKey=${encodedExactLevelKey}&algorithmId=bfsPush`,
+    );
+    expect(links).toContain(
+      `/lab?levelRef=${encodedRef}&levelId=${sessionEntry.level.id}&exactLevelKey=${encodedExactLevelKey}`,
+    );
+  });
+
+  it('fails closed for imported public exact keys instead of reopening the canonical built-in level', async () => {
+    const exactLevelKey = createPlayableLevelFingerprint({
+      id: 'corgiban-test-18',
+      name: 'Edited Imported Builtin',
+      rows: ['WWWWWW', 'WPBTEW', 'WEEEWW', 'WWWWWW'],
+    });
+
+    const { container } = await renderTable([
+      createResult({
+        id: 'public-missing-exact-result',
+        levelId: 'corgiban-test-18',
+        runnableLevelKey: exactLevelKey,
+        comparisonLevelKey: 'comparison-key-1',
+        localMetadata: undefined,
+      }),
+    ]);
+
+    expect(container.textContent).toContain('level unavailable');
+    expect(container.querySelector('a')).toBeNull();
   });
 });

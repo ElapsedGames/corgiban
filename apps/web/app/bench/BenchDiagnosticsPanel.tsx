@@ -57,7 +57,8 @@ export function BenchDiagnosticsPanel({
         Diagnostics
       </h2>
       <p className="mt-1 text-sm text-muted">
-        Execution progress and persistence durability are tracked independently.
+        Progress, storage, and durability live here so the main benchmark views can stay focused on
+        outcomes.
       </p>
       <dl className="mt-3 grid gap-2 text-sm">
         <div className="flex items-center justify-between gap-3">
@@ -103,8 +104,8 @@ export function BenchDiagnosticsPanel({
 
       {showMemoryFallbackNotice ? (
         <p className="mt-3 rounded-app-md border border-warning-border bg-warning-surface px-3 py-2 text-sm text-warning-text">
-          Sticky memory-fallback means execution can still complete while durable persistence is
-          degraded. Results stay in memory for the current page session until reload.
+          Sticky memory-fallback means runs can still finish, but saved history is only available
+          for this page session until you reload.
         </p>
       ) : null}
 

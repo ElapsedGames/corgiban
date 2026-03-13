@@ -60,8 +60,10 @@ Evidence:
 - Expected behavior:
   - Tests run without Remix/Vite plugin wiring.
 - Observed:
-  - Tests ran via `vitest.workspace.ts` which currently targets `tools/vitest.config.ts`.
-  - `apps/web/vitest.config.ts` exists as a separate config and does not import the Remix plugin.
+  - Tests ran via `vitest.workspace.ts`, which aggregates the package and app `vitest.config.ts`
+    files rather than loading any `vite.config.ts`.
+  - `apps/web/vitest.config.ts` remains separate from `apps/web/vite.config.ts` and does not
+    import the Remix plugin.
 - Config keys:
   - Separate Vitest config (`vitest.workspace.ts`) to avoid Remix plugin coupling.
 - Documentation location: this file (`docs/phase-00-integration.md`).
@@ -75,8 +77,11 @@ Evidence:
 
 Tools best-practices report status:
 
-- `tools/src/` best-practices report scaffolding remains incomplete and is tracked in `DEBT-007`.
-- See `docs/dev-tools-spec.md` for the full spec. `pnpm best-practices` currently runs, but it does not produce the intended report output yet.
+- `pnpm best-practices` now scans the documented source globs, analyzes file size and
+  time-usage signals, formats the markdown report, and writes
+  `docs/_generated/analysis/best_practices_report.md`.
+- See `docs/dev-tools-spec.md` for the full spec and the tests in `tools/src/__tests__/` for
+  the current implementation contract.
 
 ---
 

@@ -236,8 +236,13 @@ Pre-commit process:
 2. run format:check
 3. run the staged-file style-policy check (`pnpm exec tsx tools/scripts/style-policy-check.ts`)
 4. run affected tests with deterministic selection strategy
-5. run encoding policy check (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
+5. run `pnpm encoding:check:staged` (UTF-8 without BOM, ASCII-only text except allow list, no smart punctuation unless allowlisted)
 6. run lint and typecheck as local verification before PR (CI enforces both)
+
+Local and CI scope:
+
+1. `pnpm encoding:check` verifies the current worktree (tracked + untracked, excluding ignored paths)
+2. `pnpm encoding:check:tracked` verifies tracked files only and is the CI entrypoint
 
 Completion checklist per feature:
 

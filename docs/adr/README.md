@@ -68,6 +68,13 @@ If an ADR is superseded, link bidirectionally:
 - ADR-0030 (`0030-app-local-board-skin-registry.md`) is the source of truth for board visual
   theming. Keep board skins in app-local TS data so the fallback draw path and sprite-atlas worker
   share the same explicit `skinId` / `mode` contract.
+- ADR-0031 (`0031-session-playable-refs-and-atomic-route-handoff.md`) is the source of truth for
+  exact playable identity and cross-route handoff. `levelRef` is the runnable identity, `level.id`
+  remains canonical/display identity, `/lab` publishes only on explicit user action, and `/play`
+  level + algorithm route activation must remain atomic.
+- ADR-0032 (`0032-benchmark-level-fingerprint-scope.md`) records deferred work around benchmark
+  reopen/comparison fingerprint semantics. The current fingerprint is stable and deliberate, but it
+  is payload-level canonical rather than parsed-structure canonical.
 - Not every review-sensitive contract has a standalone ADR. The explicit monotonic-clock failure
   path is documented in `LLM_GUIDE.md`, `docs/Architecture.md`, `packages/solver/README.md`, and
   `docs/review-notes.md`.
@@ -104,3 +111,5 @@ If an ADR is superseded, link bidirectionally:
 - `0028-cloudflare-pages-runtime-adapter.md`
 - `0029-play-route-primary-entrypoint.md`
 - `0030-app-local-board-skin-registry.md`
+- `0031-session-playable-refs-and-atomic-route-handoff.md`
+- `0032-benchmark-level-fingerprint-scope.md`
