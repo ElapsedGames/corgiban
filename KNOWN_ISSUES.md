@@ -2,12 +2,13 @@
 
 # Known Issues
 
-_0 open, 22 fixed, 2 deferred_
+_0 open, 22 fixed, 3 deferred_
 
 ## Deferred
 
 - DEBT-011 -- Tabs keyboard navigation relies on document-global tab ids (debt, ui)
 - DEBT-012 -- analyzeLevel now pays compileLevel cost on the main thread (debt, solver)
+- DEBT-013 -- Proper SSR theme state should come from the server instead of client-only hydration (debt, ui)
 
 ## Fixed
 

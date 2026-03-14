@@ -6,6 +6,7 @@ import type { PlayableEntry } from '../levels/temporaryLevelCatalog';
 import { usePlayableLevels } from '../levels/usePlayableLevels';
 import { buildLabHref, buildPlayHref } from '../navigation/handoffLinks';
 import type { BenchmarkRunRecord } from '../ports/benchmarkPort';
+import { formatSolverAlgorithmLabel } from '../solver/algorithmLabels';
 import {
   resolveBenchmarkResultLevelName,
   resolveBenchmarkRunnableLevelKey,
@@ -150,15 +151,15 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
             Results
           </h2>
           <p className="text-sm text-muted">
-            Stored benchmark history ({results.length} runs). Sort the table, then reopen a level in
-            Play or Lab when a result deserves a closer look.
+            Saved benchmark runs ({results.length}). Sort the table, then reopen a puzzle in Play or
+            Lab when a result needs a closer look.
           </p>
         </div>
       </div>
 
       {sortedResults.length === 0 ? (
         <p className="rounded-app-md border border-dashed border-border px-3 py-4 text-sm text-muted">
-          No benchmark results yet.
+          No saved benchmark runs yet.
         </p>
       ) : (
         <div className="overflow-auto">
@@ -185,7 +186,7 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
                     className={thSortButtonClasses}
                     onClick={() => setSort('finishedAtMs')}
                   >
-                    Completed{sortIndicator('finishedAtMs')}
+                    Finished{sortIndicator('finishedAtMs')}
                   </button>
                 </th>
                 <th
@@ -265,13 +266,13 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
                   </button>
                 </th>
                 <th scope="col" className="px-2 py-2 text-right">
-                  Expanded
+                  Expanded nodes
                 </th>
                 <th scope="col" className="px-2 py-2 text-right">
-                  Generated
+                  Generated nodes
                 </th>
                 <th scope="col" className="px-2 py-2">
-                  Open
+                  Open in
                 </th>
                 <th
                   scope="col"
@@ -307,7 +308,7 @@ export function BenchmarkResultsTable({ results }: BenchmarkResultsTableProps) {
                       <div className="font-medium text-fg">{levelName}</div>
                       <div className="text-xs text-muted">{result.levelId}</div>
                     </td>
-                    <td className="px-2 py-2">{result.algorithmId}</td>
+                    <td className="px-2 py-2">{formatSolverAlgorithmLabel(result.algorithmId)}</td>
                     <td className="px-2 py-2 text-right">
                       {result.metrics.elapsedMs.toLocaleString()}
                     </td>

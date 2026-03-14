@@ -1,6 +1,7 @@
 import { useId } from 'react';
 
 import type { BenchDiagnosticsState, BenchRunStatus } from '../state/benchSlice';
+import { Tooltip } from '../ui/Tooltip';
 
 export type BenchDiagnosticsPanelProps = {
   status: BenchRunStatus;
@@ -11,6 +12,28 @@ export type BenchDiagnosticsPanelProps = {
   };
   diagnostics: BenchDiagnosticsState;
 };
+
+type InfoLabelProps = {
+  label: string;
+  tooltip: string;
+};
+
+function InfoLabel({ label, tooltip }: InfoLabelProps) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span>{label}</span>
+      <Tooltip content={tooltip}>
+        <button
+          type="button"
+          aria-label={`${label} help`}
+          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border bg-panel text-[10px] font-bold leading-none text-muted"
+        >
+          i
+        </button>
+      </Tooltip>
+    </span>
+  );
+}
 
 function statusLabel(status: BenchRunStatus): string {
   switch (status) {
@@ -57,8 +80,7 @@ export function BenchDiagnosticsPanel({
         Diagnostics
       </h2>
       <p className="mt-1 text-sm text-muted">
-        Progress, storage, and durability live here so the main benchmark views can stay focused on
-        outcomes.
+        Track run progress and check whether this browser can save your benchmark history reliably.
       </p>
       <dl className="mt-3 grid gap-2 text-sm">
         <div className="flex items-center justify-between gap-3">
@@ -84,7 +106,7 @@ export function BenchDiagnosticsPanel({
           </dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="shrink-0 text-muted">Latest execution result</dt>
+          <dt className="shrink-0 text-muted">Latest result ID</dt>
           <dd
             className="max-w-[12rem] overflow-hidden text-ellipsis whitespace-nowrap text-right font-mono text-xs"
             title={progress.latestResultId ?? undefined}
@@ -93,11 +115,21 @@ export function BenchDiagnosticsPanel({
           </dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-muted">Storage persistence</dt>
+          <dt className="text-muted">
+            <InfoLabel
+              label="Browser storage permission"
+              tooltip="This shows whether the browser agreed to keep saved benchmark data around instead of treating it as easy to remove later."
+            />
+          </dt>
           <dd>{diagnostics.persistOutcome ?? 'pending'}</dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-muted">Persistence durability</dt>
+          <dt className="text-muted">
+            <InfoLabel
+              label="Save reliability"
+              tooltip="This shows how safe your saved benchmark history is right now. Memory fallback means it only lasts until this page reloads."
+            />
+          </dt>
           <dd>{repositoryHealthLabel(diagnostics.repositoryHealth)}</dd>
         </div>
       </dl>

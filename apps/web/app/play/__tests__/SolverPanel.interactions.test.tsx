@@ -45,7 +45,7 @@ function getBaseProps(): SolverPanelProps {
 
 function getControlByLabel<T extends HTMLElement>(container: HTMLElement, label: string): T {
   const labels = Array.from(container.querySelectorAll('label'));
-  const match = labels.find((candidate) => candidate.textContent?.trim() === label);
+  const match = labels.find((candidate) => candidate.textContent?.includes(label));
   expect(match).toBeDefined();
 
   const control = (match as HTMLLabelElement | undefined)?.control ?? null;
@@ -116,7 +116,7 @@ describe('SolverPanel interactions', () => {
 
   it('floors positive decimal time budget input before storing it', async () => {
     const { container, store } = await renderPanel();
-    const input = getControlByLabel<HTMLInputElement>(container, 'Time Budget (ms)');
+    const input = getControlByLabel<HTMLInputElement>(container, 'Time Budget (MS)');
 
     await setControlValue(input, '12.9');
 
@@ -126,7 +126,7 @@ describe('SolverPanel interactions', () => {
 
   it('keeps the existing time budget when the next value is zero', async () => {
     const { container, store } = await renderPanel();
-    const input = getControlByLabel<HTMLInputElement>(container, 'Time Budget (ms)');
+    const input = getControlByLabel<HTMLInputElement>(container, 'Time Budget (MS)');
     const previousValue = store.getState().settings.solverTimeBudgetMs;
 
     await setControlValue(input, '0');

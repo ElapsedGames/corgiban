@@ -38,6 +38,7 @@ function installSpriteAtlasCapabilities(workerClass: typeof Worker): void {
       close() {}
     },
   );
+  vi.stubGlobal('createImageBitmap', vi.fn());
 }
 
 async function importSpriteAtlasModule(workerUrl = '/sprite-atlas-worker.js') {
@@ -104,6 +105,7 @@ describe('spriteAtlas.client', () => {
     vi.stubGlobal('Worker', undefined as unknown as typeof Worker);
     vi.stubGlobal('OffscreenCanvas', undefined as unknown as typeof OffscreenCanvas);
     vi.stubGlobal('ImageBitmap', undefined as unknown as typeof ImageBitmap);
+    vi.stubGlobal('createImageBitmap', undefined as unknown as typeof createImageBitmap);
 
     const { supportsOffscreenSpritePreRender } = await importSpriteAtlasModule();
 
@@ -114,6 +116,7 @@ describe('spriteAtlas.client', () => {
     vi.stubGlobal('Worker', undefined as unknown as typeof Worker);
     vi.stubGlobal('OffscreenCanvas', undefined as unknown as typeof OffscreenCanvas);
     vi.stubGlobal('ImageBitmap', undefined as unknown as typeof ImageBitmap);
+    vi.stubGlobal('createImageBitmap', undefined as unknown as typeof createImageBitmap);
 
     const { getSpriteAtlas } = await importSpriteAtlasModule();
 

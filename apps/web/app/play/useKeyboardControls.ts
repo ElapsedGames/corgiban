@@ -7,6 +7,7 @@ type KeyboardHandlers = {
   onUndo: () => void;
   onRestart: () => void;
   onNextLevel: () => void;
+  canGoToNextLevel?: boolean;
   isSolved?: boolean;
   enabled?: boolean;
 };
@@ -56,6 +57,7 @@ export function useKeyboardControls({
   onUndo,
   onRestart,
   onNextLevel,
+  canGoToNextLevel = true,
   isSolved = false,
   enabled = true,
 }: KeyboardHandlers) {
@@ -104,10 +106,14 @@ export function useKeyboardControls({
           onRestart();
           break;
         case 'KeyN':
-          onNextLevel();
+          if (canGoToNextLevel) {
+            onNextLevel();
+          } else {
+            handled = false;
+          }
           break;
         case 'Enter':
-          if (isSolved) {
+          if (isSolved && canGoToNextLevel) {
             onNextLevel();
           } else {
             handled = false;
@@ -126,5 +132,5 @@ export function useKeyboardControls({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [enabled, isSolved, onMove, onNextLevel, onRestart, onUndo]);
+  }, [canGoToNextLevel, enabled, isSolved, onMove, onNextLevel, onRestart, onUndo]);
 }

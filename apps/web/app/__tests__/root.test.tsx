@@ -7,15 +7,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   appNavProps: null as null | {
+    boardSkinId: 'classic' | 'legacy';
+    isBoardSkinReady: boolean;
     isThemeReady: boolean;
+    onToggleBoardSkin: () => void;
     onToggleTheme: () => void;
     theme: 'light' | 'dark';
+  },
+  boardSkinState: {
+    boardSkinId: 'classic' as 'classic' | 'legacy',
+    isBoardSkinReady: true,
   },
   isRouteErrorResponse: vi.fn(),
   themeState: {
     isThemeReady: true,
     theme: 'light' as 'light' | 'dark',
   },
+  toggleBoardSkin: vi.fn(),
   toggleTheme: vi.fn(),
   useRouteError: vi.fn(),
 }));
@@ -34,9 +42,21 @@ vi.mock('../theme/useAppTheme', () => ({
   }),
 }));
 
+vi.mock('../canvas/useAppBoardSkin', () => ({
+  BoardSkinPreferenceProvider: ({ children }: { children: React.ReactNode }) => children,
+  useAppBoardSkin: () => ({
+    boardSkinId: mocks.boardSkinState.boardSkinId,
+    isBoardSkinReady: mocks.boardSkinState.isBoardSkinReady,
+    toggleBoardSkin: mocks.toggleBoardSkin,
+  }),
+}));
+
 vi.mock('../ui/AppNav', () => ({
   AppNav: (props: {
+    boardSkinId: 'classic' | 'legacy';
+    isBoardSkinReady: boolean;
     isThemeReady: boolean;
+    onToggleBoardSkin: () => void;
     onToggleTheme: () => void;
     theme: 'light' | 'dark';
   }) => {
@@ -102,9 +122,12 @@ async function hydrateDocumentApp() {
 describe('root app shell', () => {
   beforeEach(() => {
     mocks.appNavProps = null;
+    mocks.boardSkinState.boardSkinId = 'classic';
+    mocks.boardSkinState.isBoardSkinReady = true;
     mocks.isRouteErrorResponse.mockReset();
     mocks.themeState.isThemeReady = true;
     mocks.themeState.theme = 'light';
+    mocks.toggleBoardSkin.mockReset();
     mocks.toggleTheme.mockReset();
     mocks.useRouteError.mockReset();
     document.open();
@@ -122,6 +145,8 @@ describe('root app shell', () => {
   });
 
   it('renders the document shell, outlet content, and root theme props', () => {
+    mocks.boardSkinState.boardSkinId = 'legacy';
+    mocks.boardSkinState.isBoardSkinReady = false;
     mocks.themeState.isThemeReady = false;
     mocks.themeState.theme = 'dark';
 
@@ -135,7 +160,10 @@ describe('root app shell', () => {
     expect(html).toContain('data-testid="scroll-restoration-stub"');
     expect(html).toContain('data-testid="scripts-stub"');
     expect(mocks.appNavProps).toMatchObject({
+      boardSkinId: 'legacy',
+      isBoardSkinReady: false,
       isThemeReady: false,
+      onToggleBoardSkin: mocks.toggleBoardSkin,
       onToggleTheme: mocks.toggleTheme,
       theme: 'dark',
     });
@@ -192,9 +220,12 @@ describe('root app shell', () => {
 describe('root ErrorBoundary', () => {
   beforeEach(() => {
     mocks.appNavProps = null;
+    mocks.boardSkinState.boardSkinId = 'classic';
+    mocks.boardSkinState.isBoardSkinReady = true;
     mocks.isRouteErrorResponse.mockReset();
     mocks.themeState.isThemeReady = true;
     mocks.themeState.theme = 'light';
+    mocks.toggleBoardSkin.mockReset();
     mocks.toggleTheme.mockReset();
     mocks.useRouteError.mockReset();
   });

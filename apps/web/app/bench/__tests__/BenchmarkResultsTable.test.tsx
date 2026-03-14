@@ -48,8 +48,8 @@ describe('BenchmarkResultsTable', () => {
   it('renders empty state when no results are present', () => {
     const html = renderToStaticMarkup(<BenchmarkResultsTable results={[]} />);
 
-    expect(html).toContain('No benchmark results yet.');
-    expect(html).toContain('Stored benchmark history (0 runs)');
+    expect(html).toContain('No saved benchmark runs yet.');
+    expect(html).toContain('Saved benchmark runs (0)');
   });
 
   it('renders rows sorted by completed timestamp descending by default', () => {
@@ -107,6 +107,7 @@ describe('BenchmarkResultsTable', () => {
     expect(html).toContain('456');
     expect(html).toContain('789');
     expect(html).toContain('solved');
+    expect(html).toContain('BFS Push');
     expect(html).toContain('href="/play?levelId=corgiban-test-18&amp;algorithmId=bfsPush"');
     expect(html).toContain('href="/lab?levelId=corgiban-test-18"');
   });

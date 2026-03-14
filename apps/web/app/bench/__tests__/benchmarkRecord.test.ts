@@ -154,4 +154,21 @@ describe('benchmarkRecordPersistence', () => {
       }),
     ).toBe(false);
   });
+
+  it('rejects non-object records, extra keys, and invalid display metadata', () => {
+    expect(isPersistedBenchmarkRunRecord(null)).toBe(false);
+    expect(isPersistedBenchmarkRunRecord([createRecord()])).toBe(false);
+    expect(
+      isPersistedBenchmarkRunRecord({
+        ...createRecord(),
+        unexpected: true,
+      }),
+    ).toBe(false);
+    expect(
+      isPersistedBenchmarkRunRecord({
+        ...createRecord(),
+        levelName: 42,
+      }),
+    ).toBe(false);
+  });
 });

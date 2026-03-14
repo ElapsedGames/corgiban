@@ -19,11 +19,45 @@ export type ParsedLabLevel = {
   normalizedFormat: LabInputFormat;
 };
 
+export type LabInputCellCode = {
+  label: string;
+  value: string;
+};
+
 export const LAB_INPUT_FORMAT_LABELS: Record<LabInputFormat, string> = {
   corg: 'CORG',
   xsb: 'XSB',
   'sok-0.17': 'SOK 0.17',
   'slc-xml': 'SLC XML',
+};
+
+const XSB_STYLE_CELL_CODES = [
+  { label: 'Wall', value: '#' },
+  { label: 'Empty', value: 'space' },
+  { label: 'Player', value: '@' },
+  { label: 'Player on target', value: '+' },
+  { label: 'Block', value: '$' },
+  { label: 'Block on target', value: '*' },
+  { label: 'Target', value: '.' },
+] as const satisfies readonly LabInputCellCode[];
+
+export const LAB_INPUT_FORMAT_CELL_CODES: Record<LabInputFormat, readonly LabInputCellCode[]> = {
+  corg: [
+    { label: 'Wall', value: 'W' },
+    { label: 'Empty', value: 'space' },
+    { label: 'Player', value: 'P' },
+    { label: 'Player on target', value: 'Q' },
+    { label: 'Block', value: 'B' },
+    { label: 'Block on target', value: 'S' },
+    { label: 'Target', value: 'T' },
+  ],
+  xsb: XSB_STYLE_CELL_CODES,
+  'sok-0.17': XSB_STYLE_CELL_CODES,
+  'slc-xml': XSB_STYLE_CELL_CODES,
+};
+
+export const LAB_INPUT_FORMAT_CELL_CODE_HINTS: Partial<Record<LabInputFormat, string>> = {
+  'slc-xml': 'Board rows inside each <L>...</L> tag use the same XSB symbols shown here.',
 };
 
 const FALLBACK_LAB_LEVEL_TEXT = ['WWWWW', 'WP  W', 'W B W', 'W T W', 'WWWWW'].join('\n');

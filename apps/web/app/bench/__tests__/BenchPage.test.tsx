@@ -140,10 +140,12 @@ describe('BenchPage', () => {
     expect(html).toContain('Results');
     expect(html).toContain('Diagnostics');
     expect(html).toContain(
-      'Build a repeatable suite, compare solver outcomes across levels, and keep persistence and diagnostics available without letting them dominate the workflow.',
+      'Build a repeatable solver test set, review saved results, and check browser save health without burying the main benchmarking tools.',
     );
     expect(html).toContain('Import / Export');
     expect(html).toContain('Performance');
+    expect(html.indexOf('Diagnostics')).toBeLessThan(html.indexOf('Import / Export'));
+    expect(html).toContain('xl:sticky xl:top-24');
   });
 
   it('composes the bench sections and hides perf panel when debug is disabled', () => {

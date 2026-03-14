@@ -16,7 +16,7 @@ describe('settingsSlice', () => {
     const state = settingsSlice.reducer(undefined, { type: 'unknown' });
 
     expect(state.tileAnimationDuration).toBe(80);
-    expect(state.solverReplaySpeed).toBe(1);
+    expect(state.solverReplaySpeed).toBe(2);
     expect(state.solverTimeBudgetMs).toBe(DEFAULT_SOLVER_TIME_BUDGET_MS);
     expect(state.solverNodeBudget).toBe(DEFAULT_NODE_BUDGET);
     expect(state.debug).toBe(false);

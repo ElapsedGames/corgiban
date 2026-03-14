@@ -13,18 +13,17 @@ test('play route applies sequence input and supports restart and next level', as
   expect(firstLevelName).not.toBe('');
   await expect(page.getByRole('button', { name: 'Previous' })).toBeDisabled();
 
-  await page.getByRole('textbox', { name: 'Sequence input' }).fill('U');
-  await page.getByRole('button', { name: 'Apply Moves' }).click();
+  await page.getByRole('textbox', { name: /Move Sequence/ }).fill('U');
+  await page.getByRole('button', { name: 'Animate', exact: true }).click();
 
-  await expect(page.getByText('Applied 1 moves.')).toBeVisible();
+  await expect(page.getByText('Animating 1 moves.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Undo' })).toBeEnabled();
   await expect(page.getByText('1 total')).toBeVisible();
 
   await page.getByRole('button', { name: 'Restart' }).click();
   await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
-  await expect(
-    page.getByText('No moves yet. Use the keyboard or sequence input to start.'),
-  ).toBeVisible();
+  await expect(page.getByText('0 total')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copy Move List' })).toBeDisabled();
 
   await page.getByRole('button', { name: 'Next Level' }).click();
   await expect.poll(() => getCurrentLevelName(page)).not.toBe(firstLevelName);

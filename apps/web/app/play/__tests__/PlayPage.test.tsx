@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { builtinLevels } from '@corgiban/levels';
 import { parseLevel } from '@corgiban/core';
 
+import { BoardSkinPreferenceProvider } from '../../canvas/useAppBoardSkin';
 import {
   clearSessionPlayableEntries,
   createPlayableLevelFingerprint,
@@ -22,6 +23,7 @@ const testState = vi.hoisted(() => ({
   sidePanelProps: null as null | Record<string, unknown>,
   bottomControlsProps: null as null | Record<string, unknown>,
   gameCanvasProps: null as null | Record<string, unknown>,
+  unavailableProps: null as null | Record<string, unknown>,
 }));
 
 vi.mock('../../canvas/GameCanvas', () => ({
@@ -59,9 +61,10 @@ vi.mock('../../levels/RequestedEntryPending', () => ({
 }));
 
 vi.mock('../../levels/RequestedEntryUnavailable', () => ({
-  RequestedEntryUnavailablePage: (props: Record<string, unknown>) => (
-    <div data-testid="requested-entry-unavailable">{String(props.heading ?? '')}</div>
-  ),
+  RequestedEntryUnavailablePage: (props: Record<string, unknown>) => {
+    testState.unavailableProps = props;
+    return <div data-testid="requested-entry-unavailable">{String(props.heading ?? '')}</div>;
+  },
 }));
 
 vi.mock('../../levels/usePlayableLevels', async (importOriginal) => {
@@ -95,6 +98,21 @@ function renderPage(store = createAppStore(), props: Parameters<typeof PlayPage>
   return { store, html };
 }
 
+function renderPageWithSkin(
+  boardSkinId: 'classic' | 'legacy',
+  store = createAppStore(),
+  props: Parameters<typeof PlayPage>[0] = {},
+) {
+  const html = renderToStaticMarkup(
+    <Provider store={store}>
+      <BoardSkinPreferenceProvider boardSkinId={boardSkinId}>
+        <PlayPage {...props} />
+      </BoardSkinPreferenceProvider>
+    </Provider>,
+  );
+  return { store, html };
+}
+
 describe('PlayPage', () => {
   afterEach(() => {
     clearSessionPlayableEntries();
@@ -105,6 +123,7 @@ describe('PlayPage', () => {
     testState.sidePanelProps = null;
     testState.bottomControlsProps = null;
     testState.gameCanvasProps = null;
+    testState.unavailableProps = null;
   });
 
   it('renders the play shell and forwards solver selection changes to Redux state', () => {
@@ -113,14 +132,17 @@ describe('PlayPage', () => {
     expect(html).toContain('Corgiban');
     expect(html).toContain('board-heading');
     expect(html).toContain('play-shell');
+    expect(html).toContain('Level 1');
     expect(html).toContain('-mx-7 border-y border-border bg-panel px-4 py-4 shadow-none');
     expect(html).toContain(
       '<div class="hidden lg:block"><div data-testid="bottom-controls-stub"></div></div>',
     );
     expect(testState.solverPanelProps).not.toBeNull();
     expect(testState.solverPanelProps?.mobileRunLocked).toBe(false);
+    expect(testState.sidePanelProps?.showLevelNavigation).toBe(true);
     expect(testState.sidePanelProps?.canGoToPreviousLevel).toBe(false);
     expect(testState.gameCanvasProps?.cellSize).toBe(56);
+    expect(testState.gameCanvasProps?.skinId).toBe('classic');
 
     const onSelectAlgorithm = testState.solverPanelProps?.onSelectAlgorithm as
       | ((algorithmId: string) => void)
@@ -129,6 +151,69 @@ describe('PlayPage', () => {
 
     onSelectAlgorithm?.('bfsPush');
     expect(store.getState().solver.selectedAlgorithmId).toBe('bfsPush');
+  });
+
+  it('renders the mobile copy-move-list action only when the current puzzle is solved', () => {
+    const idleRender = renderPage();
+    expect(idleRender.html).not.toContain('Copy Move List');
+
+    const sessionEntry = upsertSessionPlayableEntry({
+      level: {
+        id: 'mobile-copy-list-level',
+        name: 'Mobile Copy List Level',
+        rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+      },
+    });
+    const solvedStore = createAppStore();
+    solvedStore.dispatch(
+      handleLevelChange(parseLevel(sessionEntry.level), {
+        levelRef: sessionEntry.ref,
+        levelId: sessionEntry.level.id,
+        exactLevelKey: createPlayableExactLevelKey(sessionEntry.level),
+      }),
+    );
+    solvedStore.dispatch(
+      move({
+        direction: 'R',
+        changed: true,
+        pushed: true,
+      }),
+    );
+    const solvedRender = renderPage(solvedStore);
+
+    expect(solvedRender.html).toContain('Copy Move List');
+    expect(solvedRender.html).not.toContain('Move History');
+    expect(solvedRender.html).not.toContain('1 total');
+  });
+
+  it('hides the built-in level badge for session/custom playable entries', () => {
+    const sessionEntry = upsertSessionPlayableEntry({
+      level: {
+        id: 'custom-level-1',
+        name: 'Custom Level',
+        rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+      },
+    });
+    const store = createAppStore();
+
+    store.dispatch(
+      handleLevelChange(parseLevel(sessionEntry.level), {
+        levelRef: sessionEntry.ref,
+        levelId: sessionEntry.level.id,
+        exactLevelKey: createPlayableExactLevelKey(sessionEntry.level),
+      }),
+    );
+
+    const { html } = renderPage(store);
+
+    expect(html).not.toContain('Level 1');
+    expect(html).not.toMatch(/Level \d+/);
+  });
+
+  it('uses the provided board skin preference for the play canvas', () => {
+    renderPageWithSkin('legacy');
+
+    expect(testState.gameCanvasProps?.skinId).toBe('legacy');
   });
 
   it('forwards replay speed changes to settingsSlice', () => {
@@ -177,7 +262,7 @@ describe('PlayPage', () => {
     expect(testState.sidePanelProps).toBeNull();
   });
 
-  it('wires side-panel and sequence callbacks into game state updates', () => {
+  it('wires side-panel and sequence controls into the play shell', () => {
     const store = createAppStore();
     store.dispatch(move({ direction: 'L', changed: true, pushed: false }));
 
@@ -185,24 +270,21 @@ describe('PlayPage', () => {
 
     const onUndo = testState.sidePanelProps?.onUndo as (() => void) | undefined;
     const onRestart = testState.sidePanelProps?.onRestart as (() => void) | undefined;
-    const onApplySequence = testState.bottomControlsProps?.onApplySequence as
-      | ((directions: string[]) => { applied: number; stoppedAt: number | null })
+    const onReplaySpeedChange = testState.bottomControlsProps?.onReplaySpeedChange as
+      | ((speed: number) => void)
       | undefined;
 
     expect(onUndo).toBeTypeOf('function');
     expect(onRestart).toBeTypeOf('function');
-    expect(onApplySequence).toBeTypeOf('function');
+    expect(testState.bottomControlsProps?.onAnimateSequence).toBeTypeOf('function');
+    expect(onReplaySpeedChange).toBeTypeOf('function');
+    expect(testState.bottomControlsProps?.replaySpeed).toBe(2);
 
     onUndo?.();
     expect(store.getState().game.stats.moves).toBe(0);
 
-    const noOpResult = onApplySequence?.([]);
-    expect(noOpResult).toEqual({ applied: 0, stoppedAt: null });
-    expect(store.getState().game.stats.moves).toBe(0);
-
-    const applied = onApplySequence?.(['L']);
-    expect(applied?.applied).toBeGreaterThanOrEqual(1);
-    expect(store.getState().game.stats.moves).toBeGreaterThanOrEqual(1);
+    onReplaySpeedChange?.(3);
+    expect(store.getState().settings.solverReplaySpeed).toBe(3);
 
     onRestart?.();
     expect(store.getState().game.stats.moves).toBe(0);
@@ -225,54 +307,14 @@ describe('PlayPage', () => {
     expect(store.getState().game.stats.moves).toBe(beforeMoves);
   });
 
-  it('applies parsed solution moves from the initial level state and ignores non-UDLR characters', () => {
+  it('wires the move-sequence animator callback into bottom controls', () => {
     const store = createAppStore();
-    const knownSolutionLevel = builtinLevels.find(
-      (level) => typeof level.knownSolution === 'string' && level.knownSolution.length > 0,
-    );
-    const firstMove = knownSolutionLevel?.knownSolution?.[0]?.toUpperCase();
-    expect(knownSolutionLevel).toBeTruthy();
-    expect(firstMove).toMatch(/^[UDLR]$/);
-
-    store.dispatch(nextLevel({ levelId: knownSolutionLevel?.id ?? store.getState().game.levelId }));
     renderPage(store);
 
-    const onApplySequence = testState.bottomControlsProps?.onApplySequence as
-      | ((directions: string[]) => { applied: number; stoppedAt: number | null })
-      | undefined;
-    expect(onApplySequence).toBeTypeOf('function');
-
-    const firstApply = onApplySequence?.([firstMove ?? 'R']);
-    expect(firstApply?.applied).toBe(1);
-    expect(store.getState().game.stats.moves).toBe(1);
-
-    store.dispatch(solveRunStarted({ runId: 'solve-1', algorithmId: 'bfsPush' }));
-    store.dispatch(
-      solveRunCompleted({
-        runId: 'solve-1',
-        algorithmId: 'bfsPush',
-        status: 'solved',
-        solutionMoves: `${firstMove ?? 'R'}X`,
-        metrics: {
-          elapsedMs: 1,
-          expanded: 1,
-          generated: 1,
-          maxDepth: 1,
-          maxFrontier: 1,
-          pushCount: 0,
-          moveCount: 1,
-        },
-      }),
+    expect(testState.bottomControlsProps?.onAnimateSequence).toBeTypeOf('function');
+    expect(testState.bottomControlsProps?.replaySpeed).toBe(
+      store.getState().settings.solverReplaySpeed,
     );
-
-    renderPage(store);
-
-    const onApply = testState.solverPanelProps?.onApply as (() => void) | undefined;
-    expect(onApply).toBeTypeOf('function');
-
-    onApply?.();
-
-    expect(store.getState().game.stats.moves).toBe(1);
   });
 
   it('dispatches cancelSolve when solver cancel is requested from the panel', () => {
@@ -287,6 +329,20 @@ describe('PlayPage', () => {
 
     expect(store.getState().solver.status).toBe('cancelling');
     expect(store.getState().solver.activeRunId).toBe('run-cancel-me');
+  });
+
+  it('ignores invalid solver algorithm selections from the panel callback', () => {
+    const { store } = renderPage();
+    const initialAlgorithmId = store.getState().solver.selectedAlgorithmId;
+
+    const onSelectAlgorithm = testState.solverPanelProps?.onSelectAlgorithm as
+      | ((algorithmId: string) => void)
+      | undefined;
+    expect(onSelectAlgorithm).toBeTypeOf('function');
+
+    onSelectAlgorithm?.('not-a-real-algorithm');
+
+    expect(store.getState().solver.selectedAlgorithmId).toBe(initialAlgorithmId);
   });
 
   it('retries worker health from the panel callback', () => {
@@ -337,6 +393,7 @@ describe('PlayPage', () => {
     renderPage(store);
 
     expect(testState.sidePanelProps?.levelId).toBe(importedBuiltinB.id);
+    expect(testState.sidePanelProps?.showLevelNavigation).toBe(true);
     expect(testState.sidePanelProps?.canGoToPreviousLevel).toBe(false);
 
     const onNextLevel = testState.sidePanelProps?.onNextLevel as (() => void) | undefined;
@@ -355,6 +412,37 @@ describe('PlayPage', () => {
     onPreviousLevel?.();
     expect(store.getState().game.activeLevelRef).toBe(importedEntries[0].ref);
     expect(store.getState().game.levelId).toBe(importedBuiltinB.id);
+  });
+
+  it('hides level-sequence navigation for one-off session handoffs and keeps next-level a no-op', () => {
+    const sessionEntry = upsertSessionPlayableEntry({
+      level: {
+        id: 'single-session-level',
+        name: 'Single Session Level',
+        rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+      },
+    });
+    const store = createAppStore();
+
+    store.dispatch(
+      handleLevelChange(parseLevel(sessionEntry.level), {
+        levelRef: sessionEntry.ref,
+        levelId: sessionEntry.level.id,
+        exactLevelKey: createPlayableExactLevelKey(sessionEntry.level),
+      }),
+    );
+    renderPage(store);
+
+    expect(testState.sidePanelProps?.showLevelNavigation).toBe(false);
+    expect(testState.sidePanelProps?.canGoToPreviousLevel).toBe(false);
+
+    const onNextLevel = testState.sidePanelProps?.onNextLevel as (() => void) | undefined;
+    expect(onNextLevel).toBeTypeOf('function');
+
+    onNextLevel?.();
+
+    expect(store.getState().game.activeLevelRef).toBe(sessionEntry.ref);
+    expect(store.getState().game.levelId).toBe(sessionEntry.level.id);
   });
 
   it('advances to the next level and resets game stats from side-panel callback', () => {
@@ -400,6 +488,21 @@ describe('PlayPage', () => {
     onPreviousLevel?.();
 
     expect(store.getState().game.levelId).toBe(firstLevelId);
+    expect(store.getState().game.stats.moves).toBe(0);
+    expect(store.getState().game.stats.pushes).toBe(0);
+  });
+
+  it('keeps the current level when previous-level navigation is requested from the first built-in level', () => {
+    const store = createAppStore();
+    const initialLevelId = store.getState().game.levelId;
+    renderPage(store);
+
+    const onPreviousLevel = testState.sidePanelProps?.onPreviousLevel as (() => void) | undefined;
+    expect(onPreviousLevel).toBeTypeOf('function');
+
+    onPreviousLevel?.();
+
+    expect(store.getState().game.levelId).toBe(initialLevelId);
     expect(store.getState().game.stats.moves).toBe(0);
     expect(store.getState().game.stats.pushes).toBe(0);
   });

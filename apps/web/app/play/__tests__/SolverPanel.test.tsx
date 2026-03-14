@@ -50,8 +50,8 @@ describe('SolverPanel', () => {
 
     expect(html).toContain('value="bfsPush"');
     expect(html).toContain('BFS Push');
-    expect(html).toContain('A* Push');
-    expect(html).toContain('IDA* Push');
+    expect(html).toContain('A-Star Push');
+    expect(html).toContain('IDA-Star Push');
     expect(html).toContain('Greedy Push');
     expect(html).toContain('Tunnel Macro Push');
     expect(html).toContain('PI-Corral Push');
@@ -115,8 +115,7 @@ describe('SolverPanel', () => {
       recommendation: null,
     });
 
-    // bfsPush is the FALLBACK_ALGORITHM_ID and should be selected
-    expect(html).toContain('value="bfsPush" selected=""');
+    expect(html).toContain('value="greedyPush" selected=""');
     expect(html).toContain(
       'Pick an algorithm when you want to compare your playthrough with a worker solve.',
     );
@@ -179,7 +178,7 @@ describe('SolverPanel', () => {
     );
     store.dispose();
 
-    expect(html).toContain('Time Budget (ms)');
+    expect(html).toContain('Time Budget (MS)');
     expect(html).toContain('Node Budget');
     expect((html.match(/min="1"/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });
@@ -187,9 +186,7 @@ describe('SolverPanel', () => {
   it('renders a compact mobile solver surface that only exposes replay speed after a solution exists', () => {
     const idleHtml = renderPanel(baseProps);
     expect(idleHtml).toContain('aria-label="Mobile solver controls"');
-    expect(idleHtml).toContain(
-      'Play first. Run a worker solve when you want a hint, a replay, or an algorithm comparison.',
-    );
+    expect(idleHtml).toContain('Play first or let the game play for you... usually.');
     expect(idleHtml).toContain('grid grid-cols-2 gap-2');
     expect(idleHtml).not.toContain('aria-label="Mobile replay speed"');
 
@@ -212,9 +209,7 @@ describe('SolverPanel', () => {
       },
     });
 
-    expect(solvedHtml).toContain(
-      'Play first. Run a worker solve when you want a hint, a replay, or an algorithm comparison.',
-    );
+    expect(solvedHtml).toContain('Play first or let the game play for you... usually.');
     expect(solvedHtml).toContain('aria-label="Mobile replay speed"');
     expect(solvedHtml).toContain('min-h-[42px] w-full px-4 py-2 text-sm');
   });

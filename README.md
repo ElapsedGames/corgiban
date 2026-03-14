@@ -14,8 +14,15 @@ For licensing, see [LICENSE](LICENSE).
 
 ## Screens
 
-![Play route on a mobile viewport](docs/media/play-mobile.png)
-_`/play` mobile - board-first gameplay with solver assistance as a secondary workflow._
+<table>
+  <tr>
+    <td><img src="docs/media/play-mobile.png" alt="Play route, dark mode" width="300"></td>
+    <td><img src="docs/media/play-mobile-light.png" alt="Play route, light mode" width="300"></td>
+  </tr>
+  <tr>
+    <td colspan="2"><em><code>/play</code> mobile - board-first gameplay with solver assistance, in dark and light themes.</em></td>
+  </tr>
+</table>
 
 ![Play route on a desktop viewport](docs/media/play-desktop.png)
 _`/play` desktop - side panel with controls, sequence input, and solver algorithm selection._

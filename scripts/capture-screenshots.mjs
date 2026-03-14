@@ -1,4 +1,4 @@
-// Capture dark-mode screenshots for README using Playwright
+// Capture screenshots for README using Playwright
 import { chromium } from '@playwright/test';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -11,7 +11,7 @@ const baseURL = `http://localhost:${port}`;
 async function main() {
   const browser = await chromium.launch({ headless: true });
 
-  // --- 1. Play mobile (375x812, iPhone-ish) ---
+  // --- 1a. Play mobile dark (375x812, iPhone-ish) ---
   {
     const ctx = await browser.newContext({
       colorScheme: 'dark',
@@ -20,7 +20,6 @@ async function main() {
     });
     const page = await ctx.newPage();
     await page.goto(`${baseURL}/play`, { waitUntil: 'networkidle' });
-    // Set dark theme via localStorage and reload
     await page.evaluate(() => {
       localStorage.setItem('corgiban-theme', 'dark');
     });
@@ -31,6 +30,28 @@ async function main() {
       fullPage: true,
     });
     console.log('[ok] play-mobile.png');
+    await ctx.close();
+  }
+
+  // --- 1b. Play mobile light (375x812, iPhone-ish) ---
+  {
+    const ctx = await browser.newContext({
+      colorScheme: 'light',
+      viewport: { width: 375, height: 812 },
+      deviceScaleFactor: 2,
+    });
+    const page = await ctx.newPage();
+    await page.goto(`${baseURL}/play`, { waitUntil: 'networkidle' });
+    await page.evaluate(() => {
+      localStorage.setItem('corgiban-theme', 'light');
+    });
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(1000);
+    await page.screenshot({
+      path: path.join(outputDir, 'play-mobile-light.png'),
+      fullPage: true,
+    });
+    console.log('[ok] play-mobile-light.png');
     await ctx.close();
   }
 

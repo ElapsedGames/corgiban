@@ -19,6 +19,16 @@ export type ReplayControllerOptions = {
 
 const DEFAULT_STEP_MS = 120;
 
+function cloneGameState(state: GameState): GameState {
+  return {
+    level: state.level,
+    playerIndex: state.playerIndex,
+    boxes: new Uint32Array(state.boxes),
+    history: [...state.history],
+    stats: { ...state.stats },
+  };
+}
+
 export class ReplayController {
   private readonly level: LevelRuntime;
   private readonly dispatch: Dispatch;
@@ -46,7 +56,7 @@ export class ReplayController {
     this.currentState = createGame(this.level);
   }
 
-  setMoves(moves: Direction[]): void {
+  private resetReplay(baseState: GameState, moves: Direction[]): void {
     if (this.rafId !== null) {
       this.caf(this.rafId);
       this.rafId = null;
@@ -55,15 +65,26 @@ export class ReplayController {
     this.replayIndex = 0;
     this.lastTimestamp = null;
     this.accumulatedMs = 0;
-    this.currentState = createGame(this.level);
+    this.currentState = cloneGameState(baseState);
     this.dispatch(setReplayTotalSteps(this.replayMoves.length));
     this.dispatch(setReplayIndex(0));
     this.dispatch(setReplayState('idle'));
     this.onStateChange?.(this.currentState);
   }
 
+  setMoves(moves: Direction[]): void {
+    this.resetReplay(createGame(this.level), moves);
+  }
+
   loadSolution(moves: Direction[], autoplay = false): void {
     this.setMoves(moves);
+    if (autoplay) {
+      this.start();
+    }
+  }
+
+  loadMovesFromState(baseState: GameState, moves: Direction[], autoplay = false): void {
+    this.resetReplay(baseState, moves);
     if (autoplay) {
       this.start();
     }

@@ -11,10 +11,13 @@ import {
   clearSessionPlayableEntries,
   upsertSessionPlayableEntry,
 } from '../../levels/temporaryLevelCatalog';
+import { createPlayableExactLevelKey } from '../../levels/playableIdentity';
+import { PLAY_PROGRESS_STORAGE_KEY } from '../usePlayProgress';
 
 const effectState = vi.hoisted(() => ({
   controllerInstances: [] as Array<{
     loadSolution: ReturnType<typeof vi.fn>;
+    loadMovesFromState: ReturnType<typeof vi.fn>;
     pause: ReturnType<typeof vi.fn>;
     start: ReturnType<typeof vi.fn>;
     stepBack: ReturnType<typeof vi.fn>;
@@ -40,8 +43,8 @@ const testLevels = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@corgiban/levels', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@corgiban/levels')>();
+vi.mock('@corgiban/levels', async (importOriginal: () => Promise<unknown>) => {
+  const actual = (await importOriginal()) as typeof import('@corgiban/levels');
   return {
     ...actual,
     builtinLevels: [testLevels.tinyLevel, testLevels.secondLevel],
@@ -77,6 +80,10 @@ vi.mock('../SolverPanel', () => ({
   },
 }));
 
+vi.mock('../../levels/RequestedEntryUnavailable', () => ({
+  RequestedEntryUnavailablePage: () => <div data-testid="requested-entry-unavailable" />,
+}));
+
 vi.mock('../useKeyboardControls', () => ({
   useKeyboardControls: () => undefined,
 }));
@@ -84,6 +91,7 @@ vi.mock('../useKeyboardControls', () => ({
 vi.mock('../../replay/replayController.client', () => ({
   ReplayController: class {
     loadSolution = vi.fn();
+    loadMovesFromState = vi.fn();
     pause = vi.fn();
     start = vi.fn();
     stepBack = vi.fn();
@@ -97,7 +105,7 @@ vi.mock('../../replay/replayController.client', () => ({
   },
 }));
 
-import { move } from '../../state/gameSlice';
+import { move, nextLevel } from '../../state/gameSlice';
 import { createAppStore } from '../../state/store';
 import {
   setReplayState,
@@ -129,8 +137,7 @@ function createRect({ top, height }: { top: number; height: number }): DOMRect {
   } as DOMRect;
 }
 
-async function renderPage(props: Parameters<typeof PlayPage>[0] = {}) {
-  const store = createAppStore();
+async function renderPage(props: Parameters<typeof PlayPage>[0] = {}, store = createAppStore()) {
   const container = document.createElement('div');
   document.body.appendChild(container);
 
@@ -184,6 +191,8 @@ function getCanvasPlayerIndex(container: HTMLElement) {
 describe('PlayPage effects', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    window.localStorage.clear();
+    window.history.replaceState({}, '', '/play');
     effectState.controllerInstances.length = 0;
     effectState.controllerOptions.length = 0;
     effectState.gameCanvasProps = null;
@@ -257,7 +266,39 @@ describe('PlayPage effects', () => {
     await flushEffects();
 
     expect(container.textContent).toContain('Puzzle solved!');
-    expect(container.querySelectorAll('button')).toHaveLength(0);
+    expect(container.textContent).toContain('Copy Move List');
+    expect(container.textContent).not.toContain('Next Level');
+    expect(container.querySelectorAll('button')).toHaveLength(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('hides the mobile copy-move-list action again after advancing to the next level', async () => {
+    const { container, root, store } = await renderPage();
+
+    expect(container.textContent).not.toContain('Copy Move List');
+
+    await act(async () => {
+      store.dispatch(move({ direction: 'R', changed: true, pushed: true }));
+    });
+
+    await flushEffects();
+
+    expect(container.textContent).toContain('Copy Move List');
+
+    const onNextLevel = effectState.sidePanelProps?.onNextLevel as (() => void) | undefined;
+    expect(onNextLevel).toBeTypeOf('function');
+
+    await act(async () => {
+      onNextLevel?.();
+    });
+
+    await flushEffects();
+
+    expect(store.getState().game.levelId).toBe(testLevels.secondLevel.id);
+    expect(container.textContent).not.toContain('Copy Move List');
 
     await act(async () => {
       root.unmount();
@@ -338,7 +379,11 @@ describe('PlayPage effects', () => {
 
     expect(effectState.controllerInstances).toHaveLength(1);
     expect(scrollTo).toHaveBeenCalledWith({ top: 488, behavior: 'auto' });
-    expect(effectState.controllerInstances[0]?.loadSolution).toHaveBeenCalledWith(['R'], true);
+    expect(effectState.controllerInstances[0]?.loadMovesFromState).toHaveBeenCalledWith(
+      expect.any(Object),
+      ['R'],
+      true,
+    );
 
     await act(async () => {
       root.unmount();
@@ -384,7 +429,11 @@ describe('PlayPage effects', () => {
 
     expect(effectState.controllerInstances).toHaveLength(1);
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(effectState.controllerInstances[0]?.loadSolution).toHaveBeenCalledWith(['R'], true);
+    expect(effectState.controllerInstances[0]?.loadMovesFromState).toHaveBeenCalledWith(
+      expect.any(Object),
+      ['R'],
+      true,
+    );
 
     await act(async () => {
       root.unmount();
@@ -585,6 +634,369 @@ describe('PlayPage effects', () => {
     });
   });
 
+  it('restores the last played level from browser-local progress when no handoff level is requested', async () => {
+    window.localStorage.setItem(
+      PLAY_PROGRESS_STORAGE_KEY,
+      JSON.stringify({
+        version: 2,
+        lastPlayedLevel: {
+          levelRef: `builtin:${testLevels.secondLevel.id}`,
+          levelId: testLevels.secondLevel.id,
+        },
+        completedLevelIds: [],
+        updatedAtIso: '2026-03-13T00:00:00.000Z',
+      }),
+    );
+
+    const { root, store } = await renderPage();
+
+    await flushEffects();
+    await flushEffects();
+
+    expect(store.getState().game.levelId).toBe(testLevels.secondLevel.id);
+    expect(effectState.sidePanelProps?.levelId).toBe(testLevels.secondLevel.id);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('skips browser-local restoration when the saved level is no longer playable', async () => {
+    window.localStorage.setItem(
+      PLAY_PROGRESS_STORAGE_KEY,
+      JSON.stringify({
+        version: 2,
+        lastPlayedLevel: {
+          levelRef: 'builtin:missing-level',
+          levelId: 'missing-level',
+        },
+        completedLevelIds: [],
+        updatedAtIso: '2026-03-13T00:00:00.000Z',
+      }),
+    );
+
+    const { root, store } = await renderPage();
+
+    await flushEffects();
+
+    expect(store.getState().game.levelId).toBe(testLevels.tinyLevel.id);
+    expect(effectState.sidePanelProps?.levelId).toBe(testLevels.tinyLevel.id);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('skips browser-local restoration when the saved last-played entry is session-scoped', async () => {
+    const sessionEntry = upsertSessionPlayableEntry({
+      level: {
+        id: 'restored-session-level',
+        name: 'Restored Session Level',
+        rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+      },
+    });
+    window.localStorage.setItem(
+      PLAY_PROGRESS_STORAGE_KEY,
+      JSON.stringify({
+        version: 2,
+        lastPlayedLevel: {
+          levelRef: sessionEntry.ref,
+          levelId: sessionEntry.level.id,
+        },
+        completedLevelIds: [],
+        updatedAtIso: '2026-03-13T00:00:00.000Z',
+      }),
+    );
+
+    const { root, store } = await renderPage();
+
+    await flushEffects();
+
+    expect(store.getState().game.levelId).toBe(testLevels.tinyLevel.id);
+    expect(effectState.sidePanelProps?.levelId).toBe(testLevels.tinyLevel.id);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('preserves canonical built-in play query params after applying a requested level and algorithm', async () => {
+    window.history.replaceState({}, '', '/play?levelId=test-level-2&algorithmId=astarPush');
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+    const { root } = await renderPage({
+      requestedLevelId: testLevels.secondLevel.id,
+      requestedAlgorithmId: 'astarPush',
+    });
+
+    await flushEffects();
+
+    expect(replaceStateSpy).not.toHaveBeenCalled();
+    expect(window.location.search).toBe('?levelId=test-level-2&algorithmId=astarPush');
+
+    replaceStateSpy.mockRestore();
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('preserves unrelated query params when canonicalizing a built-in exact handoff', async () => {
+    const builtinExactLevelKey = createPlayableExactLevelKey(testLevels.secondLevel);
+    window.history.replaceState(
+      {},
+      '',
+      `/play?source=bench&levelRef=builtin:${testLevels.secondLevel.id}&levelId=${testLevels.secondLevel.id}&exactLevelKey=${encodeURIComponent(builtinExactLevelKey)}&algorithmId=astarPush`,
+    );
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+
+    const { root } = await renderPage({
+      requestedLevelRef: `builtin:${testLevels.secondLevel.id}`,
+      requestedLevelId: testLevels.secondLevel.id,
+      requestedExactLevelKey: builtinExactLevelKey,
+      requestedAlgorithmId: 'astarPush',
+    });
+
+    await flushEffects();
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      `/play?source=bench&levelId=${testLevels.secondLevel.id}&algorithmId=astarPush`,
+    );
+
+    replaceStateSpy.mockRestore();
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('keeps canonical built-in level query params when the requested level already matches the active playable entry', async () => {
+    window.history.replaceState({}, '', `/play?levelId=${testLevels.tinyLevel.id}`);
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+
+    const { root, store } = await renderPage({
+      requestedLevelId: testLevels.tinyLevel.id,
+    });
+
+    await flushEffects();
+
+    expect(store.getState().game.levelId).toBe(testLevels.tinyLevel.id);
+    expect(replaceStateSpy).not.toHaveBeenCalled();
+    expect(window.location.search).toBe(`?levelId=${testLevels.tinyLevel.id}`);
+
+    replaceStateSpy.mockRestore();
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('canonicalizes built-in exact handoff query params back to a levelId plus algorithm link', async () => {
+    const builtinExactLevelKey = createPlayableExactLevelKey(testLevels.secondLevel);
+    window.history.replaceState(
+      {},
+      '',
+      `/play?levelRef=builtin:${testLevels.secondLevel.id}&levelId=${testLevels.secondLevel.id}&exactLevelKey=${encodeURIComponent(builtinExactLevelKey)}&algorithmId=astarPush`,
+    );
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+    const { root } = await renderPage({
+      requestedLevelRef: `builtin:${testLevels.secondLevel.id}`,
+      requestedLevelId: testLevels.secondLevel.id,
+      requestedExactLevelKey: builtinExactLevelKey,
+      requestedAlgorithmId: 'astarPush',
+    });
+
+    await flushEffects();
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      `/play?levelId=${testLevels.secondLevel.id}&algorithmId=astarPush`,
+    );
+
+    replaceStateSpy.mockRestore();
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('clears exact session handoff query params after activation', async () => {
+    const sessionEntry = upsertSessionPlayableEntry({
+      level: {
+        id: 'session-cleanup-level',
+        name: 'Session Cleanup Level',
+        rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+      },
+    });
+    const sessionExactLevelKey = createPlayableExactLevelKey(sessionEntry.level);
+    window.history.replaceState(
+      {},
+      '',
+      `/play?levelRef=${encodeURIComponent(sessionEntry.ref)}&levelId=${sessionEntry.level.id}&exactLevelKey=${encodeURIComponent(sessionExactLevelKey)}&algorithmId=astarPush`,
+    );
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+
+    const { root, store } = await renderPage({
+      requestedLevelRef: sessionEntry.ref,
+      requestedLevelId: sessionEntry.level.id,
+      requestedExactLevelKey: sessionExactLevelKey,
+      requestedAlgorithmId: 'astarPush',
+    });
+
+    await flushEffects();
+
+    expect(store.getState().game.activeLevelRef).toBe(sessionEntry.ref);
+    expect(replaceStateSpy).toHaveBeenCalledWith(window.history.state, '', '/play');
+
+    replaceStateSpy.mockRestore();
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('preserves unrelated query params when clearing an exact session handoff', async () => {
+    const sessionEntry = upsertSessionPlayableEntry({
+      level: {
+        id: 'session-cleanup-level-2',
+        name: 'Session Cleanup Level 2',
+        rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+      },
+    });
+    const sessionExactLevelKey = createPlayableExactLevelKey(sessionEntry.level);
+    window.history.replaceState(
+      {},
+      '',
+      `/play?view=compact&levelRef=${encodeURIComponent(sessionEntry.ref)}&levelId=${sessionEntry.level.id}&exactLevelKey=${encodeURIComponent(sessionExactLevelKey)}&algorithmId=astarPush`,
+    );
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+
+    const { root } = await renderPage({
+      requestedLevelRef: sessionEntry.ref,
+      requestedLevelId: sessionEntry.level.id,
+      requestedExactLevelKey: sessionExactLevelKey,
+      requestedAlgorithmId: 'astarPush',
+    });
+
+    await flushEffects();
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(window.history.state, '', '/play?view=compact');
+
+    replaceStateSpy.mockRestore();
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('persists the active level and completed built-in level ids to browser-local progress', async () => {
+    const { root, store } = await renderPage();
+
+    await flushEffects();
+
+    let persistedProgress = JSON.parse(
+      window.localStorage.getItem(PLAY_PROGRESS_STORAGE_KEY) ?? '{}',
+    );
+    expect(persistedProgress.lastPlayedLevel.levelId).toBe(testLevels.tinyLevel.id);
+    expect(persistedProgress.completedLevelIds).toEqual([]);
+
+    await act(async () => {
+      store.dispatch(move({ direction: 'R', changed: true, pushed: true }));
+    });
+
+    await flushEffects();
+
+    persistedProgress = JSON.parse(window.localStorage.getItem(PLAY_PROGRESS_STORAGE_KEY) ?? '{}');
+    expect(persistedProgress.lastPlayedLevel.levelId).toBe(testLevels.tinyLevel.id);
+    expect(persistedProgress.completedLevelIds).toContain(testLevels.tinyLevel.id);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('does not overwrite saved built-in progress when a session/custom handoff level is opened', async () => {
+    window.localStorage.setItem(
+      PLAY_PROGRESS_STORAGE_KEY,
+      JSON.stringify({
+        version: 2,
+        lastPlayedLevel: {
+          levelRef: `builtin:${testLevels.secondLevel.id}`,
+          levelId: testLevels.secondLevel.id,
+        },
+        completedLevelIds: [testLevels.secondLevel.id],
+        updatedAtIso: '2026-03-13T00:00:00.000Z',
+      }),
+    );
+    const sessionEntry = upsertSessionPlayableEntry({
+      level: {
+        id: 'custom-session-level',
+        name: 'Custom Session Level',
+        rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+      },
+    });
+
+    const { root, store } = await renderPage({
+      requestedLevelRef: sessionEntry.ref,
+      requestedLevelId: sessionEntry.level.id,
+    });
+
+    await flushEffects();
+
+    expect(store.getState().game.activeLevelRef).toBe(sessionEntry.ref);
+    expect(JSON.parse(window.localStorage.getItem(PLAY_PROGRESS_STORAGE_KEY) ?? '{}')).toEqual({
+      version: 2,
+      lastPlayedLevel: {
+        levelRef: `builtin:${testLevels.secondLevel.id}`,
+        levelId: testLevels.secondLevel.id,
+      },
+      completedLevelIds: [testLevels.secondLevel.id],
+      updatedAtIso: '2026-03-13T00:00:00.000Z',
+    });
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('falls back to the saved built-in level after refreshing without handoff params', async () => {
+    window.localStorage.setItem(
+      PLAY_PROGRESS_STORAGE_KEY,
+      JSON.stringify({
+        version: 2,
+        lastPlayedLevel: {
+          levelRef: `builtin:${testLevels.secondLevel.id}`,
+          levelId: testLevels.secondLevel.id,
+        },
+        completedLevelIds: [],
+        updatedAtIso: '2026-03-13T00:00:00.000Z',
+      }),
+    );
+    const sessionEntry = upsertSessionPlayableEntry({
+      level: {
+        id: 'custom-session-level',
+        name: 'Custom Session Level',
+        rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+      },
+    });
+
+    const firstRender = await renderPage({
+      requestedLevelRef: sessionEntry.ref,
+      requestedLevelId: sessionEntry.level.id,
+    });
+    await flushEffects();
+    expect(firstRender.store.getState().game.activeLevelRef).toBe(sessionEntry.ref);
+
+    await act(async () => {
+      firstRender.root.unmount();
+    });
+
+    const refreshedRender = await renderPage();
+    await flushEffects();
+
+    expect(refreshedRender.store.getState().game.levelId).toBe(testLevels.secondLevel.id);
+
+    await act(async () => {
+      refreshedRender.root.unmount();
+    });
+  });
+
   it('applies a requested level id only once so user navigation can diverge from the handoff param', async () => {
     const { root, store } = await renderPage({ requestedLevelId: testLevels.secondLevel.id });
 
@@ -728,6 +1140,35 @@ describe('PlayPage effects', () => {
     });
   });
 
+  it('clears the applied route signature when handoff params are removed so the same handoff can apply again later', async () => {
+    const { root, store, rerender } = await renderPage({ requestedAlgorithmId: 'astarPush' });
+
+    await flushEffects();
+    expect(store.getState().solver.selectedAlgorithmId).toBe('astarPush');
+
+    await rerender({});
+    await flushEffects();
+
+    const onSelectAlgorithm = effectState.solverPanelProps?.onSelectAlgorithm as
+      | ((algorithmId: string) => void)
+      | undefined;
+    expect(onSelectAlgorithm).toBeTypeOf('function');
+
+    await act(async () => {
+      onSelectAlgorithm?.('bfsPush');
+    });
+    expect(store.getState().solver.selectedAlgorithmId).toBe('bfsPush');
+
+    await rerender({ requestedAlgorithmId: 'astarPush' });
+    await flushEffects();
+
+    expect(store.getState().solver.selectedAlgorithmId).toBe('astarPush');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   it('applies a combined route handoff only once so user changes survive same-param rerenders', async () => {
     const { root, store, rerender } = await renderPage({
       requestedLevelId: testLevels.secondLevel.id,
@@ -800,23 +1241,35 @@ describe('PlayPage effects', () => {
     });
   });
 
-  it('ignores requested algorithm ids that are not supported', async () => {
-    const { root, store } = await renderPage({
-      requestedAlgorithmId: 'unknown' as never,
-    });
-    const initialAlgorithmId = store.getState().solver.selectedAlgorithmId;
+  it('defaults Play to Greedy Push when no algorithm handoff is provided', async () => {
+    const { root, store } = await renderPage();
 
     await flushEffects();
 
-    expect(store.getState().solver.selectedAlgorithmId).toBe(initialAlgorithmId);
-    expect(effectState.solverPanelProps?.selectedAlgorithmId).toBe(initialAlgorithmId);
+    expect(store.getState().solver.selectedAlgorithmId).toBe('greedyPush');
+    expect(effectState.solverPanelProps?.selectedAlgorithmId).toBe('greedyPush');
 
     await act(async () => {
       root.unmount();
     });
   });
 
-  it('falls back to the recommended algorithm when a requested algorithm is invalid during level activation', async () => {
+  it('defaults to Greedy Push when a requested algorithm id is not supported', async () => {
+    const { root, store } = await renderPage({
+      requestedAlgorithmId: 'unknown' as never,
+    });
+
+    await flushEffects();
+
+    expect(store.getState().solver.selectedAlgorithmId).toBe('greedyPush');
+    expect(effectState.solverPanelProps?.selectedAlgorithmId).toBe('greedyPush');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('keeps the recommendation but defaults selection to Greedy Push when a requested algorithm is invalid during level activation', async () => {
     const expectedRecommendation = chooseAlgorithm(
       analyzeLevel(parseLevel(testLevels.secondLevel)),
     );
@@ -829,7 +1282,47 @@ describe('PlayPage effects', () => {
 
     expect(store.getState().game.levelId).toBe(testLevels.secondLevel.id);
     expect(store.getState().solver.recommendation?.algorithmId).toBe(expectedRecommendation);
-    expect(store.getState().solver.selectedAlgorithmId).toBe(expectedRecommendation);
+    expect(store.getState().solver.selectedAlgorithmId).toBe('greedyPush');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('clears replay state without creating a controller when the active level becomes unavailable', async () => {
+    const store = createAppStore();
+    store.dispatch(setReplayState('playing'));
+    store.dispatch(move({ direction: 'L', changed: true, pushed: false }));
+    store.dispatch(nextLevel({ levelId: 'missing-level' }));
+
+    const { root } = await renderPage({}, store);
+
+    await flushEffects();
+
+    expect(effectState.controllerInstances).toHaveLength(0);
+    expect(store.getState().solver.replayState).toBe('idle');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('keeps unavailable active levels closed when only an algorithm handoff param is present', async () => {
+    const store = createAppStore();
+    store.dispatch(nextLevel({ levelId: 'missing-level' }));
+
+    const { root } = await renderPage(
+      {
+        requestedAlgorithmId: 'astarPush',
+      },
+      store,
+    );
+
+    await flushEffects();
+
+    expect(effectState.controllerInstances).toHaveLength(0);
+    expect(store.getState().game.levelId).toBe('missing-level');
+    expect(store.getState().solver.selectedAlgorithmId).not.toBe('astarPush');
 
     await act(async () => {
       root.unmount();

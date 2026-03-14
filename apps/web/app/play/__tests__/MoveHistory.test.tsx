@@ -2,7 +2,7 @@
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { GameMove } from '../../state/gameSlice';
 import { MoveHistory } from '../MoveHistory';
@@ -12,6 +12,9 @@ Object.assign(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: bool
 });
 
 const mountedRoots: Root[] = [];
+const clipboardState = vi.hoisted(() => ({
+  writeText: vi.fn(),
+}));
 
 function createMoves(
   entries: Array<[direction: GameMove['direction'], pushed: boolean]>,
@@ -20,6 +23,10 @@ function createMoves(
 }
 
 async function renderMoveHistory(moves: GameMove[]) {
+  return renderMoveHistoryWithProps({ moves });
+}
+
+async function renderMoveHistoryWithProps(props: Parameters<typeof MoveHistory>[0]) {
   const container = document.createElement('div');
   document.body.appendChild(container);
 
@@ -27,30 +34,22 @@ async function renderMoveHistory(moves: GameMove[]) {
   mountedRoots.push(root);
 
   await act(async () => {
-    root.render(<MoveHistory moves={moves} />);
+    root.render(<MoveHistory {...props} />);
   });
 
   return container;
 }
 
-function getListItems(container: HTMLElement): HTMLLIElement[] {
-  return Array.from(container.querySelectorAll('ol[aria-label="Move history"] li'));
-}
-
-function getRenderedMoves(container: HTMLElement) {
-  return getListItems(container).map((item) => {
-    const fields = item.querySelectorAll('div');
-    return {
-      index: fields[0]?.textContent ?? '',
-      direction: fields[1]?.textContent ?? '',
-      badge: fields[2]?.textContent ?? '',
-    };
-  });
-}
-
 describe('MoveHistory', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    clipboardState.writeText.mockReset();
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: clipboardState.writeText,
+      },
+    });
   });
 
   afterEach(async () => {
@@ -62,128 +61,76 @@ describe('MoveHistory', () => {
     }
   });
 
-  it('renders the empty-state hint when no moves have been made', async () => {
-    const container = await renderMoveHistory([]);
-
-    expect(container.textContent).toContain(
-      'No moves yet. Use the keyboard or sequence input to start.',
-    );
-    expect(container.querySelector('ol[aria-label="Move history"]')).toBeNull();
-  });
-
-  it('renders an accessible ordered list once moves exist', async () => {
-    const container = await renderMoveHistory(createMoves([['U', false]]));
-
-    expect(container.querySelector('ol[aria-label="Move history"]')).not.toBeNull();
-    expect(container.textContent).toContain('Move history');
-  });
-
-  it('announces singular move counts in the live region', async () => {
-    const container = await renderMoveHistory(createMoves([['U', false]]));
-    const status = container.querySelector('[role="status"]');
-
-    expect(status?.textContent).toBe('1 move made');
-    expect(container.textContent).toContain('1 total');
-  });
-
-  it('announces plural move counts in the live region', async () => {
+  it('renders a compact history summary with the total count', async () => {
     const container = await renderMoveHistory(
       createMoves([
         ['U', false],
         ['R', true],
       ]),
     );
+
+    expect(container.textContent).toContain('Move History');
+    expect(container.textContent).toContain('2 total');
+    expect(container.textContent).toContain('Copy Move List');
+    expect(container.querySelector('ol[aria-label="Move history"]')).toBeNull();
+  });
+
+  it('disables copying when no moves have been made', async () => {
+    const container = await renderMoveHistory([]);
+    const button = container.querySelector('button');
+
+    expect(button).toBeInstanceOf(HTMLButtonElement);
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('copies the move directions as a compact move string', async () => {
+    clipboardState.writeText.mockResolvedValue(undefined);
+    const container = await renderMoveHistory(
+      createMoves([
+        ['U', false],
+        ['R', true],
+        ['L', false],
+      ]),
+    );
+    const button = container.querySelector('button');
+
+    expect(button).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      (button as HTMLButtonElement).click();
+    });
+
+    expect(clipboardState.writeText).toHaveBeenCalledWith('URL');
+  });
+
+  it('announces a copy failure when the clipboard write rejects', async () => {
+    clipboardState.writeText.mockRejectedValue(new Error('clipboard failed'));
+    const container = await renderMoveHistory(createMoves([['D', false]]));
+    const button = container.querySelector('button');
     const status = container.querySelector('[role="status"]');
 
-    expect(status?.textContent).toBe('2 moves made');
-    expect(container.textContent).toContain('2 total');
+    expect(button).toBeInstanceOf(HTMLButtonElement);
+    expect(status).toBeInstanceOf(HTMLElement);
+
+    await act(async () => {
+      (button as HTMLButtonElement).click();
+    });
+
+    expect(status?.textContent).toBe('Move list could not be copied.');
   });
 
-  it('shows walk badges for non-push moves', async () => {
-    const container = await renderMoveHistory(createMoves([['L', false]]));
-    const walkBadge = Array.from(container.querySelectorAll('li div')).find(
-      (element) => element.textContent === 'walk',
-    );
-
-    expect(walkBadge?.className).toContain('bg-border/60');
-    expect(walkBadge?.className).toContain('text-muted');
-  });
-
-  it('shows push badges for pushed moves', async () => {
-    const container = await renderMoveHistory(createMoves([['R', true]]));
-    const pushBadge = Array.from(container.querySelectorAll('li div')).find(
-      (element) => element.textContent === 'push',
-    );
-
-    expect(pushBadge?.className).toContain('bg-warning-surface');
-    expect(pushBadge?.className).toContain('text-warning-text');
-  });
-
-  it('renders the absolute move indices for visible entries', async () => {
-    const container = await renderMoveHistory(
-      createMoves([
+  it('renders copy-only mode without the desktop history summary wrapper', async () => {
+    const container = await renderMoveHistoryWithProps({
+      moves: createMoves([
         ['U', false],
-        ['D', false],
-        ['L', false],
+        ['R', true],
       ]),
-    );
+      mode: 'copyOnly',
+    });
 
-    const renderedMoves = getRenderedMoves(container);
-    expect(renderedMoves[0]?.index).toBe('#1');
-    expect(renderedMoves[1]?.index).toBe('#2');
-    expect(renderedMoves[2]?.index).toBe('#3');
-  });
-
-  it('renders at most the most recent twelve moves', async () => {
-    const moves = createMoves(
-      Array.from({ length: 15 }, (_, index): [GameMove['direction'], boolean] => [
-        (['U', 'D', 'L', 'R'] as const)[index % 4],
-        false,
-      ]),
-    );
-    const container = await renderMoveHistory(moves);
-
-    expect(getListItems(container)).toHaveLength(12);
-  });
-
-  it('drops the oldest moves once history exceeds the visible cap', async () => {
-    const moves = createMoves(
-      Array.from({ length: 13 }, (_, index): [GameMove['direction'], boolean] => [
-        (['U', 'D', 'L', 'R'] as const)[index % 4],
-        false,
-      ]),
-    );
-    const container = await renderMoveHistory(moves);
-
-    const renderedMoves = getRenderedMoves(container);
-    expect(renderedMoves.some((move) => move.index === '#1')).toBe(false);
-    expect(renderedMoves[0]?.index).toBe('#2');
-    expect(renderedMoves.at(-1)?.index).toBe('#13');
-  });
-
-  it('keeps the most recent directions in display order when truncating long histories', async () => {
-    const container = await renderMoveHistory(
-      createMoves([
-        ['U', false],
-        ['D', false],
-        ['L', false],
-        ['R', false],
-        ['U', false],
-        ['D', false],
-        ['L', false],
-        ['R', false],
-        ['U', false],
-        ['D', false],
-        ['L', false],
-        ['R', false],
-        ['U', true],
-      ]),
-    );
-
-    const renderedMoves = getRenderedMoves(container);
-    expect(renderedMoves[0]?.index).toBe('#2');
-    expect(renderedMoves[0]?.direction).toBe('D');
-    expect(renderedMoves.at(-1)?.index).toBe('#13');
-    expect(renderedMoves.at(-1)?.direction).toBe('U');
+    expect(container.textContent).toContain('Copy Move List');
+    expect(container.textContent).not.toContain('Move History');
+    expect(container.textContent).not.toContain('2 total');
+    expect(container.querySelector('div.rounded-app-md.border.border-border.p-3')).toBeNull();
   });
 });

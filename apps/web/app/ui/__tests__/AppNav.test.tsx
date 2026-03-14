@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const activeHref = '/play';
+let activeHref = '/play';
 
 vi.mock('@remix-run/react', () => ({
   NavLink: ({
@@ -37,6 +37,9 @@ vi.mock('@remix-run/react', () => ({
       </a>
     );
   },
+  useLocation: () => ({
+    pathname: activeHref,
+  }),
 }));
 
 import { AppNav } from '../AppNav';
@@ -67,8 +70,15 @@ function getThemeToggleButton(container: HTMLElement) {
   return button as HTMLButtonElement;
 }
 
+function getBoardModeToggleButton(container: HTMLElement) {
+  const button = container.querySelector('button[aria-label="Toggle board mode"]');
+  expect(button).toBeInstanceOf(HTMLButtonElement);
+  return button as HTMLButtonElement;
+}
+
 describe('AppNav', () => {
   afterEach(() => {
+    activeHref = '/play';
     while (mountedRoots.length > 0) {
       const root = mountedRoots.pop();
       act(() => {
@@ -81,7 +91,14 @@ describe('AppNav', () => {
 
   it('renders the expected route links', () => {
     const html = renderToStaticMarkup(
-      <AppNav isThemeReady onToggleTheme={() => undefined} theme="light" />,
+      <AppNav
+        boardSkinId="classic"
+        isBoardSkinReady
+        isThemeReady
+        onToggleBoardSkin={() => undefined}
+        onToggleTheme={() => undefined}
+        theme="light"
+      />,
     );
 
     expect(html).toContain('href="/play"');
@@ -89,25 +106,48 @@ describe('AppNav', () => {
     expect(html).toContain('href="/bench"');
     expect(html).toContain('href="/lab"');
     expect(html).not.toContain('href="/dev/ui-kit"');
+    expect(html).toContain('Corg');
     expect(html).toContain('Light');
   });
 
   it('marks the active route with the active nav class and aria-current', () => {
     const html = renderToStaticMarkup(
-      <AppNav isThemeReady onToggleTheme={() => undefined} theme="dark" />,
+      <AppNav
+        boardSkinId="legacy"
+        isBoardSkinReady
+        isThemeReady
+        onToggleBoardSkin={() => undefined}
+        onToggleTheme={() => undefined}
+        theme="dark"
+      />,
     );
 
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('app-nav__link app-nav__link--active');
+    expect(html).toContain('Lame');
     expect(html).toContain('Dark');
   });
 
   it('shows the tri-color corgi in dark mode and the standard corgi in light mode', () => {
     const lightHtml = renderToStaticMarkup(
-      <AppNav isThemeReady onToggleTheme={() => undefined} theme="light" />,
+      <AppNav
+        boardSkinId="classic"
+        isBoardSkinReady
+        isThemeReady
+        onToggleBoardSkin={() => undefined}
+        onToggleTheme={() => undefined}
+        theme="light"
+      />,
     );
     const darkHtml = renderToStaticMarkup(
-      <AppNav isThemeReady onToggleTheme={() => undefined} theme="dark" />,
+      <AppNav
+        boardSkinId="classic"
+        isBoardSkinReady
+        isThemeReady
+        onToggleBoardSkin={() => undefined}
+        onToggleTheme={() => undefined}
+        theme="dark"
+      />,
     );
 
     expect(lightHtml).toContain('src="/favicon.svg"');
@@ -116,17 +156,73 @@ describe('AppNav', () => {
 
   it('shows a syncing state until the theme is ready', () => {
     const html = renderToStaticMarkup(
-      <AppNav isThemeReady={false} onToggleTheme={() => undefined} theme="light" />,
+      <AppNav
+        boardSkinId="classic"
+        isBoardSkinReady={false}
+        isThemeReady={false}
+        onToggleBoardSkin={() => undefined}
+        onToggleTheme={() => undefined}
+        theme="light"
+      />,
     );
 
-    expect(html).toContain('disabled=""');
+    expect(html.match(/aria-disabled="true"/g)).toHaveLength(2);
     expect(html).toContain('Syncing');
+  });
+
+  it('does not toggle the board mode while syncing', () => {
+    const onToggleBoardSkin = vi.fn();
+    const { container } = renderIntoDocument(
+      <AppNav
+        boardSkinId="classic"
+        isBoardSkinReady={false}
+        isThemeReady
+        onToggleBoardSkin={onToggleBoardSkin}
+        onToggleTheme={() => undefined}
+        theme="light"
+      />,
+    );
+    const button = getBoardModeToggleButton(container);
+
+    act(() => {
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    });
+
+    expect(onToggleBoardSkin).not.toHaveBeenCalled();
+  });
+
+  it('does not toggle the theme while syncing', () => {
+    const onToggleTheme = vi.fn();
+    const { container } = renderIntoDocument(
+      <AppNav
+        boardSkinId="classic"
+        isBoardSkinReady
+        isThemeReady={false}
+        onToggleBoardSkin={() => undefined}
+        onToggleTheme={onToggleTheme}
+        theme="light"
+      />,
+    );
+    const button = getThemeToggleButton(container);
+
+    act(() => {
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    });
+
+    expect(onToggleTheme).not.toHaveBeenCalled();
   });
 
   it('toggles the theme immediately after a mouse click', () => {
     const onToggleTheme = vi.fn();
     const { container } = renderIntoDocument(
-      <AppNav isThemeReady onToggleTheme={onToggleTheme} theme="light" />,
+      <AppNav
+        boardSkinId="classic"
+        isBoardSkinReady
+        isThemeReady
+        onToggleBoardSkin={() => undefined}
+        onToggleTheme={onToggleTheme}
+        theme="light"
+      />,
     );
     const button = getThemeToggleButton(container);
 
@@ -137,10 +233,38 @@ describe('AppNav', () => {
     expect(onToggleTheme).toHaveBeenCalledOnce();
   });
 
+  it('toggles the board mode immediately after a mouse click', () => {
+    const onToggleBoardSkin = vi.fn();
+    const { container } = renderIntoDocument(
+      <AppNav
+        boardSkinId="classic"
+        isBoardSkinReady
+        isThemeReady
+        onToggleBoardSkin={onToggleBoardSkin}
+        onToggleTheme={() => undefined}
+        theme="light"
+      />,
+    );
+    const button = getBoardModeToggleButton(container);
+
+    act(() => {
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    });
+
+    expect(onToggleBoardSkin).toHaveBeenCalledOnce();
+  });
+
   it('treats a double click as two normal theme toggles with no hidden behavior', () => {
     const onToggleTheme = vi.fn();
     const { container } = renderIntoDocument(
-      <AppNav isThemeReady onToggleTheme={onToggleTheme} theme="light" />,
+      <AppNav
+        boardSkinId="classic"
+        isBoardSkinReady
+        isThemeReady
+        onToggleBoardSkin={() => undefined}
+        onToggleTheme={onToggleTheme}
+        theme="light"
+      />,
     );
     const button = getThemeToggleButton(container);
 
@@ -151,5 +275,42 @@ describe('AppNav', () => {
     });
 
     expect(onToggleTheme).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows the board mode toggle on the Lab route too', () => {
+    activeHref = '/lab';
+
+    const html = renderToStaticMarkup(
+      <AppNav
+        boardSkinId="classic"
+        isBoardSkinReady
+        isThemeReady
+        onToggleBoardSkin={() => undefined}
+        onToggleTheme={() => undefined}
+        theme="light"
+      />,
+    );
+
+    expect(html).toContain('Toggle board mode');
+    expect(html).toContain('<span class="app-nav__toggle-value">Corg</span>');
+  });
+
+  it('hides the board mode toggle outside the Play and Lab routes', () => {
+    activeHref = '/bench';
+
+    const html = renderToStaticMarkup(
+      <AppNav
+        boardSkinId="classic"
+        isBoardSkinReady
+        isThemeReady
+        onToggleBoardSkin={() => undefined}
+        onToggleTheme={() => undefined}
+        theme="light"
+      />,
+    );
+
+    expect(html).not.toContain('Toggle board mode');
+    expect(html).not.toContain('<span class="app-nav__toggle-value">Corg</span>');
+    expect(html).toContain('Toggle color theme');
   });
 });

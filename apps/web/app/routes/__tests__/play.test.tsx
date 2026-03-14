@@ -227,6 +227,38 @@ describe('PlayRoute', () => {
     expect(html).toContain('Open Built-In');
     expect(testState.playPageProps).toBeNull();
   });
+
+  it('omits builtin fallback actions when only an exact level key is unavailable', () => {
+    mocks.useSearchParams.mockReturnValue([
+      new URLSearchParams('exactLevelKey=exact-key-1'),
+      vi.fn(),
+    ]);
+    mocks.useRequestedPlayableEntryResolution.mockReturnValue({
+      status: 'missingExactKey',
+      requestedExactLevelKey: 'exact-key-1',
+    });
+
+    const html = renderToStaticMarkup(<PlayRoute />);
+
+    expect(html).toContain('Requested level version is unavailable');
+    expect(html).not.toContain('Open Built-In');
+    expect(html).toContain('exact-key-1');
+  });
+
+  it('renders an unavailable shell when a legacy level id is missing from the catalog', () => {
+    mocks.useSearchParams.mockReturnValue([new URLSearchParams('levelId=missing-level'), vi.fn()]);
+    mocks.useRequestedPlayableEntryResolution.mockReturnValue({
+      status: 'missingLevelId',
+      requestedLevelId: 'missing-level',
+    });
+
+    const html = renderToStaticMarkup(<PlayRoute />);
+
+    expect(html).toContain('Requested level is unavailable');
+    expect(html).toContain('Open Play');
+    expect(html).toContain('missing-level');
+    expect(testState.playPageProps).toBeNull();
+  });
 });
 
 describe('PlayRoute ErrorBoundary', () => {

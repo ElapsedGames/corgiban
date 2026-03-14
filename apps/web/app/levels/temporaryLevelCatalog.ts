@@ -1,6 +1,7 @@
 import { parseLevel } from '@corgiban/core';
 import { builtinLevels, normalizeLevelDefinition, type LevelDefinition } from '@corgiban/levels';
 
+import { getBrowserSessionStorage } from '../browserStorage';
 import { makeRunId } from '../runId';
 import {
   resolveRequestedPlayableEntryFromEntries,
@@ -47,7 +48,9 @@ const INCOMPATIBLE_PLAYABLE_LEVEL_STORAGE_KEYS = [
   'corgiban:playable-level-catalog:v2',
   'corgiban:temporary-level-catalog:v1',
 ] as const;
-const builtinLevelsById = new Map(builtinLevels.map((level) => [level.id, level] as const));
+const builtinLevelsById = new Map(
+  builtinLevels.map((level: LevelDefinition) => [level.id, level] as const),
+);
 
 let memorySessionEntries: StoredSessionPlayableEntry[] = [];
 let storageMode: 'available' | 'memory-fallback' = 'available';
@@ -163,15 +166,7 @@ function buildSessionPlayableSource(entry: StoredSessionPlayableEntry): SessionP
 }
 
 function getSessionStorage(): Storage | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    return window.sessionStorage;
-  } catch {
-    return null;
-  }
+  return getBrowserSessionStorage();
 }
 
 function removePersistedSessionEntries(storage: Storage): void {
@@ -403,7 +398,7 @@ export function isBuiltinLevelId(levelId: string): boolean {
 export const createPlayableLevelFingerprint = createPlayableExactLevelKey;
 
 export function listBuiltinPlayableEntries(): PlayableEntry[] {
-  return builtinLevels.map((level) => createBuiltinPlayableEntry(level));
+  return builtinLevels.map((level: LevelDefinition) => createBuiltinPlayableEntry(level));
 }
 
 export function listPlayableEntries(): PlayableEntry[] {

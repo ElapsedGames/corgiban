@@ -55,8 +55,8 @@ function createSuiteBuilderProps() {
     ],
     availableAlgorithms: [
       { id: 'bfsPush' as const, label: 'BFS Push' },
-      { id: 'astarPush' as const, label: 'A* Push' },
-      { id: 'idaStarPush' as const, label: 'IDA* Push' },
+      { id: 'astarPush' as const, label: 'A-Star Push' },
+      { id: 'idaStarPush' as const, label: 'IDA-Star Push' },
       { id: 'greedyPush' as const, label: 'Greedy Push' },
       { id: 'tunnelMacroPush' as const, label: 'Tunnel Macro Push' },
       { id: 'piCorralPush' as const, label: 'PI-Corral Push' },
@@ -152,13 +152,14 @@ describe('BenchDiagnosticsPanel', () => {
     expect(html).toContain(label);
     expect(html).toContain('Execution status');
     expect(html).toContain('Execution progress');
-    expect(html).toContain('Latest execution result');
-    expect(html).toContain('Storage persistence');
-    expect(html).toContain('Persistence durability');
+    expect(html).toContain('Latest result ID');
+    expect(html).toContain('Browser storage permission');
+    expect(html).toContain('Save reliability');
     expect(html).toContain('2/5');
     expect(html).toContain('result-2');
     expect(html).toContain('granted');
     expect(html).toContain('durable');
+    expect(html).toContain('role="tooltip"');
   });
 
   it('renders fallback values and error message', () => {
@@ -292,7 +293,7 @@ describe('BenchmarkPerfPanel', () => {
   it('shows empty state and disables clear when no entries exist', () => {
     const html = renderToStaticMarkup(<BenchmarkPerfPanel entries={[]} onClear={vi.fn()} />);
 
-    expect(html).toContain('No performance measures captured yet.');
+    expect(html).toContain('No timing entries captured yet.');
     // The Clear button is disabled when there are no entries
     expect(html).toContain('disabled');
   });
@@ -305,6 +306,7 @@ describe('BenchmarkPerfPanel', () => {
     const html = renderToStaticMarkup(<BenchmarkPerfPanel entries={entries} onClear={vi.fn()} />);
 
     expect(html).toContain('Performance measures');
+    expect(html).toContain('Low-level timing entries captured during benchmark runs');
     expect(html).toContain('2 entries');
     expect(html).toContain('Most recent first');
   });
@@ -394,24 +396,37 @@ describe('BenchmarkSuiteBuilder', () => {
     const props = createSuiteBuilderProps();
     const { container } = await renderIntoDocument(<BenchmarkSuiteBuilder {...props} />);
 
-    const classicLevelInput = getInputByLabelText(container, 'Classic 001');
-    const bfsPushInput = getInputByLabelText(container, 'BFS Push');
-    const tunnelMacroInput = getInputByLabelText(container, 'Tunnel Macro Push');
-    const piCorralInput = getInputByLabelText(container, 'PI-Corral Push');
+    const classicLevelToggle = [...container.querySelectorAll('button[role="switch"]')].find(
+      (candidate) => candidate.textContent?.includes('Classic 001'),
+    ) as HTMLButtonElement | undefined;
+    const bfsPushCard = [...container.querySelectorAll('button[aria-pressed]')].find((candidate) =>
+      candidate.textContent?.includes('BFS Push'),
+    ) as HTMLButtonElement | undefined;
+    const tunnelMacroCard = [...container.querySelectorAll('button[aria-pressed]')].find(
+      (candidate) => candidate.textContent?.includes('Tunnel Macro Push'),
+    ) as HTMLButtonElement | undefined;
+    const piCorralCard = [...container.querySelectorAll('button[aria-pressed]')].find((candidate) =>
+      candidate.textContent?.includes('PI-Corral Push'),
+    ) as HTMLButtonElement | undefined;
+
+    expect(classicLevelToggle).toBeTruthy();
+    expect(bfsPushCard).toBeTruthy();
+    expect(tunnelMacroCard).toBeTruthy();
+    expect(piCorralCard).toBeTruthy();
 
     await act(async () => {
-      classicLevelInput.click();
-      bfsPushInput.click();
+      classicLevelToggle?.click();
+      bfsPushCard?.click();
     });
 
     expect(props.onToggleLevel).toHaveBeenCalledWith('corgiban-test-18');
     expect(props.onToggleAlgorithm).toHaveBeenCalledWith('bfsPush');
-    expect(tunnelMacroInput.disabled).toBe(false);
-    expect(piCorralInput.disabled).toBe(false);
+    expect(tunnelMacroCard?.disabled).toBe(false);
+    expect(piCorralCard?.disabled).toBe(false);
 
     const repetitionsInput = getInputByLabelText(container, 'Repetitions');
-    const warmupRepetitionsInput = getInputByLabelText(container, 'Warm-up Repetitions');
-    const timeBudgetInput = getInputByLabelText(container, 'Time Budget (ms)');
+    const warmupRepetitionsInput = getInputByLabelText(container, 'Warm-up Runs');
+    const timeBudgetInput = getInputByLabelText(container, 'Time Budget (MS)');
     const nodeBudgetInput = getInputByLabelText(container, 'Node Budget');
 
     await act(async () => {
@@ -435,19 +450,33 @@ describe('BenchmarkSuiteBuilder', () => {
         label: 'BFS Push',
         disabled: true,
       } as (typeof props.availableAlgorithms)[number],
-      { id: 'astarPush' as const, label: 'A* Push' } as (typeof props.availableAlgorithms)[number],
+      {
+        id: 'astarPush' as const,
+        label: 'A-Star Push',
+      } as (typeof props.availableAlgorithms)[number],
     ];
 
     const { container } = await renderIntoDocument(<BenchmarkSuiteBuilder {...props} />);
 
-    const bfsInput = getInputByLabelText(container, 'BFS Push');
-    const bfsLabel = [...container.querySelectorAll('label')].find((candidate) =>
+    const bfsButton = [...container.querySelectorAll('button[aria-pressed]')].find((candidate) =>
       candidate.textContent?.includes('BFS Push'),
-    );
+    ) as HTMLButtonElement | undefined;
 
-    expect(bfsInput.disabled).toBe(true);
-    expect(bfsLabel?.className).toContain('cursor-not-allowed');
-    expect(bfsLabel?.className).toContain('opacity-50');
+    expect(bfsButton?.disabled).toBe(true);
+    expect(bfsButton?.className).toContain('cursor-not-allowed');
+    expect(bfsButton?.className).toContain('opacity-50');
+  });
+
+  it('renders algorithms before levels and exposes pressed/switch states', async () => {
+    const props = createSuiteBuilderProps();
+    const html = renderToStaticMarkup(<BenchmarkSuiteBuilder {...props} />);
+
+    expect(html.indexOf('Algorithms')).toBeLessThan(html.indexOf('Levels'));
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain('role="switch"');
+    expect(html).toContain('aria-checked="true"');
+    expect(html).toContain('BFS Push help');
+    expect(html).toContain('Breadth-first search checks the simplest push plans first.');
   });
 
   it('sets inputMode="numeric" and correct max on all numeric inputs', async () => {
@@ -455,8 +484,8 @@ describe('BenchmarkSuiteBuilder', () => {
     const { container } = await renderIntoDocument(<BenchmarkSuiteBuilder {...props} />);
 
     const repetitionsInput = getInputByLabelText(container, 'Repetitions');
-    const warmupRepetitionsInput = getInputByLabelText(container, 'Warm-up Repetitions');
-    const timeBudgetInput = getInputByLabelText(container, 'Time Budget (ms)');
+    const warmupRepetitionsInput = getInputByLabelText(container, 'Warm-up Runs');
+    const timeBudgetInput = getInputByLabelText(container, 'Time Budget (MS)');
     const nodeBudgetInput = getInputByLabelText(container, 'Node Budget');
 
     expect(repetitionsInput.getAttribute('inputmode')).toBe('numeric');
@@ -485,6 +514,8 @@ describe('BenchmarkExportImportControls', () => {
       />,
     );
 
+    expect(html).toContain('History files contain past benchmark results.');
+    expect(html).toContain('Level packs contain puzzle selections');
     const clearResultsButton = html.match(/<button[^>]*>Clear Results<\/button>/);
     expect(clearResultsButton).not.toBeNull();
     expect(clearResultsButton?.[0]).toContain('bg-error');

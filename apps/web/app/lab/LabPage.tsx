@@ -36,8 +36,8 @@ export function LabPage({ initialPlayable }: LabPageProps) {
       <header aria-label="Level Lab" className="page-header">
         <h1 className="page-title">Level Lab</h1>
         <p className="page-subtitle">
-          Paste or edit a level, parse and validate it, preview the board, then run one-click worker
-          checks or hand the level off to Play or Bench.
+          Edit or paste a level, validate it, preview it locally, then send it to Play, Bench, or a
+          quick worker check.
         </p>
       </header>
 

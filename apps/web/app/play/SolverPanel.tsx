@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AlgorithmId } from '@corgiban/solver';
-import { ALGORITHM_IDS, DEFAULT_ALGORITHM_ID } from '@corgiban/solver';
+import { ALGORITHM_IDS } from '@corgiban/solver';
 
 import type { WorkerHealth } from '../ports/solverPort';
 import type { AppDispatch, RootState } from '../state';
@@ -45,7 +45,7 @@ export type SolverPanelProps = {
   onRetryWorker: () => void;
 };
 
-const FALLBACK_ALGORITHM_ID = ALGORITHM_IDS[0] ?? DEFAULT_ALGORITHM_ID;
+const FALLBACK_ALGORITHM_ID: AlgorithmId = 'greedyPush';
 export const MOBILE_RUNNING_INDICATOR_DELAY_MS = 750;
 
 function recommendationLabel(recommendation: SolverRecommendation | null): string {
@@ -74,7 +74,8 @@ function SolverBudgetSettings() {
   return (
     <div className="mt-5 grid gap-3 md:grid-cols-2">
       <Input
-        label="Time Budget (ms)"
+        label="Time Budget (MS)"
+        annotation="This is the time limit for each solve run. If a solve takes longer, it times out."
         type="number"
         min={1}
         step={1}
@@ -85,6 +86,7 @@ function SolverBudgetSettings() {
       />
       <Input
         label="Node Budget"
+        annotation="This is the search limit for each solve run. Use it when you want a hard cap on solver work."
         type="number"
         min={1}
         step={1}
@@ -162,17 +164,9 @@ export function SolverPanel({
         aria-labelledby={mobileHeadingId}
         className="rounded-app-lg border border-border bg-panel p-4 shadow-lg lg:hidden"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 id={mobileHeadingId} className="text-lg font-semibold">
-              Solver
-            </h2>
-            <p className="text-sm text-muted">
-              Play first. Run a worker solve when you want a hint, a replay, or an algorithm
-              comparison.
-            </p>
-          </div>
-        </div>
+        <h2 id={mobileHeadingId} className="text-sm font-semibold">
+          Play first or let the game play for you... usually.
+        </h2>
 
         {isRunning && showMobileRunningNotice ? (
           <div
@@ -279,9 +273,9 @@ export function SolverPanel({
         <div className="mb-4">
           <Select
             label="Algorithm"
+            annotation="Pick the worker search method. The recommendation above is the best starting point for most puzzles."
             value={resolvedAlgorithmId}
             onChange={(event) => onSelectAlgorithm(event.target.value as AlgorithmId)}
-            hint="Use the recommendation first. Budgets below are the advanced controls when you need them."
           >
             {ALGORITHM_IDS.map((algorithmId) => (
               <option key={algorithmId} value={algorithmId}>
@@ -297,7 +291,7 @@ export function SolverPanel({
           </summary>
           <p className="mt-2 text-sm text-muted">
             Leave these at their defaults unless you are comparing algorithms or trying to keep a
-            long run bounded.
+            long solve run capped.
           </p>
           <SolverBudgetSettings />
         </details>

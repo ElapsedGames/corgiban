@@ -22,7 +22,7 @@ export function BenchmarkPerfPanel({ entries, onClear }: BenchmarkPerfPanelProps
             Performance
           </h2>
           <p className="text-sm text-muted">
-            Observed benchmark performance measures ({entries.length}).
+            Low-level timing entries captured during benchmark runs ({entries.length}).
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={onClear} disabled={entries.length === 0}>
@@ -32,7 +32,7 @@ export function BenchmarkPerfPanel({ entries, onClear }: BenchmarkPerfPanelProps
 
       {entries.length === 0 ? (
         <p className="rounded-app-md border border-dashed border-border px-3 py-4 text-sm text-muted">
-          No performance measures captured yet.
+          No timing entries captured yet.
         </p>
       ) : (
         <div className="max-h-60 overflow-auto">
@@ -50,7 +50,7 @@ export function BenchmarkPerfPanel({ entries, onClear }: BenchmarkPerfPanelProps
                   Duration (<abbr title="milliseconds">ms</abbr>)
                 </th>
                 <th scope="col" className="px-2 py-2 text-right">
-                  Start (<abbr title="milliseconds">ms</abbr>)
+                  Start time (<abbr title="milliseconds">ms</abbr>)
                 </th>
               </tr>
             </thead>

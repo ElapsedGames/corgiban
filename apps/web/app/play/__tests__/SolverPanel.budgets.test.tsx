@@ -92,7 +92,7 @@ describe('SolverPanel budget settings', () => {
 
   it('updates time budget with floored positive integers', () => {
     const store = renderPanel();
-    triggerInputChange('Time Budget (ms)', '123.9');
+    triggerInputChange('Time Budget (MS)', '123.9');
 
     expect(store.getState().settings.solverTimeBudgetMs).toBe(123);
   });
@@ -108,7 +108,7 @@ describe('SolverPanel budget settings', () => {
     const store = renderPanel();
     const before = store.getState().settings.solverTimeBudgetMs;
 
-    triggerInputChange('Time Budget (ms)', 'not-a-number');
+    triggerInputChange('Time Budget (MS)', 'not-a-number');
 
     expect(store.getState().settings.solverTimeBudgetMs).toBe(before);
   });
@@ -134,7 +134,7 @@ describe('SolverPanel budget settings', () => {
   it('normalizes tiny positive time budgets to a minimum of one', () => {
     const store = renderPanel();
 
-    triggerInputChange('Time Budget (ms)', '0.4');
+    triggerInputChange('Time Budget (MS)', '0.4');
 
     expect(store.getState().settings.solverTimeBudgetMs).toBe(1);
   });
@@ -143,7 +143,7 @@ describe('SolverPanel budget settings', () => {
     const store = renderPanel();
     const before = store.getState().settings.solverTimeBudgetMs;
 
-    triggerInputChange('Time Budget (ms)', 'Infinity');
+    triggerInputChange('Time Budget (MS)', 'Infinity');
 
     expect(store.getState().settings.solverTimeBudgetMs).toBe(before);
   });

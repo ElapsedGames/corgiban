@@ -146,7 +146,8 @@ export function supportsOffscreenSpritePreRender(): boolean {
   return (
     typeof Worker !== 'undefined' &&
     typeof OffscreenCanvas !== 'undefined' &&
-    typeof ImageBitmap !== 'undefined'
+    typeof ImageBitmap !== 'undefined' &&
+    typeof createImageBitmap === 'function'
   );
 }
 

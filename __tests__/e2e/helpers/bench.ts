@@ -1,21 +1,21 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-const BENCH_RUN_COUNT_PATTERN = /^Stored benchmark history \((\d+) runs\)\./;
+const BENCH_RUN_COUNT_PATTERN = /^Saved benchmark runs \((\d+)\)\./;
 
 async function uncheckIfChecked(locator: Locator): Promise<void> {
-  if (await locator.isChecked()) {
+  if ((await locator.getAttribute('aria-checked')) === 'true') {
     await locator.click();
   }
 }
 
 async function keepOnlyFirstCheckedLevel(page: Page): Promise<void> {
-  const levelCheckboxes = page.getByRole('group', { name: 'Levels' }).getByRole('checkbox');
-  const checkboxCount = await levelCheckboxes.count();
+  const levelSwitches = page.getByRole('group', { name: 'Levels' }).getByRole('switch');
+  const checkboxCount = await levelSwitches.count();
   let keptCheckedLevel = false;
 
   for (let index = 0; index < checkboxCount; index += 1) {
-    const checkbox = levelCheckboxes.nth(index);
-    if (!(await checkbox.isChecked())) {
+    const checkbox = levelSwitches.nth(index);
+    if ((await checkbox.getAttribute('aria-checked')) !== 'true') {
       continue;
     }
 
@@ -43,10 +43,10 @@ export async function readBenchRunCount(page: Page): Promise<number> {
 
 export async function configureFastSingleLevelSuite(page: Page): Promise<void> {
   await keepOnlyFirstCheckedLevel(page);
-  await page.getByLabel('Repetitions', { exact: true }).fill('1');
-  await page.getByLabel('Warm-up Repetitions', { exact: true }).fill('0');
-  await page.getByLabel('Time Budget (ms)').fill('100');
-  await page.getByLabel('Node Budget').fill('5000');
+  await page.getByRole('spinbutton', { name: 'Repetitions' }).fill('1');
+  await page.getByRole('spinbutton', { name: 'Warm-up Runs' }).fill('0');
+  await page.getByRole('spinbutton', { name: 'Time Budget (MS)' }).fill('100');
+  await page.getByRole('spinbutton', { name: 'Node Budget' }).fill('5000');
 }
 
 export async function waitForBenchCompleted(page: Page): Promise<void> {

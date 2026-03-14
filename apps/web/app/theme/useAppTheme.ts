@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { getBrowserLocalStorage } from '../browserStorage';
 import { getDocumentTheme, persistTheme, setDocumentTheme, type AppTheme } from './theme';
 
 export type UseAppThemeResult = {
@@ -19,7 +20,7 @@ export function useAppTheme(): UseAppThemeResult {
 
   const applyTheme = useCallback((nextTheme: AppTheme) => {
     setDocumentTheme(nextTheme);
-    persistTheme(nextTheme, globalThis.localStorage);
+    persistTheme(nextTheme, getBrowserLocalStorage());
     setTheme(nextTheme);
     setIsThemeReady(true);
   }, []);

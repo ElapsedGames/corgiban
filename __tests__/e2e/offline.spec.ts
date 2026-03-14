@@ -169,9 +169,9 @@ test('pwa service worker keeps /play available offline after first load', async 
 
     if (offlineAppShellAvailable) {
       await expect(playMain).toBeVisible();
-      await page.getByLabel('Sequence input').fill('R');
-      await page.getByRole('button', { name: 'Apply Moves' }).click();
-      await expect(page.getByText('Applied 1 moves.')).toBeVisible();
+      await page.getByLabel(/Move Sequence/).fill('R');
+      await page.getByRole('button', { name: 'Animate', exact: true }).click();
+      await expect(page.getByText('Animating 1 moves.')).toBeVisible();
     } else {
       test.info().annotations.push({
         type: 'offline-proof',

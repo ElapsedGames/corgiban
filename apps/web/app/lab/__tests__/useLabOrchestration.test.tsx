@@ -17,6 +17,8 @@ const testState = vi.hoisted(() => ({
   latest: null as LabOrchestrationState | null,
   navigate: vi.fn(),
   upsertSessionPlayableEntry: vi.fn(),
+  solverPortRef: { current: null as null | Record<string, unknown> },
+  benchmarkPortRef: { current: null as null | Record<string, unknown> },
 }));
 
 vi.mock('@remix-run/react', () => ({
@@ -29,8 +31,8 @@ vi.mock('../../levels/temporaryLevelCatalog', () => ({
 
 vi.mock('../useLabOwnedPorts', () => ({
   useLabOwnedPorts: () => ({
-    solverPortRef: { current: null },
-    benchmarkPortRef: { current: null },
+    solverPortRef: testState.solverPortRef,
+    benchmarkPortRef: testState.benchmarkPortRef,
   }),
 }));
 
@@ -40,6 +42,22 @@ vi.mock('../labKeyboard', () => ({
 
 const mountedRoots: Root[] = [];
 const EDITED_LEVEL_INPUT = ['WWWWWW', 'WPBTEW', 'WEEEWW', 'WWWWWW'].join('\n');
+
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+};
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve;
+    reject = innerReject;
+  });
+  return { promise, resolve, reject };
+}
 
 function HookHarness({ initialPlayable }: { initialPlayable?: PlayableEntry }) {
   testState.latest = useLabOrchestration(initialPlayable);
@@ -73,6 +91,8 @@ describe('useLabOrchestration publishing', () => {
     testState.latest = null;
     testState.navigate.mockReset();
     testState.upsertSessionPlayableEntry.mockReset();
+    testState.solverPortRef.current = null;
+    testState.benchmarkPortRef.current = null;
     testState.upsertSessionPlayableEntry.mockImplementation(
       ({ ref, originRef, collectionRef, collectionIndex, level }) => ({
         ref: ref ?? 'temp:lab-session-1',
@@ -115,6 +135,30 @@ describe('useLabOrchestration publishing', () => {
     await flushPromises();
 
     expect(testState.upsertSessionPlayableEntry).not.toHaveBeenCalled();
+  });
+
+  it('short-circuits noop guard callbacks when the next action would not change state', async () => {
+    await renderHarness();
+
+    const initialFormat = testState.latest?.format;
+    const initialInput = testState.latest?.input;
+    const initialParseState = testState.latest?.parseState;
+
+    await act(async () => {
+      if (initialFormat) {
+        testState.latest?.setFormat(initialFormat);
+      }
+      testState.latest?.cancelSolve();
+      testState.latest?.applySolution();
+      testState.latest?.runSolve();
+      testState.latest?.runBench();
+    });
+
+    expect(testState.latest?.format).toBe(initialFormat);
+    expect(testState.latest?.input).toBe(initialInput);
+    expect(testState.latest?.parseState).toEqual(initialParseState);
+    expect(testState.latest?.solveState).toEqual({ status: 'idle' });
+    expect(testState.latest?.benchState).toEqual({ status: 'idle' });
   });
 
   it('publishes only on explicit handoff actions and reuses the same session ref after edits', async () => {
@@ -195,6 +239,125 @@ describe('useLabOrchestration publishing', () => {
         }),
       }),
     );
+  });
+
+  it('ignores stale solve progress and stale solve failures after a parse commits a new revision', async () => {
+    const deferredSolve = createDeferred<never>();
+    let progressHandler:
+      | ((progress: { expanded: number; generated: number; elapsedMs: number }) => void)
+      | undefined;
+    const cancelSolve = vi.fn();
+
+    testState.solverPortRef.current = {
+      startSolve: vi.fn(
+        (options: {
+          onProgress?: (progress: {
+            expanded: number;
+            generated: number;
+            elapsedMs: number;
+          }) => void;
+        }) => {
+          progressHandler = options.onProgress;
+          options.onProgress?.({
+            expanded: 3,
+            generated: 5,
+            elapsedMs: 1.5,
+          });
+          return deferredSolve.promise;
+        },
+      ),
+      cancelSolve,
+    };
+
+    await renderHarness();
+
+    await act(async () => {
+      testState.latest?.runSolve();
+    });
+
+    const runningRunId =
+      testState.latest?.solveState.status === 'running' ? testState.latest.solveState.runId : null;
+    expect(runningRunId).toBeTruthy();
+
+    await act(async () => {
+      testState.latest?.setInput(EDITED_LEVEL_INPUT);
+      testState.latest?.applyParse();
+    });
+
+    expect(cancelSolve).toHaveBeenCalledWith(runningRunId);
+    expect(testState.latest?.solveState).toEqual({ status: 'idle' });
+
+    await act(async () => {
+      progressHandler?.({
+        expanded: 99,
+        generated: 101,
+        elapsedMs: 8,
+      });
+    });
+    expect(testState.latest?.solveState).toEqual({ status: 'idle' });
+
+    deferredSolve.reject(new Error('stale solve failure'));
+    await flushPromises();
+
+    expect(testState.latest?.solveState).toEqual({ status: 'idle' });
+  });
+
+  it('uses the preview level entry when benchmarking and ignores stale benchmark failures after a parse commit', async () => {
+    const deferredBench = createDeferred<never>();
+    const cancelSuite = vi.fn();
+
+    testState.benchmarkPortRef.current = {
+      runSuite: vi.fn(
+        (options: {
+          suiteRunId: string;
+          levelResolver: () => unknown;
+          levelEntryResolver: () => {
+            ref: string;
+            source: { kind: 'session' };
+            level: { id: string; name: string; rows: string[]; knownSolution?: string | null };
+          };
+        }) => {
+          expect(options.levelResolver()).toBeTruthy();
+          expect(options.levelEntryResolver()).toEqual({
+            ref: 'lab:preview',
+            source: { kind: 'session' },
+            level: expect.objectContaining({
+              id: 'lab-level',
+              name: 'Lab Level',
+            }),
+          });
+          return deferredBench.promise;
+        },
+      ),
+      cancelSuite,
+    };
+
+    await renderHarness();
+
+    await act(async () => {
+      testState.latest?.runBench();
+    });
+
+    const suiteRunId = (
+      testState.benchmarkPortRef.current as {
+        runSuite: ReturnType<typeof vi.fn>;
+      }
+    ).runSuite.mock.calls[0]?.[0]?.suiteRunId as string | undefined;
+    expect(suiteRunId).toBeTruthy();
+    expect(testState.latest?.benchState).toEqual({ status: 'running' });
+
+    await act(async () => {
+      testState.latest?.setInput(EDITED_LEVEL_INPUT);
+      testState.latest?.applyParse();
+    });
+
+    expect(cancelSuite).toHaveBeenCalledWith(suiteRunId);
+    expect(testState.latest?.benchState).toEqual({ status: 'idle' });
+
+    deferredBench.reject(new Error('stale bench failure'));
+    await flushPromises();
+
+    expect(testState.latest?.benchState).toEqual({ status: 'idle' });
   });
 
   it('preserves imported pack collection metadata when republishing an edited session entry', async () => {

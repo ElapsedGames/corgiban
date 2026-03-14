@@ -42,6 +42,10 @@ const performanceMocks = vi.hoisted(() => ({
   ),
 }));
 
+const benchmarkPortMocks = vi.hoisted(() => ({
+  overrideLevelRefs: null as string[] | null,
+}));
+
 const clientPortMocks = vi.hoisted(() => ({
   createSolverPort: vi.fn(() => ({
     startSolve: vi.fn(async () => {
@@ -259,6 +263,15 @@ vi.mock('../../ports/persistencePort.client', () => ({
   createPersistencePort: clientPortMocks.createPersistencePort,
 }));
 
+vi.mock('../../ports/benchmarkPort', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../ports/benchmarkPort')>();
+  return {
+    ...actual,
+    getBenchmarkSuiteLevelRefs: (suite: Parameters<typeof actual.getBenchmarkSuiteLevelRefs>[0]) =>
+      benchmarkPortMocks.overrideLevelRefs ?? actual.getBenchmarkSuiteLevelRefs(suite),
+  };
+});
+
 vi.mock('@remix-run/react', async () => ({
   Link: ({
     children,
@@ -375,6 +388,7 @@ describe('BenchRoute coverage', () => {
     fileAccessMocks.importTextFile.mockReset();
     performanceMocks.clearBenchPerformanceEntries.mockClear();
     performanceMocks.observeBenchPerformance.mockClear();
+    benchmarkPortMocks.overrideLevelRefs = null;
     clientPortMocks.createSolverPort.mockClear();
     clientPortMocks.createBenchmarkPort.mockClear();
     clientPortMocks.createPersistencePort.mockClear();
@@ -397,6 +411,16 @@ describe('BenchRoute coverage', () => {
 
     expect(html).toContain('Requested suite level is unavailable');
     expect(html).not.toContain('Open Built-In Suite');
+  });
+
+  it('omits builtin suite fallback actions when only an exact level key is unavailable', () => {
+    testState.search = 'exactLevelKey=missing-exact-key';
+
+    const html = renderToStaticMarkup(<BenchRoute />);
+
+    expect(html).toContain('Requested level version is unavailable');
+    expect(html).not.toContain('Open Built-In Suite');
+    expect(html).toContain('missing-exact-key');
   });
 
   it('ignores missing or unknown handoff level ids and resets the applied ref when the param disappears', async () => {
@@ -530,6 +554,23 @@ describe('BenchRoute coverage', () => {
       (props?.onClearPerfEntries as (() => void) | undefined)?.();
     });
     expect(performanceMocks.clearBenchPerformanceEntries).toHaveBeenCalledOnce();
+  });
+
+  it('reports unresolved selected suite refs before attempting level-pack export', async () => {
+    const { store } = await renderWithStore();
+    await flushEffects();
+
+    const props = testState.benchPageProps;
+    expect(props).not.toBeNull();
+
+    benchmarkPortMocks.overrideLevelRefs = ['temp:missing-level'];
+
+    await act(async () => {
+      await (props?.onExportLevelPack as (() => void) | undefined)?.();
+    });
+
+    expect(fileAccessMocks.exportTextFile).not.toHaveBeenCalled();
+    expect(store.getState().bench.diagnostics.lastError).toContain('temp:missing-level');
   });
 
   it('rejects level-pack export when the selected suite includes multiple variants with the same level id', async () => {
@@ -715,6 +756,20 @@ describe('BenchRoute coverage', () => {
     });
   });
 
+  it('renders an unavailable shell when a requested legacy level id is missing', async () => {
+    testState.search = 'levelId=missing-level';
+
+    const { container, root } = await renderDefaultRoute();
+
+    expect(container.textContent).toContain('Requested suite level is unavailable');
+    expect(container.textContent).toContain('Open Play');
+    expect(container.textContent).not.toContain('bench-page-stub');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   it('renders recovery links for route-error responses and generic errors', () => {
     testState.routeError = { status: 503, statusText: 'Service Unavailable' };
     const routeErrorHtml = renderToStaticMarkup(<ErrorBoundary />);
@@ -729,5 +784,9 @@ describe('BenchRoute coverage', () => {
     testState.routeError = 'bench-string-error';
     const unknownErrorHtml = renderToStaticMarkup(<ErrorBoundary />);
     expect(unknownErrorHtml).toContain('Unknown error');
+
+    testState.routeError = { status: 503, statusText: '' };
+    const statusOnlyErrorHtml = renderToStaticMarkup(<ErrorBoundary />);
+    expect(statusOnlyErrorHtml).toContain('503');
   });
 });

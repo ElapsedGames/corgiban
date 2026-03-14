@@ -12,7 +12,7 @@
 
 - A responsive browser game UI (keyboard, tap/click, and swipe board controls) with:
   - deterministic gameplay, undo/redo, restart, per-level progress
-  - move history and replay
+  - copyable move-list history plus replay
   - solution playback (step-by-step animation)
 - A solver subsystem that:
   - supports multiple algorithms (BFS/A*/IDA*/Greedy/Tunnel-Macro/PI-Corral)
@@ -40,7 +40,7 @@
 The current app uses a shared app shell above route-scoped surfaces. The primary `/play` route is
 organized around:
 
-- a **side panel** (level label, restart/next-level controls, solved-state summary, move history),
+- a **side panel** (level label, restart/next-level controls, solved-state summary, copyable move-list action),
 - a **board section** (level metadata, responsive canvas rendering, solved-state banner),
 - a **bottom controls** section (sequence input),
 - a **solver panel** (recommendation, run/cancel, progress, replay/apply actions).
@@ -441,7 +441,9 @@ See ADR-0029 (`docs/adr/0029-play-route-primary-entrypoint.md`).
 
 **Decision:** Keep board visuals in an app-local skin registry under `apps/web/app/canvas`.
 `GameCanvas`, the fallback canvas draw path, and the sprite-atlas worker resolve the same explicit
-`skinId` + `mode` contract instead of inferring board visuals from CSS variables.
+`skinId` + `mode` contract instead of inferring board visuals from CSS variables. The root app
+shell owns the persisted board-skin preference and passes the resolved `skinId` into `/play` and
+`/lab` preview via app-local adapter state rather than Redux.
 
 **Why**
 
@@ -1054,10 +1056,13 @@ A dedicated route:
   `exactLevelKey`, `levelFingerprint`, `comparisonLevelKey`, `levelName`) so `/bench` can reopen
   session-backed levels safely while public report exports carry additive public
   `runnableLevelKey` and `comparisonLevelKey` fields.
-- Current local benchmark fingerprints are derived from the canonical committed
-  `LevelDefinition` payload (`id`, `name`, `rows`, `knownSolution`). They are intentionally not
-  based on raw authored text, but they are also not yet parsed-structure canonical; metadata-only
-  edits can therefore invalidate a stored local reopen/comparison match.
+- Current local benchmark fingerprints are derived from a compact deterministic key over the
+  canonical committed `LevelDefinition` payload (`id`, `name`, `rows`, `knownSolution`). They are
+  intentionally not based on raw authored text, but they are also not yet parsed-structure
+  canonical; metadata-only edits can therefore invalidate a stored local reopen/comparison match.
+- Browser-local exact reopen matching accepts both the current compact exact-level key and the
+  legacy serialized exact-level key so older local history/handoff state remains readable during
+  the key-format transition.
 - Route render and hydration must treat that catalog as an external store: the server snapshot is
   built-in levels only, and the client subscribes to reconcile session-backed playable entries
   after commit.
@@ -1149,7 +1154,7 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 - `Document` (shared html/head/body wrapper, pre-paint theme bootstrap, skip link, root error shell)
 - `AppNav` (global navigation, play-first brand link, and light/dark theme toggle)
 - `IndexRoute` (root redirect to `/play`)
-- `SidePanel` (level info, restart/next level, move history, solved-state summary)
+- `SidePanel` (level info, restart/next level, solved-state summary, and a copyable move-list action; the older detailed move-history layout remains intentionally parked in `MoveHistory.tsx` for possible future revival)
 - `GameCanvas` (responsive board canvas host)
 - `BottomControls` (sequence input)
 - `SolverPanel` (algorithm selection across all implemented solver ids, run/cancel, progress, replay/apply actions)
@@ -1217,6 +1222,16 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
   in browser-backed ports after commit so SSR/render stays pure and browser resources are not
   created before the route mounts. This preserves one stable store instance per route; route
   modules replace ports, not store identity. See ADR-0025.
+- `/play` may layer lightweight browser-local continuity on top of that route store (for example
+  last-played built-in level resume and completed built-in level markers) via post-hydration
+  `localStorage`
+  adapters. That continuity is scoped to built-in levels only; session-scoped handoff levels from
+  `/lab` or `/bench` remain one-shot route activations and must not overwrite saved built-in
+  progress. This is intentionally a POC playability layer, not a replacement for the app's
+  heavier benchmark persistence model.
+- The root app shell may also persist an app-local board-skin preference in `localStorage`,
+  restore it after hydration, and expose it through app-owned context/navigation controls for
+  `/play` and `/lab` preview. Keep that visual preference outside route-scoped Redux stores.
 - Render-time browser state that routes consume outside Redux follows the same rule: expose a
   deterministic server snapshot, subscribe after hydration, and do not read `sessionStorage` or
   `localStorage` directly during SSR render.

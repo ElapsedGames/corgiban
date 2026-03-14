@@ -10,6 +10,7 @@ export type SidePanelProps = {
   isSolved: boolean;
   labHref: string;
   benchHref: string;
+  showLevelNavigation: boolean;
   canGoToPreviousLevel: boolean;
   onPreviousLevel: () => void;
   onRestart: () => void;
@@ -25,6 +26,7 @@ export function SidePanel({
   isSolved,
   labHref,
   benchHref,
+  showLevelNavigation,
   canGoToPreviousLevel,
   onPreviousLevel,
   onRestart,
@@ -76,24 +78,28 @@ export function SidePanel({
         >
           Undo
         </Button>
-        <Button
-          className="w-full"
-          variant="secondary"
-          onClick={onPreviousLevel}
-          disabled={!canGoToPreviousLevel}
-        >
-          Previous
-        </Button>
-        <Button
-          className="w-full"
-          variant={isSolved ? 'primary' : 'secondary'}
-          onClick={onNextLevel}
-        >
-          Next Level
-        </Button>
+        {showLevelNavigation ? (
+          <>
+            <Button
+              className="w-full"
+              variant="secondary"
+              onClick={onPreviousLevel}
+              disabled={!canGoToPreviousLevel}
+            >
+              Previous
+            </Button>
+            <Button
+              className="w-full"
+              variant={isSolved ? 'primary' : 'secondary'}
+              onClick={onNextLevel}
+            >
+              Next Level
+            </Button>
+          </>
+        ) : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+      <div className="hidden gap-2 text-sm lg:grid lg:grid-cols-2">
         <a
           className="rounded-app-md border border-border px-3 py-2 text-center font-medium text-accent transition hover:border-accent-border hover:bg-accent-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
           href={labHref}

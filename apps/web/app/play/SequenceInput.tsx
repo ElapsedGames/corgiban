@@ -5,14 +5,17 @@ import type { Direction } from '@corgiban/shared';
 
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { REPLAY_SPEED_OPTIONS, inlineSelectClass } from './SolverControls';
 
-export type SequenceApplyResult = {
+export type SequenceAnimationResult = {
   applied: number;
   stoppedAt: number | null;
 };
 
 export type SequenceInputProps = {
-  onApplySequence: (directions: Direction[]) => SequenceApplyResult;
+  replaySpeed: number;
+  onAnimateSequence: (directions: Direction[]) => SequenceAnimationResult;
+  onReplaySpeedChange: (speed: number) => void;
 };
 
 type ParsedSequence = {
@@ -38,7 +41,7 @@ function parseSequence(input: string): ParsedSequence {
   }
 
   if (directions.length === 0) {
-    return { directions: [], error: 'Enter a UDLR sequence to apply.' };
+    return { directions: [], error: 'Enter a UDLR sequence to animate.' };
   }
 
   return { directions };
@@ -49,7 +52,11 @@ type MessageState = {
   isError: boolean;
 };
 
-export function SequenceInput({ onApplySequence }: SequenceInputProps) {
+export function SequenceInput({
+  replaySpeed,
+  onAnimateSequence,
+  onReplaySpeedChange,
+}: SequenceInputProps) {
   const [value, setValue] = useState('');
   const [messageState, setMessageState] = useState<MessageState | null>(null);
 
@@ -61,19 +68,19 @@ export function SequenceInput({ onApplySequence }: SequenceInputProps) {
       return;
     }
 
-    const result = onApplySequence(parsed.directions);
+    const result = onAnimateSequence(parsed.directions);
     if (result.applied === 0) {
-      setMessageState({ text: 'No moves applied.', isError: true });
+      setMessageState({ text: 'No moves animated.', isError: true });
       return;
     }
 
     if (result.stoppedAt !== null) {
       setMessageState({
-        text: `Stopped at step ${result.stoppedAt + 1} of ${parsed.directions.length}.`,
+        text: `Animating ${result.applied} moves. Stopped at step ${result.stoppedAt + 1} of ${parsed.directions.length}.`,
         isError: false,
       });
     } else {
-      setMessageState({ text: `Applied ${result.applied} moves.`, isError: false });
+      setMessageState({ text: `Animating ${result.applied} moves.`, isError: false });
     }
   };
 
@@ -81,18 +88,51 @@ export function SequenceInput({ onApplySequence }: SequenceInputProps) {
     <form onSubmit={handleSubmit} className="flex w-full flex-col gap-3">
       <div className="w-full">
         <Input
-          label="Sequence input"
+          label="Move Sequence"
+          annotation="Use U, D, L, and R. Spaces are ignored, and any other character is rejected."
+          annotationAlign="start"
           placeholder="UDLR sequence"
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          hint="Whitespace is ignored. Invalid characters are rejected."
         />
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <Button type="submit">Apply Moves</Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex items-center gap-3">
+          <Button
+            type="submit"
+            variant="tonal"
+            className="min-h-[42px] min-w-[8.75rem] px-5 py-2 text-sm"
+          >
+            Animate
+          </Button>
+          <div className="inline-flex items-center gap-2">
+            <label className="sr-only" htmlFor="sequence-replay-speed-select">
+              Move sequence speed
+            </label>
+            <select
+              id="sequence-replay-speed-select"
+              aria-label="Move sequence speed"
+              className={`${inlineSelectClass} min-h-[42px] min-w-[5.5rem] px-3 py-2 text-sm`}
+              value={String(replaySpeed)}
+              onChange={(event) => {
+                const nextSpeed = Number(event.target.value);
+                if (!Number.isFinite(nextSpeed) || nextSpeed <= 0) {
+                  return;
+                }
+                onReplaySpeedChange(nextSpeed);
+              }}
+            >
+              {REPLAY_SPEED_OPTIONS.map((option) => (
+                <option key={option.value} value={String(option.value)}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         {messageState ? (
           <p
-            className="text-xs text-muted sm:max-w-[24rem]"
+            className="min-h-[42px] text-sm text-muted inline-flex items-center"
             aria-live={messageState.isError ? 'assertive' : 'polite'}
             role={messageState.isError ? 'alert' : undefined}
           >

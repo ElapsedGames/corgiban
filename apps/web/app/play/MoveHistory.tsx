@@ -1,53 +1,67 @@
+import { useEffect, useMemo, useState } from 'react';
+
 import type { GameMove } from '../state/gameSlice';
+import { Button } from '../ui/Button';
 
 export type MoveHistoryProps = {
   moves: GameMove[];
+  mode?: 'full' | 'copyOnly';
 };
 
-const MAX_VISIBLE = 12;
+function formatMoveList(moves: GameMove[]): string {
+  return moves.map((move) => move.direction).join('');
+}
 
-export function MoveHistory({ moves }: MoveHistoryProps) {
-  if (moves.length === 0) {
-    return (
-      <div className="rounded-app-md border border-dashed border-border p-3 text-xs text-muted">
-        No moves yet. Use the keyboard or sequence input to start.
-      </div>
-    );
-  }
+export function MoveHistory({ moves, mode = 'full' }: MoveHistoryProps) {
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const moveList = useMemo(() => formatMoveList(moves), [moves]);
 
-  const recentMoves = moves.slice(-MAX_VISIBLE);
-  const offset = moves.length - recentMoves.length;
+  useEffect(() => {
+    setCopyStatus('idle');
+  }, [moveList]);
+
+  const handleCopyMoveList = async () => {
+    if (moveList.length === 0 || !navigator.clipboard?.writeText) {
+      setCopyStatus('failed');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(moveList);
+      setCopyStatus('copied');
+    } catch {
+      setCopyStatus('failed');
+    }
+  };
 
   return (
     <div className="space-y-3">
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-        {moves.length} move{moves.length === 1 ? '' : 's'} made
+        {copyStatus === 'copied'
+          ? 'Move list copied.'
+          : copyStatus === 'failed'
+            ? 'Move list could not be copied.'
+            : `${moves.length} move${moves.length === 1 ? '' : 's'} made`}
       </div>
-      <div className="flex items-center justify-between text-xs uppercase tracking-wide text-muted">
-        <span>Move history</span>
-        <span>{moves.length} total</span>
+      {mode === 'full' ? (
+        <div className="flex items-center justify-between text-xs uppercase tracking-wide text-muted">
+          <span>Move History</span>
+          <span>{moves.length} total</span>
+        </div>
+      ) : null}
+      <div className={mode === 'copyOnly' ? undefined : 'rounded-app-md border border-border p-3'}>
+        <Button
+          className="w-full"
+          variant="secondary"
+          onClick={() => {
+            void handleCopyMoveList();
+          }}
+          disabled={moveList.length === 0}
+        >
+          Copy Move List
+        </Button>
       </div>
-      <ol aria-label="Move history" className="grid grid-cols-3 gap-2 text-sm">
-        {recentMoves.map((move, index) => {
-          const absoluteIndex = offset + index + 1;
-          const badgeClasses = move.pushed
-            ? 'bg-warning-surface text-warning-text'
-            : 'bg-border/60 text-muted';
-
-          return (
-            <li
-              key={`${absoluteIndex}-${move.direction}`}
-              className="rounded-app-md border border-border px-2 py-1 text-center"
-            >
-              <div className="text-xs text-muted">#{absoluteIndex}</div>
-              <div className="text-base font-semibold">{move.direction}</div>
-              <div className={`mt-1 rounded px-1 text-[10px] uppercase ${badgeClasses}`}>
-                {move.pushed ? 'push' : 'walk'}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+      {/* Keep the old detailed move-card layout parked here until we decide whether it should return. */}
     </div>
   );
 }

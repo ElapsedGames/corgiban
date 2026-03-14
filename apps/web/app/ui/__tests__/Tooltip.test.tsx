@@ -72,4 +72,26 @@ describe('Tooltip', () => {
 
     expect(html).toContain('relative');
   });
+
+  it('supports explicit start alignment classes', () => {
+    const html = renderToStaticMarkup(
+      <Tooltip content="Hint" align="start">
+        <button type="button">Trigger</button>
+      </Tooltip>,
+    );
+
+    expect(html).toContain('left-0 right-auto translate-x-0');
+  });
+
+  it('supports responsive alignment objects for wider layouts', () => {
+    const html = renderToStaticMarkup(
+      <Tooltip content="Hint" align={{ base: 'center', sm: 'start', xl: 'end' }}>
+        <button type="button">Trigger</button>
+      </Tooltip>,
+    );
+
+    expect(html).toContain('left-1/2 right-auto -translate-x-1/2');
+    expect(html).toContain('sm:left-0 sm:right-auto sm:translate-x-0');
+    expect(html).toContain('xl:right-0 xl:left-auto xl:translate-x-0');
+  });
 });

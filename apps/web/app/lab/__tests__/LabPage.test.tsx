@@ -515,6 +515,26 @@ describe('LabPage', () => {
     expect(container.textContent).toContain('Moves: 0 | Pushes: 0');
   });
 
+  it('renders cell-code help for the selected input format', async () => {
+    const { container } = await renderPage();
+
+    expect(container.textContent).toContain('Cell codes for CORG');
+    expect(container.textContent).toContain('Wall');
+    expect(container.textContent).toContain('P');
+    expect(container.textContent).toContain('B');
+    expect(container.textContent).toContain('S');
+    expect(container.textContent).toContain('T');
+
+    await setFormatValue(container, 'xsb');
+
+    expect(container.textContent).toContain('Cell codes for XSB');
+    expect(container.textContent).toContain('#');
+    expect(container.textContent).toContain('@');
+    expect(container.textContent).toContain('$');
+    expect(container.textContent).toContain('*');
+    expect(container.textContent).toContain('.');
+  });
+
   it('keeps the previous input format selected when conversion fails', async () => {
     const { container } = await renderPage();
 
@@ -593,7 +613,7 @@ describe('LabPage', () => {
     await clickButton(container, 'Run Solve');
 
     expect(container.textContent).toContain('running');
-    expect(container.textContent).toContain('expanded=9 generated=11 elapsed=4.5 ms');
+    expect(container.textContent).toContain('Expanded: 9 | Generated: 11 | Elapsed: 4.5 ms');
 
     deferredSolve.resolve(makeSolverResult('R'));
     await flushPromises();
@@ -747,7 +767,7 @@ describe('LabPage', () => {
     await flushPromises();
 
     expect(container.textContent).toContain('idle');
-    expect(container.textContent).not.toContain('runId=lab-bench-suite-1');
+    expect(container.textContent).not.toContain('Run ID: lab-bench-suite-1');
   });
 
   it('renders bench completion details when a run succeeds', async () => {
@@ -759,7 +779,9 @@ describe('LabPage', () => {
     await flushPromises();
 
     expect(container.textContent).toContain('solved (8.0 ms)');
-    expect(container.textContent).toContain('runId=lab-bench-suite-1 expanded=4 generated=5');
+    expect(container.textContent).toContain(
+      'Run ID: lab-bench-suite-1 | Expanded: 4 | Generated: 5',
+    );
   });
 
   it('surfaces a cancelled benchmark result returned by the worker', async () => {

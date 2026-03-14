@@ -16,7 +16,7 @@ Remix application containing the product UI, routes, and orchestration.
 - Persistence adapters (IndexedDB, File System Access export/import)
 - Shared Remix server document rendering plus deployment adapters (currently Cloudflare Pages)
 
-## Current status (Phase 7 UX pass + styling policy tooling)
+## Current status (Phase 7 route pass complete + Phase 9 visual polish in progress)
 
 - Routes: `/` redirects to `/play`, `/play` remains the primary gameplay surface, `/bench` and
   `/lab` stay in the main nav, and `/dev/ui-kit` remains a direct-access validation route.
@@ -36,6 +36,11 @@ Remix application containing the product UI, routes, and orchestration.
 - The root app shell owns the light/dark `<html>` class, resolves the initial theme before paint
   from persisted preference with `prefers-color-scheme` fallback, and exposes the toggle in
   `AppNav`.
+- The root app shell also owns the board-skin preference for gameplay. It restores the saved
+  `skinId` from `localStorage` after hydration, injects that value through app-local context, and
+  exposes a board `Mode` toggle on the play-facing routes so `/play` and `/lab` preview can swap
+  between the illustrated `classic` skin and the simpler `legacy` skin without routing or Redux
+  changes.
 - The root document also publishes the canonical site title/description, branded Open Graph /
   Twitter preview metadata, favicon + Apple touch icon links, and syncs the browser
   `theme-color` meta tag from the token layer.
@@ -62,6 +67,11 @@ Remix application containing the product UI, routes, and orchestration.
     supported, with main-thread draw fallback.
   - Board visuals resolve through the app-local `boardSkin.ts` registry so light/dark palettes and
     future skin ids stay aligned across the fallback draw path and sprite-atlas worker cache.
+  - The current board visuals ship two app-local skins:
+    - `classic`: illustrated hedges, bone crates, and corgi player art
+    - `legacy`: the simpler geometric fallback look
+      Both skins use the same `skinId` + `mode` contract in the fallback canvas path and the worker
+      atlas path.
   - `GameCanvas` clamps its effective cell size to the available container width so small screens
     keep the board inside the route layout without distorting the render contract.
   - The board accepts keyboard input plus adjacent-tile click/tap and swipe gestures through a
@@ -71,8 +81,11 @@ Remix application containing the product UI, routes, and orchestration.
   - Small screens make the board full-bleed, trim the visible side-panel and solver actions to the
     primary gameplay controls, and lock the mobile `Run Solve` action after non-success solver
     outcomes until the player changes levels.
-  - Solver panel runs/cancels solves, shows progress, can apply/animate results, and exposes the full implemented algorithm set with shared friendly labels (`BFS Push`, `A* Push`, `IDA* Push`, `Greedy Push`, `Tunnel Macro Push`, `PI-Corral Push`).
+  - Solver panel runs/cancels solves, shows progress, can apply/animate results, and exposes the full implemented algorithm set with shared friendly labels (`BFS Push`, `A-Star Push`, `IDA-Star Push`, `Greedy Push`, `Tunnel Macro Push`, `PI-Corral Push`).
   - Settings include default solver budgets (time/node), and `/play` solve orchestration uses those defaults with defensive fallback to solver constants.
+  - `/play` also keeps lightweight browser-local player continuity (`lastPlayedLevel` plus completed built-in level ids) in `localStorage`, but only for built-in levels. Lab/Bench handoff levels stay one-shot session views: they do not overwrite saved built-in continuity, and once an exact session handoff has been applied the exact route params are cleared so refresh falls back to saved built-in progress or level 1. Canonical built-in `/play?levelId=...` links stay shareable. This is intentionally a small POC playability layer so the final proof of concept feels more like a game, without expanding the heavier IndexedDB benchmark persistence model into general gameplay state yet.
+  - The current `/play` surface does not render the old detailed move-history card/list UI. Instead it exposes move history as a copyable UDLR move-list action (`Copy Move List`) while Redux/core still retain full move history for gameplay, replay, and persistence workflows.
+  - The older detailed move-history layout remains intentionally parked in `app/play/MoveHistory.tsx` as a commented reference for possible future revival. Treat that parked block as an intentional product note, not as live shipped UI.
   - Optional env toggle: `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` enables light validation mode for high-frequency `SOLVE_PROGRESS` messages in the solver client; strict mode remains default.
   - Optional solver-kernel env wiring:
     `VITE_SOLVER_KERNEL_REACHABILITY_URL`, `VITE_SOLVER_KERNEL_HASHING_URL`, and
@@ -128,10 +141,14 @@ Remix application containing the product UI, routes, and orchestration.
     identity plus `comparisonLevelKey` for stable comparison identity across import/export.
     App-local exact reopen metadata is still retained only in local persistence and stripped from
     public export payloads.
-  - The local reopen/comparison fingerprint is derived from the canonical committed
-    `LevelDefinition` payload (`id`, `name`, `rows`, `knownSolution`) rather than raw editor text.
+  - The local reopen/comparison fingerprint is derived from a compact deterministic key over the
+    canonical committed `LevelDefinition` payload (`id`, `name`, `rows`, `knownSolution`) rather
+    than raw editor text.
     Metadata-only changes can therefore make an old local result unavailable; refining that
     behavior to parsed-structure equivalence is deferred work tracked by ADR-0032.
+  - Exact reopen matching also accepts the older serialized exact-level keys so pre-hash browser-
+    local benchmark metadata and route handoff state remain readable while the app migrates toward
+    the compact key format.
 - Lab:
   - `/lab` provides a CORG-first authoring surface plus format-aware single-level parsing
     (CORG/XSB/SOK/SLC), canvas preview, and one-click worker solve/bench checks. Multi-level

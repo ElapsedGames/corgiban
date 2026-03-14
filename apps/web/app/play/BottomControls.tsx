@@ -2,13 +2,19 @@ import { useId } from 'react';
 
 import type { Direction } from '@corgiban/shared';
 
-import { SequenceInput, type SequenceApplyResult } from './SequenceInput';
+import { SequenceInput, type SequenceAnimationResult } from './SequenceInput';
 
 export type BottomControlsProps = {
-  onApplySequence: (directions: Direction[]) => SequenceApplyResult;
+  replaySpeed: number;
+  onAnimateSequence: (directions: Direction[]) => SequenceAnimationResult;
+  onReplaySpeedChange: (speed: number) => void;
 };
 
-export function BottomControls({ onApplySequence }: BottomControlsProps) {
+export function BottomControls({
+  replaySpeed,
+  onAnimateSequence,
+  onReplaySpeedChange,
+}: BottomControlsProps) {
   const headingId = useId();
 
   return (
@@ -18,11 +24,14 @@ export function BottomControls({ onApplySequence }: BottomControlsProps) {
     >
       <div className="mb-4">
         <h2 id={headingId} className="text-lg font-semibold">
-          Sequence input
+          Move Sequence
         </h2>
-        <p className="text-sm text-muted">Paste a UDLR string to apply multiple moves in order.</p>
       </div>
-      <SequenceInput onApplySequence={onApplySequence} />
+      <SequenceInput
+        replaySpeed={replaySpeed}
+        onAnimateSequence={onAnimateSequence}
+        onReplaySpeedChange={onReplaySpeedChange}
+      />
     </section>
   );
 }

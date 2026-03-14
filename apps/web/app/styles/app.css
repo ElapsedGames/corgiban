@@ -115,12 +115,18 @@ a {
   color: var(--color-accent-contrast);
 }
 
-.app-nav__theme-toggle {
+.app-nav__toggles {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.app-nav__toggle {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   gap: 0.1rem;
-  margin-left: auto;
   border: 1px solid var(--color-border-action);
   border-radius: var(--radius-md);
   padding: 0.35rem 1rem;
@@ -134,12 +140,13 @@ a {
     background-color 120ms ease;
 }
 
-.app-nav__theme-toggle:hover:not(:disabled) {
+.app-nav__toggle:hover:not(:disabled) {
   border-color: var(--color-accent);
   color: var(--color-accent);
+  background: var(--color-accent-surface);
 }
 
-.app-nav__theme-toggle:disabled {
+.app-nav__toggle:disabled {
   cursor: wait;
   opacity: 0.7;
 }
@@ -165,19 +172,25 @@ a {
   border-color: var(--color-alpha-badge-border);
 }
 
-.app-nav__theme-label {
+.app-nav__toggle-label {
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-muted);
   line-height: 1;
+  transition: color 120ms ease;
 }
 
-.app-nav__theme-value {
+.app-nav__toggle-value {
   font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.2;
+}
+
+.app-nav__toggle:hover:not(:disabled) .app-nav__toggle-label,
+.app-nav__toggle:focus-visible .app-nav__toggle-label {
+  color: inherit;
 }
 
 .page-shell {
@@ -280,7 +293,7 @@ a {
     justify-content: center;
   }
 
-  .app-nav__theme-toggle {
+  .app-nav__toggles {
     margin-left: 0;
   }
 }

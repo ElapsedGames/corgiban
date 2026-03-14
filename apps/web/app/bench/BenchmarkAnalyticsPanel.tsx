@@ -89,8 +89,8 @@ export function BenchmarkAnalyticsPanel({
             Analytics & Comparison
           </h2>
           <p className="text-sm text-muted">
-            Compare persisted suite runs only when their stored run inputs, solver options, warm-up
-            settings, and environment metadata match exactly.
+            Compare saved suite runs when they were measured under the same settings and browser
+            conditions.
           </p>
         </div>
         <Button
@@ -104,20 +104,18 @@ export function BenchmarkAnalyticsPanel({
 
       {suites.length === 0 ? (
         <p className="rounded-app-md border border-dashed border-border px-3 py-4 text-sm text-muted">
-          Run at least one suite to generate analytics.
+          Run at least one suite to see summary stats and comparisons.
         </p>
       ) : (
         <>
           <div className="mb-3 max-w-xs">
             <Select
-              label="Baseline suite"
+              label="Comparison baseline"
               value={baselineSuiteRunId}
               onChange={(event) => setBaselineSuiteRunId(event.target.value)}
             >
               <option value="">
-                {baseline
-                  ? `Auto (${baseline.suiteLabel})`
-                  : 'Auto (select most recent comparable suite)'}
+                {baseline ? `Auto (${baseline.suiteLabel})` : 'Auto (most recent comparable suite)'}
               </option>
               {suites.map((suite) => (
                 <option key={suite.suiteRunId} value={suite.suiteRunId}>
@@ -130,13 +128,13 @@ export function BenchmarkAnalyticsPanel({
           {baseline && baseline.comparisonFingerprint === null ? (
             <p className="mb-3 rounded-app-md border border-dashed border-border px-3 py-2 text-sm text-muted">
               {baseline.comparisonIssues[0] ??
-                'Select a suite with complete comparable metadata to export a comparison snapshot.'}
+                'Pick a suite with complete comparison data before exporting a comparison snapshot.'}
             </p>
           ) : null}
 
           {nonComparableSuites.length > 0 ? (
             <p className="mb-3 rounded-app-md border border-dashed border-border px-3 py-2 text-sm text-muted">
-              Non-comparable suites:{' '}
+              Suites skipped from comparison:{' '}
               {nonComparableSuites
                 .map((comparison) => {
                   return `${comparison.suiteRunId} (${comparison.reason ?? 'comparison unavailable'})`;
@@ -160,25 +158,25 @@ export function BenchmarkAnalyticsPanel({
                     Runs
                   </th>
                   <th scope="col" className="px-2 py-2 text-right">
-                    Success
+                    Solve rate
                   </th>
                   <th scope="col" className="px-2 py-2 text-right">
-                    <abbr title="50th percentile elapsed time in milliseconds">p50 (ms)</abbr>
+                    <abbr title="50th percentile solve time in milliseconds">p50 (ms)</abbr>
                   </th>
                   <th scope="col" className="px-2 py-2 text-right">
-                    <abbr title="95th percentile elapsed time in milliseconds">p95 (ms)</abbr>
+                    <abbr title="95th percentile solve time in milliseconds">p95 (ms)</abbr>
                   </th>
                   <th scope="col" className="px-2 py-2 text-right">
                     Comparison
                   </th>
                   <th scope="col" className="px-2 py-2 text-right">
-                    Delta success
+                    Solve rate delta
                   </th>
                   <th scope="col" className="px-2 py-2 text-right">
-                    <abbr title="Delta 50th percentile">Delta p50</abbr>
+                    <abbr title="Change in 50th percentile solve time">p50 delta</abbr>
                   </th>
                   <th scope="col" className="px-2 py-2 text-right">
-                    <abbr title="Delta 95th percentile">Delta p95</abbr>
+                    <abbr title="Change in 95th percentile solve time">p95 delta</abbr>
                   </th>
                 </tr>
               </thead>

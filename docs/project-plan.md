@@ -558,7 +558,7 @@ Routes/pages:
 
 Initial Play page must mirror the existing UI shape:
 
-- Side panel (level info, restart/next level, solved-state feedback, move history)
+- Side panel (level info, restart/next level, solved-state feedback, copyable move-list action)
 - Board section (board rendering, level metadata, solved-state banner)
 - Bottom controls (sequence input + apply)
   Additionally add:
@@ -797,7 +797,7 @@ Status: Complete (Phase 2 scope delivered in this PR)
 2. Remix route modules for /play, /bench, /dev/ui-kit with route-level ErrorBoundary exports
 3. RTK store + gameSlice
 4. Add core helpers applyMoves and selectCellAt with tests (Phase 2 glue)
-5. Canvas renderer split: buildRenderPlan(state): RenderPlan (pure, tested) + draw(ctx, plan): void (thin, untested); draw-on-change render loop; keyboard input + move history + restart + undo + next level
+5. Canvas renderer split: buildRenderPlan(state): RenderPlan (pure, tested) + draw(ctx, plan): void (thin, untested); draw-on-change render loop; keyboard input + copyable move-list history + restart + undo + next level
 6. Sequence input applies moves deterministically
 7. Add /dev/ui-kit route rendering all design system primitives
 
@@ -924,7 +924,7 @@ Current increment:
   would otherwise collapse lossy.
 
 1. Define explicit route charters, entry points, and non-goals for `/play`, `/lab`, and `/bench`:
-   - `/play`: primary gameplay, undo/restart/history, replay, lightweight solver help, and quick open/import actions
+   - `/play`: primary gameplay, undo/restart/copyable move-list history, replay, lightweight solver help, and quick open/import actions
    - `/lab`: authoring/debugging, raw format editing/conversion, validation, preview diagnostics, and single-level solve/bench sanity checks
    - `/bench`: benchmark suite creation, persistence, analytics/comparison, exports/imports, and durability diagnostics
 2. Remove or demote overlapping controls so each advanced workflow has a clear home:
@@ -995,10 +995,31 @@ Decision dependency: ADR-0009 (solver-optimized state representation and hashing
 11. Reduce BFS timing overhead by sampling `nowMs()` at a coarse expansion interval (for example every 256 or 1024 nodes) while preserving budget and progress correctness.
 12. Optimize `expandSolution` box updates by replacing per-push linear `indexOf` lookup with an indexed structure (reverse index map or equivalent), with regression coverage for long solutions.
 
-Phase 9 - UI, visual, and sprite polish pass (planned)
+Phase 9 - UI, visual, and sprite polish pass (in progress)
 Decision dependencies: ADR-0030 (app-local board skin registry). Capture an additional ADR if the
 renderer asset pipeline, theme system, or animation strategy changes materially beyond that
 baseline.
+
+Status: In progress (the board now ships a shared illustrated sprite/tile pipeline across the
+worker atlas path and the main-thread fallback path, the app nav exposes a persisted board-mode
+toggle on the play-facing routes, and the current web-app pass is polishing `/play`, `/lab`, and
+`/bench` copy/layout without changing their route responsibilities).
+
+Current increment:
+
+- The board renderer now ships two app-local skins on the shared `skinId` contract:
+  `classic` for the illustrated corgi/hedge/bone presentation and `legacy` for the simpler
+  geometric fallback look.
+- The sprite-atlas worker now rasterizes SVG-authored tile art while the main-thread fallback draw
+  path renders the same visual language procedurally, so board visuals stay aligned when
+  OffscreenCanvas or worker atlas generation is unavailable.
+- The root app shell persists board-skin preference in browser storage and exposes a shared
+  board-mode toggle for `/play` and `/lab` preview without promoting that visual state into Redux.
+- `/play` adds lightweight browser-local continuity for built-in levels (`lastPlayedLevel` plus
+  completed built-in level ids) while keeping `/lab` and `/bench` handoff entries one-shot
+  session activations.
+- The current route polish pass is making `/play`, `/lab`, and `/bench` controls more guided and
+  scan-friendly without changing the established route charters from Phase 7.
 
 1. Establish a cohesive visual direction across the app:
    - typography, color tokens, spacing scale, panel hierarchy, and icon treatment
@@ -1089,7 +1110,7 @@ Phase 11 - Race Mode and multi-runner play (planned)
 - `pnpm test:smoke` passes with required service-worker readiness checks on the production path
 - `pnpm dev` runs:
   - / redirects to /play
-  - /play supports keyboard moves, adjacent-tile tap/click + swipe board input, restart, undo, and move history
+  - /play supports keyboard moves, adjacent-tile tap/click + swipe board input, restart, undo, and a copyable move-list history action
   - /play solver panel shows algorithm recommendation (for example, "Start with PI-Corral Push for this 7-box 13x11 level.") and allows override
   - /play solver panel can start/cancel a solve; progress updates; result can be applied/animated
   - /play solver panel shows Retry button when worker is crashed; clicking it recreates the worker

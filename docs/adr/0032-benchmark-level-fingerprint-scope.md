@@ -8,8 +8,8 @@
 
 ADR-0031 introduced browser-local playable refs for exact runnable identity and added local-only
 benchmark metadata so `/bench` can reopen session-backed levels safely. The current local reopen
-and comparison fingerprint uses a stable canonical serialization of the committed
-`LevelDefinition` payload.
+and comparison fingerprint uses a compact deterministic key derived from a stable canonical
+serialization of the committed `LevelDefinition` payload.
 
 That current behavior is intentional and correct for the route-handoff fix:
 

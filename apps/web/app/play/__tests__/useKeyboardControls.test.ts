@@ -440,4 +440,35 @@ describe('useKeyboardControls', () => {
     expect(onNextLevel).toHaveBeenCalledTimes(1);
     expect(solved.preventDefault).toHaveBeenCalledTimes(1);
   });
+
+  it('does not handle next-level shortcuts when level-sequence navigation is unavailable', () => {
+    let keydownHandler: ((event: FakeKeyboardEvent) => void) | undefined;
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: FakeKeyboardEvent) => void) => {
+        keydownHandler = handler;
+      },
+      removeEventListener: () => undefined,
+    });
+
+    const onNextLevel = vi.fn();
+
+    useKeyboardControls({
+      onMove: () => undefined,
+      onUndo: () => undefined,
+      onRestart: () => undefined,
+      onNextLevel,
+      canGoToNextLevel: false,
+      isSolved: true,
+    });
+
+    const nextKey = createEvent('KeyN');
+    keydownHandler?.(nextKey);
+    expect(onNextLevel).not.toHaveBeenCalled();
+    expect(nextKey.preventDefault).not.toHaveBeenCalled();
+
+    const enterKey = createEvent('Enter');
+    keydownHandler?.(enterKey);
+    expect(onNextLevel).not.toHaveBeenCalled();
+    expect(enterKey.preventDefault).not.toHaveBeenCalled();
+  });
 });

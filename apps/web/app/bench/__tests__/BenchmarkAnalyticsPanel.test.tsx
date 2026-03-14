@@ -554,7 +554,9 @@ describe('BenchmarkAnalyticsPanel', () => {
       onExportSnapshot,
     });
 
-    expect(container.textContent).toContain('Run at least one suite to generate analytics.');
+    expect(container.textContent).toContain(
+      'Run at least one suite to see summary stats and comparisons.',
+    );
 
     const exportButton = findButton(container, 'Export Comparison Snapshot');
     expect(exportButton).not.toBeNull();
@@ -682,7 +684,7 @@ describe('BenchmarkAnalyticsPanel', () => {
     });
 
     expect(container.textContent).toContain('Not comparable');
-    expect(container.textContent).toContain('Non-comparable suites: suite-a');
+    expect(container.textContent).toContain('Suites skipped from comparison: suite-a');
     expect(container.textContent).toContain('n/a');
 
     await act(async () => {

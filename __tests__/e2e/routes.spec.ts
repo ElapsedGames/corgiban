@@ -108,7 +108,7 @@ test('lab route loads editor and worker action controls', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'U', exact: true })).toHaveCount(0);
   await expect(page.getByText('Moves: 0 | Pushes: 0')).toBeVisible();
 
-  const labInput = await page.getByLabel('Encoded level input').inputValue();
+  const labInput = await page.getByRole('textbox', { name: 'Level text' }).inputValue();
   const move = findPreviewMove(parseRowsFromLabInput(labInput));
 
   await page.getByText('Preview / Play').click();

@@ -16,6 +16,7 @@ const baseProps = {
   isSolved: false,
   labHref: '/lab?levelId=test-level-001',
   benchHref: '/bench?levelId=test-level-001',
+  showLevelNavigation: true,
   canGoToPreviousLevel: false,
   onPreviousLevel: noop,
   onRestart: noop,
@@ -56,7 +57,7 @@ describe('SidePanel', () => {
     expect(html).toContain('role="group"');
     expect(html).toContain('aria-label="Game controls"');
     expect(html).toContain('grid grid-cols-2 gap-2');
-    expect(html.match(/w-full/g)).toHaveLength(4);
+    expect(html.match(/w-full/g)).toHaveLength(5);
   });
 
   it('shows the solved badge when isSolved is true', () => {
@@ -66,7 +67,7 @@ describe('SidePanel', () => {
     expect(html).toContain('bg-success');
   });
 
-  it('always shows previous-level button and disables it when the previous level is unavailable', () => {
+  it('shows previous-level button and disables it when the previous level is unavailable', () => {
     const withoutPrev = renderToStaticMarkup(<SidePanel {...baseProps} />);
     expect(withoutPrev).toContain('Previous');
     expect(withoutPrev).toMatch(/<button[^>]*disabled=""[^>]*>Previous<\/button>/);
@@ -77,11 +78,19 @@ describe('SidePanel', () => {
     expect(withPrev).not.toMatch(/<button[^>]*disabled=""[^>]*>Previous<\/button>/);
   });
 
-  it('uses standardized labels for level navigation controls', () => {
+  it('uses standardized labels for level navigation controls when a level sequence exists', () => {
     const html = renderToStaticMarkup(<SidePanel {...baseProps} />);
 
     expect(html).toContain('Previous');
     expect(html).toContain('Next Level');
+  });
+
+  it('hides level-navigation controls when the current level is a one-off entry', () => {
+    const html = renderToStaticMarkup(<SidePanel {...baseProps} showLevelNavigation={false} />);
+
+    expect(html).not.toContain('Previous');
+    expect(html).not.toContain('Next Level');
+    expect(html.match(/w-full/g)).toHaveLength(3);
   });
 
   it('uses tonal restart styling and promotes next level only after the puzzle is solved', () => {
@@ -110,9 +119,10 @@ describe('SidePanel', () => {
     expect(html).toContain('aria-label="Game controls"');
   });
 
-  it('renders direct handoff links to lab and bench for the current level', () => {
+  it('keeps direct handoff links desktop-only for the current level', () => {
     const html = renderToStaticMarkup(<SidePanel {...baseProps} />);
 
+    expect(html).toContain('<div class="hidden gap-2 text-sm lg:grid lg:grid-cols-2">');
     expect(html).toContain('href="/lab?levelId=test-level-001"');
     expect(html).toContain('Open in Lab');
     expect(html).toContain('href="/bench?levelId=test-level-001"');

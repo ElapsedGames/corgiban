@@ -9,6 +9,7 @@ import { builtinLevels } from '@corgiban/levels';
 
 const callbackState = vi.hoisted(() => ({
   solverPanelProps: null as null | Record<string, unknown>,
+  bottomControlsProps: null as null | Record<string, unknown>,
   keyboardHandlers: null as null | {
     onMove: (direction: 'U' | 'D' | 'L' | 'R') => void;
     onUndo: () => void;
@@ -23,6 +24,7 @@ const callbackState = vi.hoisted(() => ({
     stepBack: ReturnType<typeof vi.fn>;
     stepForward: ReturnType<typeof vi.fn>;
     loadSolution: ReturnType<typeof vi.fn>;
+    loadMovesFromState: ReturnType<typeof vi.fn>;
   }>,
 }));
 
@@ -34,6 +36,7 @@ vi.mock('../../replay/replayController.client', () => ({
     stepBack = vi.fn();
     stepForward = vi.fn();
     loadSolution = vi.fn();
+    loadMovesFromState = vi.fn();
 
     constructor() {
       callbackState.controllerInstances.push(this);
@@ -50,7 +53,10 @@ vi.mock('../SidePanel', () => ({
 }));
 
 vi.mock('../BottomControls', () => ({
-  BottomControls: () => <div data-testid="bottom-controls-stub" />,
+  BottomControls: (props: Record<string, unknown>) => {
+    callbackState.bottomControlsProps = props;
+    return <div data-testid="bottom-controls-stub" />;
+  },
 }));
 
 vi.mock('../SolverPanel', () => ({
@@ -58,6 +64,10 @@ vi.mock('../SolverPanel', () => ({
     callbackState.solverPanelProps = props;
     return <div data-testid="solver-panel-stub" />;
   },
+}));
+
+vi.mock('../../levels/RequestedEntryUnavailable', () => ({
+  RequestedEntryUnavailablePage: () => <div data-testid="requested-entry-unavailable" />,
 }));
 
 vi.mock('../useKeyboardControls', () => ({
@@ -74,7 +84,7 @@ vi.mock('../useKeyboardControls', () => ({
 
 import { createAppStore } from '../../state/store';
 import { move, nextLevel } from '../../state/gameSlice';
-import { solveRunCompleted, solveRunStarted } from '../../state/solverSlice';
+import { setReplayState, solveRunCompleted, solveRunStarted } from '../../state/solverSlice';
 import { PlayPage } from '../PlayPage';
 
 Object.assign(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }, {
@@ -110,10 +120,20 @@ async function renderPage(store = createAppStore()) {
   return { root, store };
 }
 
+async function flushEffects() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 describe('PlayPage callback behavior', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    globalThis.localStorage.clear();
+    globalThis.sessionStorage.clear();
     callbackState.solverPanelProps = null;
+    callbackState.bottomControlsProps = null;
     callbackState.keyboardHandlers = null;
     callbackState.controllerInstances.length = 0;
   });
@@ -243,8 +263,69 @@ describe('PlayPage callback behavior', () => {
     });
 
     const controller = callbackState.controllerInstances.at(-1);
-    expect(controller?.loadSolution).toHaveBeenCalledTimes(1);
-    expect(controller?.loadSolution).toHaveBeenCalledWith(['R'], true);
+    expect(controller?.loadMovesFromState).toHaveBeenCalledTimes(1);
+    expect(controller?.loadMovesFromState).toHaveBeenCalledWith(expect.any(Object), ['R'], true);
+  });
+
+  it('animates typed move sequences from the current board state through bottom controls', async () => {
+    const store = createAppStore();
+    expect(keyboardFixtureLevel).toBeTruthy();
+    store.dispatch(
+      nextLevel({ levelId: keyboardFixtureLevel?.id ?? store.getState().game.levelId }),
+    );
+    await renderPage(store);
+
+    await act(async () => {
+      callbackState.keyboardHandlers?.onMove('R');
+    });
+
+    const onAnimateSequence = callbackState.bottomControlsProps?.onAnimateSequence as
+      | ((directions: ('U' | 'D' | 'L' | 'R')[]) => { applied: number; stoppedAt: number | null })
+      | undefined;
+    expect(onAnimateSequence).toBeTypeOf('function');
+
+    let result: { applied: number; stoppedAt: number | null } | undefined;
+    await act(async () => {
+      result = onAnimateSequence?.(['L']);
+    });
+
+    expect(result).toEqual({ applied: 1, stoppedAt: null });
+    expect(store.getState().game.stats.moves).toBe(1);
+
+    const controller = callbackState.controllerInstances.at(-1);
+    expect(controller?.stop).toHaveBeenCalledTimes(2);
+    expect(controller?.loadMovesFromState).toHaveBeenCalledTimes(1);
+    expect(controller?.loadMovesFromState).toHaveBeenCalledWith(expect.any(Object), ['L'], true);
+  });
+
+  it('commits typed sequence replay onto the existing history when replay finishes', async () => {
+    const store = createAppStore();
+    expect(keyboardFixtureLevel).toBeTruthy();
+    store.dispatch(
+      nextLevel({ levelId: keyboardFixtureLevel?.id ?? store.getState().game.levelId }),
+    );
+    await renderPage(store);
+
+    await act(async () => {
+      callbackState.keyboardHandlers?.onMove('R');
+    });
+
+    const onAnimateSequence = callbackState.bottomControlsProps?.onAnimateSequence as
+      | ((directions: ('U' | 'D' | 'L' | 'R')[]) => { applied: number; stoppedAt: number | null })
+      | undefined;
+    expect(onAnimateSequence).toBeTypeOf('function');
+
+    await act(async () => {
+      expect(onAnimateSequence?.(['L'])).toEqual({ applied: 1, stoppedAt: null });
+      store.dispatch(setReplayState('done'));
+    });
+    await flushEffects();
+
+    expect(store.getState().game.history).toEqual([
+      { direction: 'R', pushed: false },
+      { direction: 'L', pushed: false },
+    ]);
+    expect(store.getState().game.stats).toEqual({ moves: 2, pushes: 0 });
   });
 
   it('does not animate when there is no solved move sequence', async () => {
@@ -258,6 +339,25 @@ describe('PlayPage callback behavior', () => {
     });
 
     const controller = callbackState.controllerInstances.at(-1);
-    expect(controller?.loadSolution).not.toHaveBeenCalled();
+    expect(controller?.loadMovesFromState).not.toHaveBeenCalled();
+  });
+
+  it('treats keyboard callbacks as no-ops when the active level is unavailable', async () => {
+    const store = createAppStore();
+    store.dispatch(nextLevel({ levelId: 'missing-level' }));
+    await renderPage(store);
+
+    expect(callbackState.controllerInstances).toHaveLength(0);
+
+    await act(async () => {
+      callbackState.keyboardHandlers?.onMove('R');
+      callbackState.keyboardHandlers?.onUndo();
+      callbackState.keyboardHandlers?.onRestart();
+      callbackState.keyboardHandlers?.onNextLevel();
+    });
+
+    expect(store.getState().game.levelId).toBe('missing-level');
+    expect(store.getState().game.stats.moves).toBe(0);
+    expect(store.getState().game.stats.pushes).toBe(0);
   });
 });

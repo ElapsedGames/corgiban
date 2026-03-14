@@ -13,6 +13,7 @@ import {
   listBuiltinPlayableEntries,
   listPlayableEntries,
   listBuiltinPlayableLevels,
+  listPlayableLevels,
   resolvePlayableEntry,
   subscribeTemporaryLevelCatalog,
   toBuiltinLevelRef,
@@ -304,6 +305,12 @@ describe('temporaryLevelCatalog', () => {
     });
   });
 
+  it('returns null for empty or missing playable refs and unknown builtin refs', () => {
+    expect(getPlayableEntryByRef(null)).toBeNull();
+    expect(getPlayableEntryByRef(undefined)).toBeNull();
+    expect(getPlayableEntryByRef('builtin:missing-level')).toBeNull();
+  });
+
   it('does not allow temporary imports to replace builtin levels', () => {
     const builtinLevel = builtinLevels[0];
     expect(builtinLevel).toBeTruthy();
@@ -327,6 +334,59 @@ describe('temporaryLevelCatalog', () => {
     expect(isBuiltinLevelId(builtinLevels[0]?.id ?? 'missing-builtin')).toBe(true);
     expect(getPlayableLevelById('')).toBeNull();
     expect(upsertTemporaryLevels([])).toEqual([]);
+  });
+
+  it('preserves collection metadata on direct session upserts and legacy level listings', () => {
+    const sessionEntry = upsertSessionPlayableEntry({
+      originRef: toBuiltinLevelRef(builtinLevels[0]?.id ?? 'builtin-fallback'),
+      collectionIndex: 0,
+      level: {
+        id: 'custom-play-collection-index',
+        name: 'Collection Indexed Level',
+        rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+      },
+    });
+
+    expect(sessionEntry.source).toMatchObject({
+      kind: 'session',
+      originRef: toBuiltinLevelRef(builtinLevels[0]?.id ?? 'builtin-fallback'),
+      collectionIndex: 0,
+    });
+    expect(listPlayableLevels()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'custom-play-collection-index',
+          originRef: toBuiltinLevelRef(builtinLevels[0]?.id ?? 'builtin-fallback'),
+          source: 'temporary',
+        }),
+      ]),
+    );
+  });
+
+  it('rejects invalid session refs and collection indexes, and no-ops empty collections', () => {
+    expect(() =>
+      upsertSessionPlayableEntry({
+        ref: 'bad-ref',
+        level: {
+          id: 'invalid-ref-level',
+          name: 'Invalid Ref Level',
+          rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+        },
+      }),
+    ).toThrow('Session playable refs must start with "temp:"');
+
+    expect(() =>
+      upsertSessionPlayableEntry({
+        collectionIndex: -1,
+        level: {
+          id: 'invalid-collection-index',
+          name: 'Invalid Collection Index',
+          rows: ['WWWWW', 'WPBTW', 'WEEEW', 'WWWWW'],
+        },
+      }),
+    ).toThrow('Session playable collection indexes must be non-negative integers.');
+
+    expect(upsertSessionPlayableCollection([])).toEqual([]);
   });
 
   it('reads the in-memory catalog when window is unavailable', () => {
@@ -382,6 +442,18 @@ describe('temporaryLevelCatalog', () => {
             rows: ['WWWWW', 1, 'WWWWW'],
           },
         },
+        {
+          ref: 'temp:custom-play-bad-collection-index',
+          collectionIndex: -1,
+          level: {
+            id: 'custom-play-bad-collection-index',
+            name: 'Bad Collection Index',
+            rows: ['WWWWW', 'WPBTW', 'WWWWW'],
+          },
+        },
+        {
+          ref: 'temp:custom-play-missing-level',
+        },
       ]),
     );
 
@@ -397,6 +469,8 @@ describe('temporaryLevelCatalog', () => {
     });
     expect(getPlayableLevelById('custom-play-invalid')).toBeNull();
     expect(getPlayableLevelById('custom-play-bad-rows')).toBeNull();
+    expect(getPlayableLevelById('custom-play-bad-collection-index')).toBeNull();
+    expect(getPlayableLevelById('custom-play-missing-level')).toBeNull();
   });
 
   it('treats malformed top-level catalog JSON as empty and clears the corrupted entry', () => {

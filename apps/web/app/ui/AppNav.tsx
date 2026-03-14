@@ -1,9 +1,13 @@
-import { NavLink } from '@remix-run/react';
+import type { BoardSkinId } from '../canvas/boardSkin';
+import { NavLink, useLocation } from '@remix-run/react';
 
 import type { AppTheme } from '../theme/theme';
 
 type AppNavProps = {
+  boardSkinId: BoardSkinId;
+  isBoardSkinReady: boolean;
   isThemeReady: boolean;
+  onToggleBoardSkin: () => void;
   onToggleTheme: () => void;
   theme: AppTheme;
 };
@@ -22,7 +26,38 @@ function formatThemeValue(theme: AppTheme): string {
   return theme === 'dark' ? 'Dark' : 'Light';
 }
 
-export function AppNav({ isThemeReady, onToggleTheme, theme }: AppNavProps) {
+function formatBoardSkinValue(boardSkinId: BoardSkinId): string {
+  return boardSkinId === 'classic' ? 'Corg' : 'Lame';
+}
+
+export function AppNav({
+  boardSkinId,
+  isBoardSkinReady,
+  isThemeReady,
+  onToggleBoardSkin,
+  onToggleTheme,
+  theme,
+}: AppNavProps) {
+  const location = useLocation();
+  const showBoardModeToggle =
+    location.pathname === '/play' || location.pathname === '/lab' || location.pathname === '/';
+
+  const handleToggleBoardSkin = () => {
+    if (!isBoardSkinReady) {
+      return;
+    }
+
+    onToggleBoardSkin();
+  };
+
+  const handleToggleTheme = () => {
+    if (!isThemeReady) {
+      return;
+    }
+
+    onToggleTheme();
+  };
+
   return (
     <header className="app-nav">
       <div className="app-nav__inner">
@@ -49,19 +84,36 @@ export function AppNav({ isThemeReady, onToggleTheme, theme }: AppNavProps) {
               </NavLink>
             ))}
           </nav>
-          <button
-            aria-label="Toggle color theme"
-            aria-pressed={isThemeReady ? theme === 'dark' : undefined}
-            className="app-nav__theme-toggle"
-            disabled={!isThemeReady}
-            onClick={onToggleTheme}
-            type="button"
-          >
-            <span className="app-nav__theme-label">Theme</span>
-            <span className="app-nav__theme-value">
-              {isThemeReady ? formatThemeValue(theme) : 'Syncing'}
-            </span>
-          </button>
+          <div className="app-nav__toggles">
+            {showBoardModeToggle ? (
+              <button
+                aria-label="Toggle board mode"
+                aria-disabled={!isBoardSkinReady}
+                aria-pressed={isBoardSkinReady ? boardSkinId === 'classic' : undefined}
+                className="app-nav__toggle"
+                onClick={handleToggleBoardSkin}
+                type="button"
+              >
+                <span className="app-nav__toggle-label">Mode</span>
+                <span className="app-nav__toggle-value">
+                  {isBoardSkinReady ? formatBoardSkinValue(boardSkinId) : 'Syncing'}
+                </span>
+              </button>
+            ) : null}
+            <button
+              aria-label="Toggle color theme"
+              aria-disabled={!isThemeReady}
+              aria-pressed={isThemeReady ? theme === 'dark' : undefined}
+              className="app-nav__toggle"
+              onClick={handleToggleTheme}
+              type="button"
+            >
+              <span className="app-nav__toggle-label">Theme</span>
+              <span className="app-nav__toggle-value">
+                {isThemeReady ? formatThemeValue(theme) : 'Syncing'}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </header>

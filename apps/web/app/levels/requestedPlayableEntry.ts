@@ -1,4 +1,4 @@
-import { createPlayableExactLevelKey } from './playableIdentity';
+import { matchesPlayableExactLevelKey } from './playableIdentity';
 
 export type PlayableCatalogCompleteness = 'server-builtin-only' | 'client-session-aware';
 
@@ -91,8 +91,8 @@ function resolveExactLevelKeyEntry<TEntry extends RequestedPlayableEntryLike>(
   playableEntries: readonly TEntry[],
   exactLevelKey: string,
 ): TEntry | null {
-  const matches = playableEntries.filter(
-    (entry) => createPlayableExactLevelKey(entry.level) === exactLevelKey,
+  const matches = playableEntries.filter((entry) =>
+    matchesPlayableExactLevelKey(entry.level, exactLevelKey),
   );
   if (matches.length === 0) {
     return null;
@@ -143,7 +143,7 @@ export function resolveRequestedPlayableEntryFromEntries<TEntry extends Requeste
     if (exactEntry) {
       if (
         request.exactLevelKey &&
-        createPlayableExactLevelKey(exactEntry.level) !== request.exactLevelKey
+        !matchesPlayableExactLevelKey(exactEntry.level, request.exactLevelKey)
       ) {
         return {
           status: 'missingExactKey',

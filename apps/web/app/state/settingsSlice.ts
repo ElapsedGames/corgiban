@@ -20,7 +20,7 @@ function toPositiveInt(value: number, fallback: number): number {
 
 const initialState: SettingsState = {
   tileAnimationDuration: 80,
-  solverReplaySpeed: 1,
+  solverReplaySpeed: 2,
   solverTimeBudgetMs: DEFAULT_SOLVER_TIME_BUDGET_MS,
   solverNodeBudget: DEFAULT_NODE_BUDGET,
   debug: false,

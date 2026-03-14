@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { parseLevel } from '@corgiban/core';
-import type { LevelRuntime } from '@corgiban/core';
+import { applyMove, createGame, parseLevel } from '@corgiban/core';
+import type { GameState, LevelRuntime } from '@corgiban/core';
 
 import type { Dispatch } from '../replayController.client';
 import { ReplayController } from '../replayController.client';
@@ -143,6 +143,39 @@ describe('ReplayController', () => {
         (action) => action.type === 'solver/setReplayState' && action.payload === 'playing',
       ),
     ).toBe(true);
+  });
+
+  it('loads replay moves from an arbitrary base state', () => {
+    const level = buildLevel(['WWWWW', 'WPEEW', 'WWWWW']);
+    const actions: Array<{ type: string; payload?: unknown }> = [];
+    let replayState: GameState | null = null;
+    const dispatch = ((action: unknown) => {
+      actions.push(action as { type: string; payload?: unknown });
+    }) as Dispatch;
+
+    const controller = new ReplayController({
+      level,
+      dispatch,
+      getReplaySpeed: () => 1,
+      onStateChange: (state) => {
+        replayState = state;
+      },
+    });
+
+    const baseState = controller.getState();
+    const movedState = applyMove(baseState, 'R');
+    expect(movedState.changed).toBe(true);
+
+    controller.loadMovesFromState(movedState.state, ['L'], false);
+
+    expect(replayState).not.toBeNull();
+    expect(replayState!.playerIndex).toBe(movedState.state.playerIndex);
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        { type: 'solver/setReplayTotalSteps', payload: 1 },
+        { type: 'solver/setReplayState', payload: 'idle' },
+      ]),
+    );
   });
 
   it('uses default raf/caf when not provided', () => {

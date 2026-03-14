@@ -30,11 +30,11 @@ export function LabWorkerStatusPanel({
       className="rounded-app-lg border border-border bg-panel p-5 shadow-lg"
     >
       <h2 id={headingId} className="text-lg font-semibold">
-        One-click Worker Checks
+        Quick Worker Checks
       </h2>
       <p className="text-sm text-muted">
-        Use these checks after a successful parse: solve confirms the level is playable, and bench
-        gives you one measured run you can compare later in the full Bench route.
+        Use these after a successful parse. Solve checks that the level can be completed, and Bench
+        gives you one measured run you can compare later in the full Bench page.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -89,14 +89,15 @@ export function LabWorkerStatusPanel({
           </p>
           {solveState.status === 'running' ? (
             <p className="mt-1 text-xs text-muted">
-              {`expanded=${solveState.expanded} generated=${solveState.generated} elapsed=${solveState.elapsedMs.toFixed(1)} ms`}
+              Expanded: {solveState.expanded} | Generated: {solveState.generated} | Elapsed:{' '}
+              {solveState.elapsedMs.toFixed(1)} ms
             </p>
           ) : null}
           {solveState.status === 'completed' && solveState.solutionMoves ? (
             <div className="mt-2">
               <Input
                 label="Solution (read only)"
-                hint="Copy this string to use the solution elsewhere."
+                annotation="Copy this move string to reuse the solution somewhere else."
                 readOnly
                 aria-readonly="true"
                 value={solveState.solutionMoves}
@@ -125,7 +126,8 @@ export function LabWorkerStatusPanel({
           </p>
           {benchState.status === 'completed' ? (
             <p className="mt-1 text-xs text-muted">
-              {`runId=${benchState.runId} expanded=${benchState.expanded} generated=${benchState.generated}`}
+              Run ID: {benchState.runId} | Expanded: {benchState.expanded} | Generated:{' '}
+              {benchState.generated}
             </p>
           ) : null}
         </div>

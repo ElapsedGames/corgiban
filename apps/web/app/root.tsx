@@ -15,10 +15,12 @@ import {
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 
+import { BoardSkinPreferenceProvider } from './canvas/useAppBoardSkin';
 import appStylesHref from './styles/app.css?url';
 import tokensHref from './styles/tokens.css?url';
 import { buildThemeInitScript, syncDocumentThemeColor, THEME_COLOR_META_NAME } from './theme/theme';
 import { useAppTheme } from './theme/useAppTheme';
+import { useAppBoardSkin } from './canvas/useAppBoardSkin';
 import { AppNav } from './ui/AppNav';
 
 const SITE_URL = 'https://corgiban.elapsedgames.com';
@@ -79,6 +81,7 @@ function useThemeColorMeta(theme: 'light' | 'dark') {
 }
 
 function Document({ children, title }: DocumentProps) {
+  const { boardSkinId, isBoardSkinReady, toggleBoardSkin } = useAppBoardSkin();
   const { isThemeReady, theme, toggleTheme } = useAppTheme();
   useFaviconTheme(theme);
   useThemeColorMeta(theme);
@@ -100,8 +103,17 @@ function Document({ children, title }: DocumentProps) {
         >
           Skip to main content
         </a>
-        <AppNav isThemeReady={isThemeReady} onToggleTheme={toggleTheme} theme={theme} />
-        {children}
+        <AppNav
+          boardSkinId={boardSkinId}
+          isBoardSkinReady={isBoardSkinReady}
+          isThemeReady={isThemeReady}
+          onToggleBoardSkin={toggleBoardSkin}
+          onToggleTheme={toggleTheme}
+          theme={theme}
+        />
+        <BoardSkinPreferenceProvider boardSkinId={boardSkinId}>
+          {children}
+        </BoardSkinPreferenceProvider>
         <ScrollRestoration />
         <Scripts />
       </body>

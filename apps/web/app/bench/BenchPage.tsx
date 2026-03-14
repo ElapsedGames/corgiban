@@ -82,8 +82,8 @@ export function BenchPage({
       <header aria-label="Benchmark Suite page header" className="page-header">
         <h1 className="page-title">Benchmark Suite</h1>
         <p className="page-subtitle">
-          Build a repeatable suite, compare solver outcomes across levels, and keep persistence and
-          diagnostics available without letting them dominate the workflow.
+          Build a repeatable solver test set, review saved results, and check browser save health
+          without burying the main benchmarking tools.
         </p>
       </header>
 
@@ -110,22 +110,24 @@ export function BenchPage({
             results={results}
             onExportSnapshot={onExportComparisonSnapshot ?? (() => undefined)}
           />
-
-          <BenchmarkExportImportControls
-            disableExportReport={results.length === 0}
-            disableExportLevelPack={getBenchmarkSuiteLevelRefs(suite).length === 0}
-            disableImports={isSuiteActive}
-            disableClear={isSuiteActive || results.length === 0}
-            onExportReport={onExportReport}
-            onImportReport={onImportReport}
-            onExportLevelPack={onExportLevelPack}
-            onImportLevelPack={onImportLevelPack}
-            onClearResults={onClearResults}
-          />
         </div>
 
         <div className="space-y-6">
           <BenchDiagnosticsPanel status={status} progress={progress} diagnostics={diagnostics} />
+
+          <div className="xl:sticky xl:top-24">
+            <BenchmarkExportImportControls
+              disableExportReport={results.length === 0}
+              disableExportLevelPack={getBenchmarkSuiteLevelRefs(suite).length === 0}
+              disableImports={isSuiteActive}
+              disableClear={isSuiteActive || results.length === 0}
+              onExportReport={onExportReport}
+              onImportReport={onImportReport}
+              onExportLevelPack={onExportLevelPack}
+              onImportLevelPack={onImportLevelPack}
+              onClearResults={onClearResults}
+            />
+          </div>
 
           {debug ? <BenchmarkPerfPanel entries={perfEntries} onClear={onClearPerfEntries} /> : null}
         </div>

@@ -2,8 +2,13 @@
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type {
+  PlayableEntry,
+  RequestedPlayableEntryResolution,
+} from '../../levels/temporaryLevelCatalog';
 import PlayRoute from '../play';
 
 Object.assign(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }, {
@@ -26,7 +31,9 @@ function createSolverPortMock() {
 
 const mocks = vi.hoisted(() => ({
   createSolverPort: vi.fn(),
-  useRequestedPlayableEntryResolution: vi.fn(() => ({ status: 'none' as const })),
+  useRequestedPlayableEntryResolution: vi.fn(
+    (): RequestedPlayableEntryResolution<PlayableEntry> => ({ status: 'none' }),
+  ),
   useSearchParams: vi.fn(() => [new URLSearchParams(), vi.fn()]),
 }));
 
@@ -46,6 +53,19 @@ vi.mock('@remix-run/react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@remix-run/react')>();
   return {
     ...actual,
+    Link: ({
+      children,
+      to,
+      ...props
+    }: {
+      children?: ReactNode;
+      to: string;
+      [key: string]: unknown;
+    }) => (
+      <a href={to} {...props}>
+        {children}
+      </a>
+    ),
     useSearchParams: mocks.useSearchParams,
   };
 });
@@ -63,7 +83,7 @@ async function renderRoute() {
     root.render(<PlayRoute />);
   });
 
-  return root;
+  return { container, root };
 }
 
 async function unmountRoot(root: Root) {
@@ -97,7 +117,7 @@ describe('PlayRoute lifecycle', () => {
     const solverPort = createSolverPortMock();
     mocks.createSolverPort.mockReturnValue(solverPort);
 
-    const root = await renderRoute();
+    const { root } = await renderRoute();
 
     expect(mocks.createSolverPort).toHaveBeenCalledTimes(1);
     expect(solverPort.dispose).not.toHaveBeenCalled();
@@ -105,5 +125,20 @@ describe('PlayRoute lifecycle', () => {
     await unmountRoot(root);
 
     expect(solverPort.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps unavailable handoffs on the noop port path in the browser', async () => {
+    mocks.useSearchParams.mockReturnValue([new URLSearchParams('levelId=missing-level'), vi.fn()]);
+    mocks.useRequestedPlayableEntryResolution.mockReturnValue({
+      status: 'missingLevelId',
+      requestedLevelId: 'missing-level',
+    });
+
+    const { container, root } = await renderRoute();
+
+    expect(container.textContent).toContain('Requested level is unavailable');
+    expect(mocks.createSolverPort).not.toHaveBeenCalled();
+
+    await unmountRoot(root);
   });
 });

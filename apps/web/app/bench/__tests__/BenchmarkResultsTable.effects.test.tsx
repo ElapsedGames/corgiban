@@ -106,7 +106,7 @@ afterEach(async () => {
 });
 
 describe('BenchmarkResultsTable interactions', () => {
-  it('toggles the Completed sort direction and re-renders rows in ascending order', async () => {
+  it('toggles the Finished sort direction and re-renders rows in ascending order', async () => {
     const oldest = createResult({
       id: 'oldest',
       levelId: 'level-oldest',
@@ -131,7 +131,7 @@ describe('BenchmarkResultsTable interactions', () => {
     expectRenderedLevelOrder(container, ['level-newest', 'level-middle', 'level-oldest']);
 
     await act(async () => {
-      findButton(container, 'Completed')?.click();
+      findButton(container, 'Finished')?.click();
     });
 
     expectRenderedLevelOrder(container, ['level-oldest', 'level-middle', 'level-newest']);
