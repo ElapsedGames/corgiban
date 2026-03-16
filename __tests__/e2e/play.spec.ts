@@ -34,17 +34,13 @@ test('play route applies sequence input and supports restart and next level', as
   await expect(page.getByRole('button', { name: 'Previous' })).toBeDisabled();
 });
 
-test('play route runs solver and enables apply solution', async ({ page }) => {
+test('play route runs solver and enables solution animation', async ({ page }) => {
   await page.goto('/play');
   await expect(page.getByRole('main', { name: 'Play Corgiban' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Solver' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Run Solve' }).click();
 
-  const applySolution = page.getByRole('button', { name: 'Apply Solution' });
-  await expect(applySolution).toBeEnabled({ timeout: 120_000 });
-
-  await applySolution.click();
-  await expect(page.getByRole('button', { name: 'Undo' })).toBeEnabled();
-  await expect(page.getByText(/[1-9]\d* total/).first()).toBeVisible();
+  const animateSolution = page.getByRole('button', { name: 'Animate Solution' });
+  await expect(animateSolution).toBeEnabled({ timeout: 120_000 });
 });

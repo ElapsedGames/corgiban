@@ -25,7 +25,6 @@ function getDefaultProps(): React.ComponentProps<typeof SolverControls> {
     replaySpeed: 1,
     onRun: vi.fn(),
     onCancel: vi.fn(),
-    onApply: vi.fn(),
     onAnimate: vi.fn(),
     onReplayPlayPause: vi.fn(),
     onReplayStepBack: vi.fn(),
@@ -95,7 +94,6 @@ describe('SolverControls interactions', () => {
 
     await act(async () => {
       getButtonByText(container, 'Run Solve').click();
-      getButtonByText(container, 'Apply Solution').click();
       getButtonByText(container, 'Animate Solution').click();
       getButtonByText(container, 'Play').click();
       getButtonByText(container, 'Step Back').click();
@@ -103,7 +101,6 @@ describe('SolverControls interactions', () => {
     });
 
     expect(props.onRun).toHaveBeenCalledTimes(1);
-    expect(props.onApply).toHaveBeenCalledTimes(1);
     expect(props.onAnimate).toHaveBeenCalledTimes(1);
     expect(props.onReplayPlayPause).toHaveBeenCalledTimes(1);
     expect(props.onReplayStepBack).toHaveBeenCalledTimes(1);
@@ -122,7 +119,6 @@ describe('SolverControls interactions', () => {
     await act(async () => {
       getButtonByText(container, 'Run Solve').click();
       getButtonByText(container, 'Cancel').click();
-      getButtonByText(container, 'Apply Solution').click();
       getButtonByText(container, 'Animate Solution').click();
       getButtonByText(container, 'Play').click();
       getButtonByText(container, 'Step Back').click();
@@ -132,7 +128,6 @@ describe('SolverControls interactions', () => {
 
     expect(props.onRun).not.toHaveBeenCalled();
     expect(props.onCancel).toHaveBeenCalledTimes(1);
-    expect(props.onApply).not.toHaveBeenCalled();
     expect(props.onAnimate).not.toHaveBeenCalled();
     expect(props.onReplayPlayPause).not.toHaveBeenCalled();
     expect(props.onReplayStepBack).not.toHaveBeenCalled();

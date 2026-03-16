@@ -685,8 +685,14 @@ describe('LabPage', () => {
     });
     await flushPromises();
 
+    const workerPanel = [...container.querySelectorAll('section')].find((section) =>
+      section.textContent?.includes('Quick Worker Checks'),
+    );
+    if (!workerPanel) {
+      throw new Error('Quick worker panel not found.');
+    }
     await act(async () => {
-      findButton(container, 'Apply Solution').click();
+      findButton(workerPanel, 'Apply Solution').click();
     });
 
     expect(container.textContent).toContain('Moves: 2 | Pushes: 1');

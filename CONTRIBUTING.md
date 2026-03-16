@@ -159,6 +159,10 @@ Common types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`, `perf
 
 - **Prettier** owns all formatting. Use your editor integration or `pnpm format` / `pnpm format:check`.
 - **ESLint** owns correctness and policy checks only. It does not enforce style.
+- `pnpm lint` also enforces repo security-sensitive source rules:
+  no `eval()`, no runtime `new Function()`, no casual `dangerouslySetInnerHTML`, no raw error
+  objects in `.json()` payloads, and no service-role or secret-pattern public env-var access in
+  client code. See `docs/security-guidance.md`.
 - `apps/web` styling uses the contract in `apps/web/app/styles/README.md`; use semantic Tailwind
   utilities backed by `tokens.css`, and run `pnpm style:check` when touching that surface.
 - `eslint-config-prettier` disables any ESLint rules that overlap with Prettier.

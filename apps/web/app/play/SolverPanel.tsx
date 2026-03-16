@@ -36,7 +36,6 @@ export type SolverPanelProps = {
   onSelectAlgorithm: (algorithmId: AlgorithmId) => void;
   onRun: () => void;
   onCancel: () => void;
-  onApply: () => void;
   onAnimate: () => void;
   onReplayPlayPause: () => void;
   onReplayStepBack: () => void;
@@ -115,7 +114,6 @@ export function SolverPanel({
   onSelectAlgorithm,
   onRun,
   onCancel,
-  onApply,
   onAnimate,
   onReplayPlayPause,
   onReplayStepBack,
@@ -308,7 +306,6 @@ export function SolverPanel({
           replaySpeed={replaySpeed}
           onRun={onRun}
           onCancel={onCancel}
-          onApply={onApply}
           onAnimate={onAnimate}
           onReplayPlayPause={onReplayPlayPause}
           onReplayStepBack={onReplayStepBack}

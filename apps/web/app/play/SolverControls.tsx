@@ -24,7 +24,6 @@ export type SolverControlsProps = {
   replaySpeed: number;
   onRun: () => void;
   onCancel: () => void;
-  onApply: () => void;
   onAnimate: () => void;
   onReplayPlayPause: () => void;
   onReplayStepBack: () => void;
@@ -43,7 +42,6 @@ export function SolverControls({
   replaySpeed,
   onRun,
   onCancel,
-  onApply,
   onAnimate,
   onReplayPlayPause,
   onReplayStepBack,
@@ -73,9 +71,6 @@ export function SolverControls({
       </div>
 
       <div role="group" aria-label="Solution actions" className="flex flex-wrap gap-2">
-        <Button size="sm" variant="tonal" onClick={onApply} disabled={!hasSolution}>
-          Apply Solution
-        </Button>
         <Button size="sm" variant="tonal" onClick={onAnimate} disabled={!hasSolution}>
           Animate Solution
         </Button>

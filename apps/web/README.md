@@ -81,9 +81,13 @@ Remix application containing the product UI, routes, and orchestration.
   - Small screens make the board full-bleed, trim the visible side-panel and solver actions to the
     primary gameplay controls, and lock the mobile `Run Solve` action after non-success solver
     outcomes until the player changes levels.
-  - Solver panel runs/cancels solves, shows progress, can apply/animate results, and exposes the full implemented algorithm set with shared friendly labels (`BFS Push`, `A-Star Push`, `IDA-Star Push`, `Greedy Push`, `Tunnel Macro Push`, `PI-Corral Push`).
+  - Solver panel runs/cancels solves, shows progress, can animate results, and exposes the full implemented algorithm set with shared friendly labels (`BFS Push`, `A-Star Push`, `IDA-Star Push`, `Greedy Push`, `Tunnel Macro Push`, `PI-Corral Push`).
   - Settings include default solver budgets (time/node), and `/play` solve orchestration uses those defaults with defensive fallback to solver constants.
   - `/play` also keeps lightweight browser-local player continuity (`lastPlayedLevel` plus completed built-in level ids) in `localStorage`, but only for built-in levels. Lab/Bench handoff levels stay one-shot session views: they do not overwrite saved built-in continuity, and once an exact session handoff has been applied the exact route params are cleared so refresh falls back to saved built-in progress or level 1. Canonical built-in `/play?levelId=...` links stay shareable. This is intentionally a small POC playability layer so the final proof of concept feels more like a game, without expanding the heavier IndexedDB benchmark persistence model into general gameplay state yet.
+  - `/play` still does not accept a durable public custom-puzzle URL contract such as
+    `levelData=...` or a saved puzzle id. Custom/authored puzzle links still depend on session
+    handoff state from `/lab` or `/bench`; durable URL-fed custom puzzle loading is deferred in
+    `DEBT-015`.
   - The current `/play` surface does not render the old detailed move-history card/list UI. Instead it exposes move history as a copyable UDLR move-list action (`Copy Move List`) while Redux/core still retain full move history for gameplay, replay, and persistence workflows.
   - The older detailed move-history layout remains intentionally parked in `app/play/MoveHistory.tsx` as a commented reference for possible future revival. Treat that parked block as an intentional product note, not as live shipped UI.
   - Optional env toggle: `VITE_WORKER_LIGHT_PROGRESS_VALIDATION=1` enables light validation mode for high-frequency `SOLVE_PROGRESS` messages in the solver client; strict mode remains default.
@@ -193,6 +197,10 @@ Remix application containing the product UI, routes, and orchestration.
   - `pnpm -C apps/web preview` aliases `preview:cloudflare`, which runs `wrangler pages dev`
     against `build/client` for local production-style preview.
   - Deploy uses `pnpm -C apps/web deploy:cloudflare`.
+- Embed relationship:
+  - `apps/web` currently does not ship a maintained first-party embed demo route; embed remains an
+    optional package-level adapter in `packages/embed`. A fuller host-facing example/rollout story
+    is deferred in `DEBT-014`.
 - Replay: controller is wired to solver playback controls.
 - Store lifecycle: route-scoped stores inject ports and dispose worker/persistence resources on
   unmount for `/play` and `/bench`; `/lab` applies the same dispose discipline with direct

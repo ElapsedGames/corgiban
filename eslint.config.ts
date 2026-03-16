@@ -97,6 +97,59 @@ const dateSelectors = [
   ),
 ];
 
+const newFunctionBan = {
+  selector: "NewExpression[callee.name='Function']",
+  message: 'new Function() is banned. No exceptions without an ADR.',
+};
+
+const securitySelectors = [
+  {
+    selector: "CallExpression[callee.name='eval']",
+    message: 'eval() is banned. No exceptions without an ADR.',
+  },
+  newFunctionBan,
+  {
+    selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+    message:
+      'dangerouslySetInnerHTML is banned. Use a sanitization library and document why in an ADR.',
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name='json'] ObjectExpression Property[value.type='Identifier'][value.name='error']",
+    message:
+      'Do not pass raw error objects to response JSON. Use a SafeError type with code + message only.',
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name='json'] MemberExpression[object.name='error'][property.name='message']",
+    message:
+      'Do not expose error.message or error properties in response JSON. Use a SafeError type with code + message only.',
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name='json'] MemberExpression[object.name='error'][property.value='message']",
+    message:
+      'Do not expose error.message or error properties in response JSON. Use a SafeError type with code + message only.',
+  },
+  {
+    selector: 'MemberExpression[property.name=/SERVICE_ROLE/]',
+    message: 'Service role keys must not be accessed in client code. Use the anon/public key.',
+  },
+  {
+    selector: 'Identifier[name=/SERVICE_ROLE/]',
+    message: 'Service role references are banned in client code.',
+  },
+  {
+    selector: 'MemberExpression[property.name=/^VITE_.*(SECRET|PASSWORD|TOKEN|DATABASE)/]',
+    message:
+      'Secret-pattern env vars (SECRET, PASSWORD, TOKEN, DATABASE) must not be accessed in client code.',
+  },
+  {
+    selector: 'MemberExpression[property.name=/^NEXT_PUBLIC_.*(SECRET|PASSWORD|TOKEN|DATABASE)/]',
+    message: 'Secret-pattern env vars must not be exposed via NEXT_PUBLIC_ prefix.',
+  },
+];
+
 const packageSpecifiers = DIRECTION_RULES.map((rule) => ({
   files: [rule.from.replace('/**', '/**/*.{ts,tsx,js,jsx,mjs,cjs}')],
   rules: {
@@ -161,13 +214,18 @@ export default [
         },
       ],
       'no-restricted-globals': ['error', 'SharedArrayBuffer', 'Atomics'],
-      'no-restricted-syntax': ['error', ...bannedGlobalSelectors, ...workerSelectors],
+      'no-restricted-syntax': [
+        'error',
+        ...bannedGlobalSelectors,
+        ...workerSelectors,
+        ...securitySelectors,
+      ],
     },
   },
   {
     files: WORKER_CREATION_RULE.allowedGlobs,
     rules: {
-      'no-restricted-syntax': ['error', ...bannedGlobalSelectors],
+      'no-restricted-syntax': ['error', ...bannedGlobalSelectors, ...securitySelectors],
     },
   },
   {
@@ -182,6 +240,23 @@ export default [
         ...bannedGlobalSelectors,
         ...workerSelectors,
         ...dateSelectors,
+        ...securitySelectors,
+      ],
+    },
+  },
+  {
+    // Allow new Function() in test files -- used by theme.test.ts to execute
+    // the inline theme-init script in a jsdom environment.
+    files: [
+      'apps/web/app/theme/__tests__/**/*.test.{ts,tsx}',
+      'apps/web/app/theme/__tests__/**/*.spec.{ts,tsx}',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...bannedGlobalSelectors,
+        ...workerSelectors,
+        ...securitySelectors.filter((s) => s !== newFunctionBan),
       ],
     },
   },

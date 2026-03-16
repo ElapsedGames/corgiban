@@ -291,18 +291,18 @@ describe('PlayPage', () => {
     expect(store.getState().game.stats.pushes).toBe(0);
   });
 
-  it('no-ops undo and apply-solution when there is no history or solution', () => {
+  it('no-ops undo and animate-solution when there is no history or solution', () => {
     const store = createAppStore();
     renderPage(store);
 
     const onUndo = testState.sidePanelProps?.onUndo as (() => void) | undefined;
-    const onApply = testState.solverPanelProps?.onApply as (() => void) | undefined;
+    const onAnimate = testState.solverPanelProps?.onAnimate as (() => void) | undefined;
     expect(onUndo).toBeTypeOf('function');
-    expect(onApply).toBeTypeOf('function');
+    expect(onAnimate).toBeTypeOf('function');
 
     const beforeMoves = store.getState().game.stats.moves;
     onUndo?.();
-    onApply?.();
+    onAnimate?.();
 
     expect(store.getState().game.stats.moves).toBe(beforeMoves);
   });

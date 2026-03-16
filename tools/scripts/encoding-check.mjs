@@ -59,12 +59,16 @@ function resolveScanMode(argv, env) {
     return 'staged';
   }
 
-  if (wantsTracked || env.CI) {
+  if (wantsTracked) {
     return 'tracked';
   }
 
   if (wantsWorktree) {
     return 'worktree';
+  }
+
+  if (env.CI) {
+    return 'tracked';
   }
 
   return 'staged';

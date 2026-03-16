@@ -94,6 +94,7 @@ function Document({ children, title }: DocumentProps) {
         <Meta />
         <meta name={THEME_COLOR_META_NAME} content="" suppressHydrationWarning />
         <Links />
+        {/* eslint-disable-next-line no-restricted-syntax -- theme init script is built from constants, not user input */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>

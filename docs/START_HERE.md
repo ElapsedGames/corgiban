@@ -29,7 +29,8 @@ continuation baseline for forks:
    - `packages/embed/README.md`
    - `apps/web/README.md`
 7. `CONTRIBUTING.md` - contributor workflow and expectations
-8. `LLM_GUIDE.md` - canonical collaboration and repository rules (humans + agents)
+8. `docs/security-guidance.md` - current lint-enforced security rules and trust-boundary guidance
+9. `LLM_GUIDE.md` - canonical collaboration and repository rules (humans + agents)
 
 ## 2) Where the code will live
 
@@ -86,3 +87,4 @@ When you make a durable decision (protocol semantics, persistence schema, routin
 
 - Read `CODE_OF_CONDUCT.md` for collaboration expectations.
 - Use `SECURITY.md` to report vulnerabilities through a non-public path.
+- Use `docs/security-guidance.md` for repo-level secure-source rules and trust-boundary guidance.

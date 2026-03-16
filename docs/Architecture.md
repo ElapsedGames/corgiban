@@ -1364,6 +1364,10 @@ See ADR-0012 (`docs/adr/0012-replay-pipeline-shadow-state.md`).
 ## 16. Security considerations
 
 - No dynamic code evaluation.
+- Repo lint also bans raw HTML injection by default, raw error objects in `.json()` payloads,
+  client-side service-role references, and secret-pattern public env vars. The only current
+  runtime HTML-injection exception is the documented pre-paint theme bootstrap in
+  `apps/web/app/root.tsx`. See `docs/security-guidance.md`.
 - Worker only accepts messages matching the protocol version.
 - Avoid leaking large data to UI logs in production.
 

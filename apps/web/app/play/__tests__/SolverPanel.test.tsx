@@ -24,7 +24,6 @@ const baseProps: SolverPanelProps = {
   onSelectAlgorithm: noop,
   onRun: noop,
   onCancel: noop,
-  onApply: noop,
   onAnimate: noop,
   onReplayPlayPause: noop,
   onReplayStepBack: noop,
@@ -137,7 +136,7 @@ describe('SolverPanel', () => {
     expect(html).toContain('Algorithm');
   });
 
-  it('enables solution actions when the last result contains solution moves', () => {
+  it('enables the solution animation when the last result contains solution moves', () => {
     const html = renderPanel({
       ...baseProps,
       lastResult: {
@@ -157,13 +156,9 @@ describe('SolverPanel', () => {
       },
     });
 
-    // When hasSolution=true, Apply Solution and Animate Solution buttons are not disabled.
+    // When hasSolution=true, Animate Solution is not disabled.
     // A disabled button renders with the HTML attribute disabled="". Check by looking for the
     // attribute (not the Tailwind class name which always contains "disabled:" as a prefix).
-    const applyMatch = html.match(/<button[^>]*>Apply Solution<\/button>/);
-    expect(applyMatch).not.toBeNull();
-    expect(applyMatch?.[0]).not.toContain('disabled=""');
-
     const animateMatch = html.match(/<button[^>]*>Animate Solution<\/button>/);
     expect(animateMatch).not.toBeNull();
     expect(animateMatch?.[0]).not.toContain('disabled=""');

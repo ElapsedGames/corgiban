@@ -102,11 +102,23 @@ Assume `apps/web` runs Remix in Vite mode for resolver/bundling behavior.
    eslint-plugin-boundaries element and rule definitions.
    Additionally configure:
 
-   a) no-restricted-globals + no-restricted-syntax for banned APIs:
+   a) no-restricted-globals + no-restricted-syntax for banned APIs and security-sensitive
+   patterns:
    SharedArrayBuffer and Atomics are banned in ALL authored source (production, tests, tools/).
-   Apply this rule globally with no scope restriction. Both access forms must be caught: - no-restricted-globals: ['SharedArrayBuffer', 'Atomics'] - no-restricted-syntax targeting globalThis access:
-   "MemberExpression[object.name='globalThis'][property.name='SharedArrayBuffer']"
-   "MemberExpression[object.name='globalThis'][property.name='Atomics']"
+   Apply this rule globally with no scope restriction. Both access forms must be caught:
+   - no-restricted-globals: ['SharedArrayBuffer', 'Atomics']
+   - no-restricted-syntax targeting globalThis access:
+     "MemberExpression[object.name='globalThis'][property.name='SharedArrayBuffer']"
+     "MemberExpression[object.name='globalThis'][property.name='Atomics']"
+     The same ESLint layer also owns repo-wide security-sensitive bans:
+   - `eval()` and runtime `new Function()`
+   - `dangerouslySetInnerHTML` by default
+   - raw error objects / `error.message` in `.json()` payloads
+   - `SERVICE_ROLE` references in client code
+   - secret-pattern public env vars (`SECRET`, `PASSWORD`, `TOKEN`, `DATABASE`)
+     Keep any exception narrow and documented in code comments plus repo docs. Current exceptions:
+   - test-only `new Function()` execution in `apps/web/app/theme/__tests__/*`
+   - the single pre-paint theme bootstrap in `apps/web/app/root.tsx`
 
    b) new Worker() placement (from WORKER_CREATION_RULE) - ESLint only, not dependency-cruiser:
    dependency-cruiser operates on module imports/requires, not runtime constructor calls.

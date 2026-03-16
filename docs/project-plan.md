@@ -428,6 +428,48 @@ Algorithm selection (packages/solver/api/selection.ts):
 - selectedAlgorithmId is recorded in app-side run metadata and in all stored benchmark results.
 - Unit tests required for chooseAlgorithm covering every rule branch, and for analyzeLevel covering edge cases (0 boxes, max boxes, minimal grid).
 
+Current algorithm ceilings and likely upgrades:
+
+- `bfsPush`
+  - Current ceiling: exact push-BFS over single-push children with reachability and corner
+    dead-square pruning only. It is reliable on tiny levels, but frontier growth still explodes
+    quickly and the hot path still pays avoidable state/timing overhead.
+  - Next upgrades: stronger deadlocks, optional macro/corral-aware child generation, and the
+    tracked BFS hot-path cleanup in `DEBT-021` and `DEBT-022`.
+- `astarPush`
+  - Current ceiling: weighted A* (`g + w*h`) over the same single-push child generator. The
+    heuristic is still Manhattan or assignment over static goal distances and ignores player
+    distance and richer box-interaction structure, so dense plateaus remain expensive.
+  - Next upgrades: player-aware or pattern-database-style heuristics, stronger deadlocks, and
+    optional macro/corral-aware child generation.
+- `idaStarPush`
+  - Current ceiling: iterative deepening over the same static heuristics, with only path-cycle
+    avoidance rather than a global transposition table. It saves frontier memory, but it can
+    revisit the same states repeatedly across threshold iterations.
+  - Next upgrades: transposition-assisted pruning, stronger heuristics/deadlocks, and selective
+    macro support so the depth bound tracks more meaningful work.
+- `greedyPush`
+  - Current ceiling: intentionally minimal. Priority is heuristic-only (no `g` cost), tie-breaks
+    by depth, expands single-push children only, uses Manhattan or assignment over static goal
+    distances, ignores player position, and only gets corner dead-square pruning. It is expected
+    to stall on hard levels and is much weaker than mature GREEDY + strong-deadlock + PDB stacks.
+  - Next upgrades: stronger deadlocks (freeze/line/room patterns), richer heuristics
+    (player-aware penalties or PDBs), and reuse of tunnel or PI-corral restrictions when the
+    level shape warrants them.
+- `tunnelMacroPush`
+  - Current ceiling: A\*-style search with a deliberately small macro system. It only compresses
+    straight non-goal tunnel continuations from the current static degree-2 tunnel metadata; it
+    does not add room macros, corral reasoning, or stronger deadlock tables on top.
+  - Next upgrades: broader macro generation (rooms/forced lines), combination with corral
+    restrictions, and stronger heuristics so tunnel-heavy but still dense levels do not fall back
+    to mostly ordinary A\* behavior.
+- `piCorralPush`
+  - Current ceiling: A\*-style search plus the current PI-corral restriction pass, which only
+    trims pushes when an unreachable component has inward pushes and no outward pushes. It still
+    shares the same static heuristics, single-push generation, and corner dead-square baseline.
+  - Next upgrades: stronger corral/freeze deadlocks, integration with tunnel or room macros, and
+    better heuristics so the corral restriction is paired with materially better node ordering.
+
 # ==================================================================== 5) WORKER REQUIREMENTS (VERSIONED PROTOCOL + VALIDATION)
 
 Use module workers.
@@ -563,7 +605,7 @@ Initial Play page must mirror the existing UI shape:
 - Bottom controls (sequence input + apply)
   Additionally add:
 - Solver panel: shows algorithm recommendation from analyzeLevel/chooseAlgorithm (for example,
-  "Start with PI-Corral Push for this 7-box 13x11 level."), allows override, run/cancel, progress, apply/animate
+  "Start with PI-Corral Push for this 7-box 13x11 level."), allows override, run/cancel, progress, animate
   solution, and Retry button when worker is crashed.
 - Board interaction remains main-thread owned and must support keyboard-first play plus
   adjacent-tile tap/click and swipe gestures.
@@ -810,7 +852,7 @@ Status: Complete (Phase 3 scope delivered).
 2. Implement solver BFS push-based with cancel token + throttled progress hooks
 3. Implement analyzeLevel + chooseAlgorithm in packages/solver/api/selection.ts with unit tests for every rule branch and edge case
 4. Implement module worker runtime and client wrapper; add worker.onerror / worker.onmessageerror handling, workerHealth tracking, and hard-reset cancellation semantics
-5. Add solverSlice (recommendation + workerHealth fields) + UI panel: show recommendation, run/cancel, progress, apply/animate solution, retry crashed worker
+5. Add solverSlice (recommendation + workerHealth fields) + UI panel: show recommendation, run/cancel, progress, animate solution, retry crashed worker
 
 Phase 4 - Benchmark page
 Decision dependencies: ADR-0007 (IndexedDB model, migration policy, retention), ADR-0013 (Phase 3 cancellation baseline), ADR-0014 (benchmark cancellation semantics), ADR-0003 (protocol validation strategy), and ADR-0015 (progress light-validation mode).
@@ -844,11 +886,11 @@ offline shell support, solver ping timeout hardening, and repository-health diag
 
 Deferred notes:
 
-- ReplayController dispatches slice actions directly; consider injecting callbacks or ports when solverSlice expands.
-- encoding-check.mjs skips null-byte files; consider hard-failing instead of skipping.
-- Replay controller tests rely on action type strings; re-audit when solverSlice expands.
+- ReplayController dispatches slice actions directly (deferred in DEBT-019).
+- encoding-check.mjs skips null-byte files (deferred in DEBT-017).
+- Replay controller tests rely on action type strings (deferred in DEBT-020).
 - /play Redux Provider is scoped to the route until cross-route state sharing is needed; keep this unscheduled until a concrete cross-route workflow requires shared store ownership.
-- Protocol-level `SOLVE_CANCEL` and `BENCH_CANCEL` remain out of protocol v2 and are unscheduled; revisit only in a future protocol-version ADR after current queue/dispose cancellation semantics are insufficient.
+- Protocol-level `SOLVE_CANCEL` and `BENCH_CANCEL` remain out of protocol v2 (deferred in DEBT-018).
 - RenderPlan build is O(cells x boxes); no measured perf issue with current Sokoban sizes or the draw-on-change pipeline. Revisit only if profiling shows regressions.
 - Two sources of truth (GameState ref + Redux history) are intentional in Phase 2; revisit if replay or solver integration needs shared state outside /play.
 - `/play` now clamps canvas cell size against the available container width to reduce small-screen distortion.
@@ -891,6 +933,12 @@ Deferred notes:
 - `/bench` local reopen/comparison safety currently fingerprints the canonical committed
   `LevelDefinition` payload rather than parsed board structure. That payload-level scope is
   intentional for the current route-handoff fix; any later refinement is deferred in ADR-0032.
+- `packages/embed` remains implemented, but the repo still lacks a maintained first-party hosted
+  embed example and fuller host-consumer rollout guidance. Keep that follow-up scoped separately
+  from the core `/play` / `/lab` / `/bench` route work (deferred in `DEBT-014`).
+- `/play` still lacks a durable URL-fed custom puzzle import contract. Session-backed `levelRef`
+  handoffs are intentional for current browser-local flows, but public custom-puzzle permalinks or
+  `levelData`-style route loading remain deferred work (deferred in `DEBT-015`).
 
 Phase 7 - UX and route-responsibility pass (completed)
 Decision dependencies: ADR-0029 (play-first root entrypoint and specialist route charters). Capture
@@ -991,19 +1039,20 @@ Decision dependency: ADR-0009 (solver-optimized state representation and hashing
 7. Add macro push generation (tunnels/rooms) to reduce effective depth; ensure solver output still expands to UDLR moves.
 8. Optional: reverse or bidirectional search support using the same SolverState encoding.
 9. Optional: portfolio/parallel solver runs in workers with shared caches and coordinated cancellation.
-10. Remove BFS state creation double-allocation/sort by adding an `alreadySorted` fast-path to `createSolverState` (or by inlining state construction in algorithms that already maintain sorted boxes).
-11. Reduce BFS timing overhead by sampling `nowMs()` at a coarse expansion interval (for example every 256 or 1024 nodes) while preserving budget and progress correctness.
-12. Optimize `expandSolution` box updates by replacing per-push linear `indexOf` lookup with an indexed structure (reverse index map or equivalent), with regression coverage for long solutions.
+10. Remove BFS state creation double-allocation/sort (tracked in DEBT-021).
+11. Reduce BFS timing overhead by coarse `nowMs()` sampling (tracked in DEBT-022).
+12. Optimize `expandSolution` box updates by replacing linear `indexOf` (tracked in DEBT-023).
 
-Phase 9 - UI, visual, and sprite polish pass (in progress)
+Phase 9 - UI, visual, and sprite polish pass (partial)
 Decision dependencies: ADR-0030 (app-local board skin registry). Capture an additional ADR if the
 renderer asset pipeline, theme system, or animation strategy changes materially beyond that
 baseline.
 
-Status: In progress (the board now ships a shared illustrated sprite/tile pipeline across the
+Status: Partially complete. The board ships a shared illustrated sprite/tile pipeline across the
 worker atlas path and the main-thread fallback path, the app nav exposes a persisted board-mode
-toggle on the play-facing routes, and the current web-app pass is polishing `/play`, `/lab`, and
-`/bench` copy/layout without changing their route responsibilities).
+toggle on the play-facing routes, and route copy/layout polish landed for `/play`, `/lab`, and
+`/bench`. Remaining items (3-8) are unfinished aspirations - the repo is archived as a
+proof-of-concept reference after this commit.
 
 Current increment:
 
@@ -1056,6 +1105,13 @@ Current increment:
    - stronger focus states
    - keyboard order and descriptive status text for visual-only cues
 8. Add visual-regression/smoke coverage and a manual review checklist for assets, layout stability, and reduced-motion fallbacks.
+9. Add draggable algorithm ordering to the solver panel: the user can reorder the registered
+   algorithms by drag-and-drop to set priority (which algorithm is attempted first). The ordered
+   list feeds into `chooseAlgorithm` or a new `algorithmPriority` field in solver options so
+   the worker respects the user's preferred order. Persist the ordering in browser storage
+   alongside other settings. Requires: drag-and-drop interaction on the algorithm list,
+   `settingsSlice` or `solverSlice` state for the ordered list, and updated `startSolve` thunk
+   to pass the priority through to the worker protocol.
 
 Phase 10 - Browser-dev tools workspace (planned)
 Decision dependencies: capture an ADR if the workspace template, package distribution story, or `/lab` public tooling contract changes materially.
@@ -1093,15 +1149,6 @@ Decision dependencies: capture an ADR if the workspace template, package distrib
    - not required for normal play/solve/bench product flows
 8. Add coverage for flag OFF/ON behavior, unsupported-browser fallback, Repro Session generation, and basic workspace boot smoke.
 
-Phase 11 - Race Mode and multi-runner play (planned)
-
-1. Add `SolverPersonality` type and built-in personality bundles in `packages/solver`.
-2. Extend `solverSlice` to hold `runId -> { personality, progress, result, replayState }` for multi-runner support.
-3. Add Race Mode UI on `/play` with multiple corgis and progress metrics.
-4. Run concurrent solver runs via worker pool; cap pool size at `max(1, min(4, hardwareConcurrency - 1))`.
-5. Add race result screen showing winner by `elapsedMs` and replaying each solution.
-6. Integration dependency: worker pool support, `bestPathSoFar` in `SOLVE_PROGRESS`, and `SolverPersonality` typing.
-
 # ==================================================================== 11) ACCEPTANCE CRITERIA (REQUIRED)
 
 - `pnpm typecheck` passes (tsc project references)
@@ -1112,7 +1159,7 @@ Phase 11 - Race Mode and multi-runner play (planned)
   - / redirects to /play
   - /play supports keyboard moves, adjacent-tile tap/click + swipe board input, restart, undo, and a copyable move-list history action
   - /play solver panel shows algorithm recommendation (for example, "Start with PI-Corral Push for this 7-box 13x11 level.") and allows override
-  - /play solver panel can start/cancel a solve; progress updates; result can be applied/animated
+  - /play solver panel can start/cancel a solve; progress updates; result can be animated
   - /play solver panel shows Retry button when worker is crashed; clicking it recreates the worker
   - /lab route loads level editor controls, defaults to a CORG authoring surface, supports parsing and converting CORG/XSB/SOK/SLC input, offers keyboard preview controls, and can run one-click worker solve/bench checks
   - /bench route loads and can run a small benchmark suite; results persist in IndexedDB across page reloads

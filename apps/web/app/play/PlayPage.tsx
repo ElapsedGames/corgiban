@@ -847,20 +847,6 @@ export function PlayPage({
     [dispatch],
   );
 
-  const handleApplySolution = useCallback(() => {
-    if (!levelRuntime) {
-      return;
-    }
-
-    if (latestSolutionDirections.length === 0) {
-      return;
-    }
-    stopReplay();
-    dispatch(restart());
-    gameStateRef.current = createGame(levelRuntime);
-    commitSequence(latestSolutionDirections);
-  }, [commitSequence, dispatch, latestSolutionDirections, levelRuntime, stopReplay]);
-
   const handleAnimateSolution = useCallback(() => {
     const controller = replayControllerRef.current;
     if (!controller || !levelRuntime || latestSolutionDirections.length === 0) {
@@ -1204,7 +1190,6 @@ export function PlayPage({
               onSelectAlgorithm={handleSelectAlgorithm}
               onRun={handleRunSolver}
               onCancel={handleCancelSolver}
-              onApply={handleApplySolution}
               onAnimate={handleAnimateSolution}
               onReplayPlayPause={handleReplayPlayPause}
               onReplayStepBack={handleReplayStepBack}

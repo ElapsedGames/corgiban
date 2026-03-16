@@ -13,10 +13,12 @@ function runCommand(
   command: string,
   args: string[],
   cwd: string,
+  env?: NodeJS.ProcessEnv,
 ): { status: number | null; stdout: string; stderr: string } {
   const result = spawnSync(command, args, {
     cwd,
     encoding: 'utf8',
+    env: env ? { ...process.env, ...env } : process.env,
   });
 
   return {
@@ -28,6 +30,10 @@ function runCommand(
 
 function runEncodingCheck(repoDir: string, args: string[]) {
   return runCommand(process.execPath, [scriptPath, ...args], repoDir);
+}
+
+function runEncodingCheckWithEnv(repoDir: string, args: string[], env: NodeJS.ProcessEnv) {
+  return runCommand(process.execPath, [scriptPath, ...args], repoDir, env);
 }
 
 function initializeRepo(): string {
@@ -89,6 +95,18 @@ describe('encoding-check script modes', () => {
     expect(worktreeResult.status).toBe(1);
     expect(worktreeResult.stderr).toContain(
       'src/untracked-bad.txt: disallowed non-ASCII character U+2713',
+    );
+  });
+
+  it('prefers explicit worktree mode over CI default tracked mode', () => {
+    const repoDir = initializeRepo();
+
+    writeFileSync(path.join(repoDir, 'src', 'ci-untracked-bad.txt'), 'bad \u2713\n', 'utf8');
+
+    const result = runEncodingCheckWithEnv(repoDir, ['--worktree'], { CI: '1' });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'src/ci-untracked-bad.txt: disallowed non-ASCII character U+2713',
     );
   });
 });

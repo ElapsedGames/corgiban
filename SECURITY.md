@@ -27,6 +27,9 @@ This is a browser-based game with no backend service. The primary attack surface
 - Worker message handling (validated via versioned protocol schemas)
 - Third-party dependencies
 
+Implementation guidance for repo-level secure coding and trust-boundary handling lives in
+`docs/security-guidance.md`.
+
 ## Supported versions
 
 Until the first stable release, security fixes will be applied to the `main` branch.

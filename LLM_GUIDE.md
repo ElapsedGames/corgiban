@@ -90,6 +90,19 @@ If documentation is missing, create the smallest doc needed (see Documentation r
   callers omit `nowMs`, but must return an explicit error when no monotonic clock is available.
 - Typed arrays returned by `packages/core` and `packages/solver` are treated as immutable snapshots. Consumers must not mutate them.
 
+### 2.5 Security-sensitive source rules
+
+- `eval()` is banned in authored repo code.
+- `new Function()` is banned in authored runtime code. The only current exception is the
+  `apps/web/app/theme/__tests__/*` jsdom coverage for the generated theme-init script.
+- `dangerouslySetInnerHTML` is banned by default. The only current runtime exception is the
+  pre-paint theme bootstrap in `apps/web/app/root.tsx`, where the script is built from repo
+  constants rather than user input.
+- Do not pass raw error objects or `error.message` through `.json()` payloads. Return a safe
+  `{ code, message }` shape instead.
+- Do not reference service-role credentials or secret-pattern public env vars in client code.
+- See `docs/security-guidance.md` for trust-boundary guidance and service-specific patterns.
+
 ---
 
 ## 3. File size and responsibility limits

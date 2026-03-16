@@ -73,7 +73,6 @@ describe('SolverControls', () => {
       replaySpeed: 1,
       onRun: noop,
       onCancel: noop,
-      onApply: noop,
       onAnimate: noop,
       onReplayPlayPause: noop,
       onReplayStepBack: noop,
@@ -90,7 +89,7 @@ describe('SolverControls', () => {
     expect(retryButton).toBeDefined();
   });
 
-  it('disables apply/animate when no solution is available', () => {
+  it('disables animate when no solution is available', () => {
     const element = SolverControls({
       status: 'idle',
       replayState: 'idle',
@@ -101,7 +100,6 @@ describe('SolverControls', () => {
       replaySpeed: 1,
       onRun: noop,
       onCancel: noop,
-      onApply: noop,
       onAnimate: noop,
       onReplayPlayPause: noop,
       onReplayStepBack: noop,
@@ -111,16 +109,14 @@ describe('SolverControls', () => {
     });
 
     const buttons = collectButtons(element);
-    const applyButton = getButtonByLabel(buttons, 'Apply Solution');
     const animateButton = getButtonByLabel(buttons, 'Animate Solution');
     const playButton = getButtonByLabel(buttons, 'Play');
 
-    expect(applyButton?.props.disabled).toBe(true);
     expect(animateButton?.props.disabled).toBe(true);
     expect(playButton?.props.disabled).toBe(true);
   });
 
-  it('uses tonal solution actions and a secondary retry action', () => {
+  it('uses a tonal solution action and a secondary retry action', () => {
     const element = SolverControls({
       status: 'idle',
       replayState: 'idle',
@@ -131,7 +127,6 @@ describe('SolverControls', () => {
       replaySpeed: 1,
       onRun: noop,
       onCancel: noop,
-      onApply: noop,
       onAnimate: noop,
       onReplayPlayPause: noop,
       onReplayStepBack: noop,
@@ -142,7 +137,6 @@ describe('SolverControls', () => {
 
     const buttons = collectButtons(element);
 
-    expect(getButtonByLabel(buttons, 'Apply Solution')?.props.variant).toBe('tonal');
     expect(getButtonByLabel(buttons, 'Animate Solution')?.props.variant).toBe('tonal');
     expect(getButtonByLabel(buttons, 'Retry Worker')?.props.variant).toBe('secondary');
   });
@@ -158,7 +152,6 @@ describe('SolverControls', () => {
       replaySpeed: 1,
       onRun: noop,
       onCancel: noop,
-      onApply: noop,
       onAnimate: noop,
       onReplayPlayPause: noop,
       onReplayStepBack: noop,
@@ -190,7 +183,6 @@ describe('SolverControls', () => {
       replaySpeed: 1,
       onRun: noop,
       onCancel: noop,
-      onApply: noop,
       onAnimate: noop,
       onReplayPlayPause: noop,
       onReplayStepBack: noop,
@@ -216,7 +208,6 @@ describe('SolverControls', () => {
       replaySpeed: 1,
       onRun: noop,
       onCancel: noop,
-      onApply: noop,
       onAnimate: noop,
       onReplayPlayPause: noop,
       onReplayStepBack: noop,
@@ -250,7 +241,6 @@ describe('SolverControls', () => {
         replaySpeed: 1,
         onRun: noop,
         onCancel: noop,
-        onApply: noop,
         onAnimate: noop,
         onReplayPlayPause: noop,
         onReplayStepBack: noop,
@@ -278,7 +268,6 @@ describe('SolverControls', () => {
         replaySpeed: 1,
         onRun: noop,
         onCancel: noop,
-        onApply: noop,
         onAnimate: noop,
         onReplayPlayPause: noop,
         onReplayStepBack: noop,
@@ -303,7 +292,6 @@ describe('SolverControls', () => {
         replaySpeed: 1,
         onRun: noop,
         onCancel: noop,
-        onApply: noop,
         onAnimate: noop,
         onReplayPlayPause: noop,
         onReplayStepBack: noop,
@@ -329,7 +317,6 @@ describe('SolverControls', () => {
         replaySpeed: 1,
         onRun: noop,
         onCancel: noop,
-        onApply: noop,
         onAnimate: noop,
         onReplayPlayPause: noop,
         onReplayStepBack: noop,

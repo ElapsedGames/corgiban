@@ -57,6 +57,13 @@ element.setAttribute('show-solver', '');
 document.body.append(element);
 ```
 
+## Current gaps
+
+- The package API is live, but the repo does not yet ship a maintained first-party hosted embed
+  example or fuller rollout guide for host sites. That follow-up is deferred in `DEBT-014`.
+- The main Remix app also does not yet expose a durable public custom-puzzle permalink that feeds
+  `/play` directly from URL data; that is separate work deferred in `DEBT-015`.
+
 ## Allowed imports
 
 - React runtime dependencies

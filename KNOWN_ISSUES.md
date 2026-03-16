@@ -2,13 +2,26 @@
 
 # Known Issues
 
-_0 open, 22 fixed, 3 deferred_
+_8 open, 22 fixed, 5 deferred_
+
+## Open -- Low Severity
+
+- DEBT-016 -- Benchmark wall-clock timing inflated when tab is backgrounded (debt, low, bench)
+- DEBT-017 -- encoding-check.mjs silently skips null-byte files instead of hard-failing (debt, low, build)
+- DEBT-018 -- No protocol-level SOLVE_CANCEL or BENCH_CANCEL messages (debt, low, worker)
+- DEBT-019 -- ReplayController dispatches Redux slice actions directly instead of through ports (debt, low, ui)
+- DEBT-020 -- Replay controller tests rely on hardcoded action type strings (debt, low, ui)
+- DEBT-021 -- createSolverState double-allocates and sorts boxes on every child state (debt, low, solver)
+- DEBT-022 -- BFS calls nowMs() on every node dequeue instead of coarse sampling (debt, low, solver)
+- DEBT-023 -- expandSolution uses linear indexOf for box lookup on every push (debt, low, solver)
 
 ## Deferred
 
 - DEBT-011 -- Tabs keyboard navigation relies on document-global tab ids (debt, ui)
 - DEBT-012 -- analyzeLevel now pays compileLevel cost on the main thread (debt, solver)
 - DEBT-013 -- Proper SSR theme state should come from the server instead of client-only hydration (debt, ui)
+- DEBT-014 -- Embed package exists but still lacks a fleshed-out host-facing example and rollout path (debt, embed)
+- DEBT-015 -- Play route still lacks a durable URL-fed custom puzzle import contract (debt, web)
 
 ## Fixed
 

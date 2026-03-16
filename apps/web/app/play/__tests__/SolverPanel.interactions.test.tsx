@@ -33,7 +33,6 @@ function getBaseProps(): SolverPanelProps {
     onSelectAlgorithm: noop,
     onRun: noop,
     onCancel: noop,
-    onApply: noop,
     onAnimate: noop,
     onReplayPlayPause: noop,
     onReplayStepBack: noop,

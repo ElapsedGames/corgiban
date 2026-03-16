@@ -104,6 +104,7 @@ docs/                  Architecture, ADRs, and project plan
 ## Tooling and governance
 
 - `LLM_GUIDE.md` - collaboration and quality policy
+- `docs/security-guidance.md` - lint-enforced security rules and trust-boundary guidance
 - `docs/Architecture.md` - boundaries, worker protocol, and package responsibilities
 - `docs/project-plan.md` - phased roadmap and proof notes
 - `docs/dev-tools-spec.md` - tooling expectations and reporting contracts
