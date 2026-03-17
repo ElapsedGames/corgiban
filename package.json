@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "pnpm -C apps/web dev",
     "build": "pnpm -C apps/web build",
+    "screenshots:readme": "node scripts/capture-screenshots.mjs",
     "typecheck": "tsc -b ./tsconfig.json ./tools/tsconfig.json",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",

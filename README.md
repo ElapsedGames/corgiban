@@ -60,6 +60,15 @@ Playwright setup (once per machine):
 pnpm exec playwright install chromium
 ```
 
+Regenerate the README screenshots from the production preview:
+
+```bash
+pnpm build
+pnpm -C apps/web preview:cloudflare
+# in another terminal
+pnpm screenshots:readme
+```
+
 Production-style preview through the Cloudflare Pages adapter:
 
 ```bash
